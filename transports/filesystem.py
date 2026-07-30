@@ -43,6 +43,14 @@ class FilesystemLayout:
     def backups(self) -> Path:
         return self.root / "backups"
 
+    @property
+    def plans(self) -> Path:
+        return self.root / "plans"
+
+    @property
+    def audio_reports(self) -> Path:
+        return self.root / "audio-reports"
+
     def directories(self) -> tuple[Path, ...]:
         """Return every directory owned by the runtime layout."""
         return (
@@ -53,6 +61,8 @@ class FilesystemLayout:
             self.state,
             self.logs,
             self.backups,
+            self.plans,
+            self.audio_reports,
         )
 
     def ensure_directories(self) -> None:

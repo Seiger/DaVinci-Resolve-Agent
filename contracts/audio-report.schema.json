@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/audio-report.schema.json",
+  "title": "DaVinci Resolve Agent M6 audio before/after report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_version",
+    "report_id",
+    "created_at",
+    "status",
+    "preset",
+    "source",
+    "derived",
+    "before",
+    "after",
+    "processing",
+    "validation",
+    "warnings"
+  ],
+  "properties": {
+    "report_version": {
+      "const": "1.0"
+    },
+    "report_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "const": "completed"
+    },
+    "preset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "target_rms_dbfs",
+        "max_peak_dbfs",
+        "rms_tolerance_db"
+      ],
+      "properties": {
+        "name": {
+          "const": "pcm-dialogue-level-v1"
+        },
+        "target_rms_dbfs": {
+          "type": "number"
+        },
+        "max_peak_dbfs": {
+          "type": "number"
+        },
+        "rms_tolerance_db": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "preserved",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preserved": {
+          "const": true
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "derived": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "before": {
+      "$ref": "#/$defs/analysis"
+    },
+    "after": {
+      "$ref": "#/$defs/analysis"
+    },
+    "processing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested_gain_db",
+        "applied_gain_db",
+        "peak_guard_limited"
+      ],
+      "properties": {
+        "requested_gain_db": {
+          "type": "number"
+        },
+        "applied_gain_db": {
+          "type": "number"
+        },
+        "peak_guard_limited": {
+          "type": "boolean"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_met",
+        "rms_error_db",
+        "peak_within_limit"
+      ],
+      "properties": {
+        "target_met": {
+          "type": "boolean"
+        },
+        "rms_error_db": {
+          "type": "number",
+          "minimum": 0
+        },
+        "peak_within_limit": {
+          "type": "boolean"
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "duration_ms",
+        "sample_rate_hz",
+        "channels",
+        "sample_width_bits",
+        "rms_dbfs",
+        "peak_dbfs",
+        "clipping_sample_count",
+        "silent_window_ratio",
+        "sha256"
+      ],
+      "properties": {
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sample_rate_hz": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "channels": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sample_width_bits": {
+          "const": 16
+        },
+        "rms_dbfs": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "peak_dbfs": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "clipping_sample_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "silent_window_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

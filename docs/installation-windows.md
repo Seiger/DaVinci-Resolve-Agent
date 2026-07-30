@@ -61,6 +61,8 @@ For an M2 live request, start a command in PowerShell and invoke
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\logs\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\backups\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\plans\
+%LOCALAPPDATA%\DaVinciResolveAgent\runtime\audio-reports\
+%USERPROFILE%\Videos\DaVinciResolveAgent\processed\
 ```
 
 ## Uninstall
@@ -78,7 +80,9 @@ Or provide both preservation choices:
     -PreserveConfig $true `
     -PreserveLogs $true `
     -PreserveBackups $true `
-    -PreservePlans $true
+    -PreservePlans $true `
+    -PreserveAudioReports $true `
+    -PreserveProcessedAudio $true
 ```
 
 The script removes only `.venv` and the named application directories. It does
@@ -88,3 +92,5 @@ bridge backup when available. Project `.drp` backups are preserved by default;
 pass `-PreserveBackups $false` only when their deletion is intentional.
 Rough-cut draft plans are also preserved by default; use
 `-PreservePlans $false` to remove them intentionally.
+Audio reports and derived WAV files are preserved by default. Delete them only
+with `-PreserveAudioReports $false -PreserveProcessedAudio $false`.

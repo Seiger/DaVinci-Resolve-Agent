@@ -122,6 +122,26 @@ class StubRoughCutPlanner:
         }
 
 
+class StubAudioProcessor:
+    def __init__(self) -> None:
+        self.source_file = ""
+        self.preset = ""
+
+    def process(
+        self,
+        source_file: str,
+        *,
+        preset: str = "pcm-dialogue-level-v1",
+    ) -> dict[str, Any]:
+        self.source_file = source_file
+        self.preset = preset
+        return {
+            "status": "completed",
+            "source": {"preserved": True},
+            "validation": {"target_met": True},
+        }
+
+
 def _fresh_state() -> dict[str, Any]:
     return {
         "bridge_version": "0.1.0",
@@ -213,6 +233,25 @@ def test_application_creates_review_only_plan_without_resolve_call() -> None:
         "webcam.wav",
         "speech.wav",
     ]
+    assert resolve.timeouts == []
+
+
+def test_application_processes_audio_without_resolve_call() -> None:
+    resolve = StubResolveReader()
+    media_policy = StubMediaPolicy()
+    processor = StubAudioProcessor()
+    application = AgentApplication(
+        resolve=resolve,
+        media_policy=media_policy,
+        audio_processor=processor,
+    )
+
+    report = application.clean_dialogue_audio("dialogue.wav")
+
+    assert report["status"] == "completed"
+    assert report["source"]["preserved"] is True
+    assert processor.source_file == "normalized:dialogue.wav"
+    assert processor.preset == "pcm-dialogue-level-v1"
     assert resolve.timeouts == []
 
 

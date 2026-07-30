@@ -35,7 +35,7 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             "Local access to DaVinci Resolve Agent. "
             "The Resolve tools require the one-shot ResolveBridge script to be "
             "launched inside DaVinci Resolve while the request is waiting. "
-            "M5 rough-cut planning creates a local draft only and never applies it."
+            "Rough-cut and audio workflows run locally without changing Resolve."
         ),
     )
 
@@ -173,6 +173,18 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             pause_threshold_dbfs=pause_threshold_dbfs,
             min_pause_duration_ms=min_pause_duration_ms,
             preserve_context_ms=preserve_context_ms,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def clean_dialogue_audio(
+        source_file: str,
+        preset: str = "pcm-dialogue-level-v1",
+    ) -> dict[str, Any]:
+        """Create a derived PCM WAV and canonical before/after report."""
+        return await asyncio.to_thread(
+            service.clean_dialogue_audio,
+            source_file,
+            preset=preset,
         )
 
     return server

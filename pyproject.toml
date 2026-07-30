@@ -36,6 +36,7 @@ packages = [
   "contracts",
   "mcp_server",
   "providers",
+  "providers.audio",
   "providers.resolve",
   "transports",
 ]

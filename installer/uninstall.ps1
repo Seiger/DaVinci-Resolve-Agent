@@ -10,7 +10,13 @@ param(
     [bool]$PreserveBackups = $true,
 
     [Parameter(Mandatory = $false)]
-    [bool]$PreservePlans = $true
+    [bool]$PreservePlans = $true,
+
+    [Parameter(Mandatory = $false)]
+    [bool]$PreserveAudioReports = $true,
+
+    [Parameter(Mandatory = $false)]
+    [bool]$PreserveProcessedAudio = $true
 )
 
 Set-StrictMode -Version Latest
@@ -79,7 +85,12 @@ if (-not $keepConfig -and (Test-Path -LiteralPath $paths.ConfigRoot)) {
 }
 
 if (Test-Path -LiteralPath $paths.RuntimeRoot) {
-    if ($keepLogs -or $PreserveBackups -or $PreservePlans) {
+    if (
+        $keepLogs -or
+        $PreserveBackups -or
+        $PreservePlans -or
+        $PreserveAudioReports
+    ) {
         $preservedPaths = @()
         if ($keepLogs) {
             $preservedPaths += $paths.LogsRoot
@@ -89,6 +100,9 @@ if (Test-Path -LiteralPath $paths.RuntimeRoot) {
         }
         if ($PreservePlans) {
             $preservedPaths += $paths.PlansRoot
+        }
+        if ($PreserveAudioReports) {
+            $preservedPaths += $paths.AudioReportsRoot
         }
         Get-ChildItem -LiteralPath $paths.RuntimeRoot -Force |
             Where-Object { $_.FullName -notin $preservedPaths } |
@@ -102,6 +116,9 @@ if (Test-Path -LiteralPath $paths.RuntimeRoot) {
         if ($PreservePlans) {
             Write-Host "Preserved rough-cut plans: $($paths.PlansRoot)"
         }
+        if ($PreserveAudioReports) {
+            Write-Host "Preserved audio reports: $($paths.AudioReportsRoot)"
+        }
     } else {
         Remove-Item -LiteralPath $paths.RuntimeRoot -Recurse -Force
         Write-Host (
@@ -109,6 +126,16 @@ if (Test-Path -LiteralPath $paths.RuntimeRoot) {
             $paths.RuntimeRoot
         )
     }
+}
+
+if (
+    -not $PreserveProcessedAudio -and
+    (Test-Path -LiteralPath $paths.ProcessedAudioRoot)
+) {
+    Remove-Item -LiteralPath $paths.ProcessedAudioRoot -Recurse -Force
+    Write-Host "Removed derived audio: $($paths.ProcessedAudioRoot)"
+} elseif ($PreserveProcessedAudio) {
+    Write-Host "Preserved derived audio: $($paths.ProcessedAudioRoot)"
 }
 
 Write-Host "Uninstallation completed. Repository, media, and Resolve projects were not removed."

@@ -38,3 +38,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Deterministic rough-cut draft plans with a mandatory human review gate.
 - Local `create_rough_cut` MCP tool that never applies edits to Resolve.
 - Installer-managed runtime plan storage preserved on uninstall by default.
+- M6 standard-library 16-bit PCM WAV dialogue analysis.
+- Deterministic RMS-level preset with peak guard and preserved source assets.
+- Canonical before/after audio reports with target validation.
+- Local `clean_dialogue_audio` MCP tool independent from Resolve.

@@ -132,6 +132,27 @@ Neither the Resolve provider nor the bridge is called while creating it.
 Video decoding is intentionally outside the core analyzer and remains a future
 provider responsibility.
 
+## M6 audio workflow
+
+M6 keeps audio processing outside the Resolve provider:
+
+```text
+MCP clean_dialogue_audio
+ └─ AgentApplication
+     ├─ MediaPolicy (read-only source validation)
+     └─ DialogueAudioWorkflow
+         └─ PcmWavAudioProvider
+             ├─ before analysis
+             ├─ deterministic gain + peak guard
+             ├─ derived PCM WAV
+             └─ canonical before/after report
+```
+
+The reference backend supports uncompressed 16-bit PCM WAV and uses no shell
+or editor runtime. It measures RMS dBFS rather than claiming standards-compliant
+LUFS. Original assets are preserved, derived assets use a durable user video
+directory, and reports remain under the local runtime directory.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

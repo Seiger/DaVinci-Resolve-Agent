@@ -16,3 +16,7 @@ expression execution.
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.
+
+`audio-report.schema.json` defines the M6 before/after measurements, fixed
+preset parameters, source-preservation flag, derived asset, and target
+validation. It is also independent from the Resolve command protocol.

@@ -90,6 +90,8 @@ foreach ($runtimeDirectory in @(
     $paths.ReceiptsRoot,
     $paths.BackupsRoot,
     $paths.PlansRoot,
+    $paths.AudioReportsRoot,
+    $paths.ProcessedAudioRoot,
     $paths.LogsRoot
 )) {
     New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null

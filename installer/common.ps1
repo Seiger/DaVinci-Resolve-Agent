@@ -65,6 +65,9 @@ function Get-AgentPaths {
     if (-not $env:LOCALAPPDATA) {
         throw "The LOCALAPPDATA environment variable is not set."
     }
+    if (-not $env:USERPROFILE) {
+        throw "The USERPROFILE environment variable is not set."
+    }
 
     $configRoot = Join-Path $env:APPDATA $script:ApplicationDirectoryName
     $runtimeRoot = Join-Path (
@@ -90,6 +93,12 @@ function Get-AgentPaths {
         ReceiptsRoot = Join-Path (Join-Path $runtimeRoot "state") "receipts"
         BackupsRoot = Join-Path $runtimeRoot "backups"
         PlansRoot = Join-Path $runtimeRoot "plans"
+        AudioReportsRoot = Join-Path $runtimeRoot "audio-reports"
+        ProcessedAudioRoot = Join-Path (
+            Join-Path (
+                Join-Path $env:USERPROFILE "Videos"
+            ) $script:ApplicationDirectoryName
+        ) "processed"
         BridgeStateFile = Join-Path (Join-Path $runtimeRoot "state") "bridge.json"
         ResolveScriptsRoot = $resolveScriptsRoot
         BridgeSource = Join-Path $RepositoryRoot "bridges\resolve\ResolveBridge.py"

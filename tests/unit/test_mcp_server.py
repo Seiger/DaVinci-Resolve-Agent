@@ -95,6 +95,20 @@ class StubRoughCutPlanner:
         }
 
 
+class StubAudioProcessor:
+    def process(
+        self,
+        source_file: str,
+        *,
+        preset: str = "pcm-dialogue-level-v1",
+    ) -> dict[str, Any]:
+        return {
+            "status": "completed",
+            "source": {"path": source_file, "preserved": True},
+            "preset": {"name": preset},
+        }
+
+
 def _fresh_state() -> dict[str, Any]:
     return {
         "bridge_version": "0.1.0",
@@ -111,6 +125,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         state_loader=_fresh_state,
         media_policy=StubMediaPolicy(),
         rough_cut_planner=StubRoughCutPlanner(),
+        audio_processor=StubAudioProcessor(),
     )
     server = create_server(application)
 
@@ -129,12 +144,15 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             status_annotations = annotations["video_agent_status"]
             import_annotations = annotations["resolve_import_media"]
             rough_cut_annotations = annotations["create_rough_cut"]
+            audio_annotations = annotations["clean_dialogue_audio"]
             assert status_annotations is not None
             assert import_annotations is not None
             assert rough_cut_annotations is not None
+            assert audio_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
+            assert audio_annotations.read_only_hint is False
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
@@ -178,6 +196,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "timeline_name": "M5 Draft",
                     },
                 ),
+                "audio": await client.call_tool(
+                    "clean_dialogue_audio",
+                    {"source_file": "dialogue.wav"},
+                ),
             }
         return results, names
 
@@ -193,6 +215,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_append_clip",
         "resolve_add_marker",
         "create_rough_cut",
+        "clean_dialogue_audio",
     }
     assert results["project"].structured_content == {
         "project": {"name": "Test Project"}
@@ -213,3 +236,4 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["appended"].structured_content["asset_id"] == "asset-1"
     assert results["marker"].structured_content["color"] == "Green"
     assert results["rough_cut"].structured_content["status"] == "pending_review"
+    assert results["audio"].structured_content["status"] == "completed"

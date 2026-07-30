@@ -53,3 +53,22 @@ def logs_directory(environment: Mapping[str, str] | None = None) -> Path:
 def plans_directory(environment: Mapping[str, str] | None = None) -> Path:
     """Return the per-user review-only rough-cut plans directory."""
     return runtime_directory(environment) / "plans"
+
+
+def audio_reports_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return the per-user runtime audio reports directory."""
+    return runtime_directory(environment) / "audio-reports"
+
+
+def processed_audio_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return the durable per-user derived audio directory."""
+    return (
+        Path(_environment_value("USERPROFILE", environment))
+        / "Videos"
+        / APPLICATION_DIRECTORY_NAME
+        / "processed"
+    )

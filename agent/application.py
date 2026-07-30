@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from agent.audio_workflow import DialogueAudioWorkflow
 from agent.bridge_state import (
     DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
     bridge_is_healthy,
@@ -106,6 +107,18 @@ class RoughCutPlanBuilder(Protocol):
         """Create a review-only rough-cut plan."""
 
 
+class DialogueAudioProcessor(Protocol):
+    """Provider-neutral M6 dialogue workflow."""
+
+    def process(
+        self,
+        source_file: str,
+        *,
+        preset: str = "pcm-dialogue-level-v1",
+    ) -> dict[str, Any]:
+        """Create derived audio and a before/after report."""
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -115,11 +128,13 @@ class AgentApplication:
         state_loader: Callable[[], dict[str, Any]] = load_bridge_state,
         media_policy: MediaImportPolicy | None = None,
         rough_cut_planner: RoughCutPlanBuilder | None = None,
+        audio_processor: DialogueAudioProcessor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
         self._state_loader = state_loader
         self._media_policy = media_policy
         self._rough_cut_planner = rough_cut_planner
+        self._audio_processor = audio_processor
 
     def status(
         self,
@@ -292,6 +307,26 @@ class AgentApplication:
             min_pause_duration_ms=min_pause_duration_ms,
             preserve_context_ms=preserve_context_ms,
         )
+
+    def clean_dialogue_audio(
+        self,
+        source_file: str,
+        *,
+        preset: str = "pcm-dialogue-level-v1",
+    ) -> dict[str, Any]:
+        """Create a derived WAV and report without calling Resolve."""
+        policy = (
+            MediaPolicy.from_local_config()
+            if self._media_policy is None
+            else self._media_policy
+        )
+        normalized = policy.validate_files([source_file])
+        processor = (
+            DialogueAudioWorkflow()
+            if self._audio_processor is None
+            else self._audio_processor
+        )
+        return processor.process(normalized[0], preset=preset)
 
     @staticmethod
     def _validated_timeout(timeout_seconds: float) -> float:

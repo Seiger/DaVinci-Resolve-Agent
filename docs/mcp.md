@@ -21,6 +21,10 @@ Draft-only інструмент M5:
 
 - `create_rough_cut`.
 
+Локальний audio-інструмент M6:
+
+- `clean_dialogue_audio`.
+
 MCP-адаптер звертається до application service. Він не працює з transport
 runtime безпосередньо та не приймає довільних назв команд, Python, Lua,
 PowerShell або shell-коду.
@@ -29,6 +33,11 @@ PowerShell або shell-коду.
 та зберігає `pending_review` план. Він не ставить команду bridge, не відкриває
 проєкт Resolve й не застосовує запропоновані операції. Формат і обмеження
 описано в [rough-cut.md](rough-cut.md).
+
+`clean_dialogue_audio` приймає allowlisted 16-bit PCM WAV, створює derived WAV
+і before/after report. Інструмент не викликає Resolve bridge та не приймає
+довільних filter graph, команд або коду. Докладніше:
+[audio-workflow.md](audio-workflow.md).
 
 ## Конфігурація клієнта
 
@@ -53,8 +62,9 @@ PowerShell або shell-коду.
 ## Виконання Resolve-запитів
 
 `video_agent_status` повертає кешований стан bridge одразу.
-`create_rough_cut` також працює без bridge. Resolve-інструменти ставлять команду
-в локальну чергу. Поки клієнт очікує відповідь:
+`create_rough_cut` і `clean_dialogue_audio` також працюють без bridge.
+Resolve-інструменти ставлять команду в локальну чергу. Поки клієнт очікує
+відповідь:
 
 1. відкрий потрібний проєкт у DaVinci Resolve;
 2. запусти `Workspace → Scripts → Edit → ResolveBridge`;
