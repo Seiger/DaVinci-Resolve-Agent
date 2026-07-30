@@ -399,6 +399,28 @@ and audio items with distinct canonical IDs. Both reported duration 96,
 timeline bounds 86400..86496, and source bounds 0..240. No project backup was
 created, and capability `clip.read` was persisted as `true`.
 
+## M17 Media Pool item discovery
+
+```text
+MCP resolve_list_media_pool_items()
+ └─ require current project and Media Pool root
+     └─ recursively enumerate documented folders
+         └─ validate folder IDs and guard cycles/size
+             └─ read MediaPoolItem ID and name
+                 └─ return provider-neutral logical placement
+```
+
+M17 supplies Media Pool IDs for append/insert operations without consulting import
+receipts. It intentionally omits filesystem paths, raw clip properties,
+metadata dictionaries, and Resolve objects. Because documented `GetClipList`
+also returns timeline entries in the live project, the provider-neutral
+contract does not claim that every result is source media.
+
+Resolve 21 Free 21.0.3.7 live validation discovered five items in the `Master`
+folder, including the M10 source MKV with canonical ID
+`e2c01761-f786-4b2c-866e-b682d2806eca`. No project backup was created, and
+capability `media.read` was persisted as `true`.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

@@ -34,6 +34,15 @@ class StubResolveReader:
             "items": [{"timeline_item_id": "item-1"}],
         }
 
+    def media_pool_items(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "items": [{"asset_id": "asset-1", "name": "screen.mkv"}],
+            "folder_count": 1,
+        }
+
     def render_environment(
         self,
         timeout_seconds: float = 30,
@@ -351,6 +360,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                     "resolve_list_timeline_items",
                     {"timeline_id": "timeline-1"},
                 ),
+                "media_pool_items": await client.call_tool(
+                    "resolve_list_media_pool_items",
+                    {},
+                ),
                 "render": await client.call_tool(
                     "resolve_get_render_options",
                     {},
@@ -458,6 +471,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_list_timelines",
         "resolve_get_timeline",
         "resolve_list_timeline_items",
+        "resolve_list_media_pool_items",
         "resolve_get_render_options",
         "resolve_import_media",
         "resolve_create_timeline",
@@ -487,6 +501,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["items"].structured_content["items"][0][
         "timeline_item_id"
     ] == "item-1"
+    assert results["media_pool_items"].structured_content["items"][0][
+        "asset_id"
+    ] == "asset-1"
     assert results["render"].structured_content["current"]["format"] == "mp4"
     assert results["status"].structured_content["healthy"] is True
     assert results["imported"].structured_content["items"][0]["asset_id"] == (

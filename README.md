@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M16: timeline item discovery**. Він установлює
+Проєкт перебуває на етапі **Milestone M17: Media Pool item discovery**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -67,6 +67,12 @@ timeline/source bounds і duration. Інструмент не читає дов�
 не змінює проєкт. Discovery синхронної M10 пари з окремими video/audio IDs,
 однаковими timeline/source bounds і без нового backup перевірено у Resolve 21
 Free 21.0.3.7.
+M17 додає read-only рекурсивний перелік Media Pool items із канонічними
+`asset_id`, назвами та логічними folder IDs/paths. Він не повертає файлові
+шляхи, raw clip properties або Resolve object handles. Folder API також
+повертає timeline entries, тому контракт чесно не називає всі результати
+source assets. У Resolve 21 Free 21.0.3.7 знайдено п'ять items у `Master`,
+включно з потрібним MKV asset `e2c01761-…`, без нового backup.
 
 ## Вимоги
 
@@ -144,6 +150,7 @@ Read-only інструменти:
 - `resolve_list_timelines`;
 - `resolve_get_timeline`.
 - `resolve_list_timeline_items`.
+- `resolve_list_media_pool_items`.
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
 - `resolve_verify_render_output`.
@@ -236,6 +243,11 @@ Tool не приймає raw Resolve property names, keyframes, expressions аб
 `timeline_item_id` для video/audio tracks, їхні назви, track index,
 timeline/source frame bounds та duration. Tool read-only, не створює backup і
 не повертає raw Resolve objects або довільні clip properties.
+
+`resolve_list_media_pool_items` без аргументів рекурсивно перелічує поточний
+Media Pool і повертає `asset_id`, назву, `folder_id` та логічний folder path. Tool
+read-only, не створює backup, не читає файлові шляхи та не викликає
+`GetClipProperty`.
 
 ## Розробка
 

@@ -52,6 +52,12 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Return bounded metadata for items in one timeline."""
 
+    def media_pool_items(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return bounded identity metadata for Media Pool items."""
+
     def render_environment(
         self,
         timeout_seconds: float = 30,
@@ -302,6 +308,15 @@ class AgentApplication:
         return self._resolve.timeline_items(
             timeline_id,
             timeout_seconds=self._validated_timeout(timeout_seconds),
+        )
+
+    def resolve_list_media_pool_items(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """List addressable items in the current Resolve Media Pool."""
+        return self._resolve.media_pool_items(
+            self._validated_timeout(timeout_seconds)
         )
 
     def resolve_get_render_options(

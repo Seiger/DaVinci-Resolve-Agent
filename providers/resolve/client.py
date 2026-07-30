@@ -81,6 +81,21 @@ class ResolveProviderClient:
             )
         return value
 
+    def media_pool_items(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return bounded identity metadata for current Media Pool items."""
+        result = self._object_result("list_media_pool_items", timeout_seconds)
+        if (
+            not isinstance(result.get("items"), list)
+            or not isinstance(result.get("folder_count"), int)
+        ):
+            raise BridgeProtocolError(
+                "Resolve list_media_pool_items response is invalid."
+            )
+        return result
+
     def render_environment(
         self,
         timeout_seconds: float = 30,

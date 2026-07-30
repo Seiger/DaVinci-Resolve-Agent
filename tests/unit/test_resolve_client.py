@@ -78,6 +78,17 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                     }
                 ],
             },
+            "list_media_pool_items": {
+                "items": [
+                    {
+                        "asset_id": "asset-1",
+                        "name": "screen.mkv",
+                        "folder_id": "folder-root",
+                        "folder_path": ["Master"],
+                    }
+                ],
+                "folder_count": 1,
+            },
             "get_render_environment": {
                 "formats": [],
                 "current": {"format": "mp4", "codec": "H264"},
@@ -163,6 +174,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     assert client.timeline_items("timeline-1")["items"][0][
         "timeline_item_id"
     ] == "item-1"
+    assert client.media_pool_items()["items"][0]["asset_id"] == "asset-1"
     assert client.render_environment()["current"]["format"] == "mp4"
     assert client.import_media(
         ["sample.wav"],
@@ -236,6 +248,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "list_timelines",
         "get_current_timeline",
         "list_timeline_items",
+        "list_media_pool_items",
         "get_render_environment",
         "import_media",
         "create_timeline",

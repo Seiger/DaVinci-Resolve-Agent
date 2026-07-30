@@ -76,6 +76,16 @@ def test_list_timeline_items_requires_one_timeline_id() -> None:
         validate_contract("command", command)
 
 
+def test_list_media_pool_items_accepts_no_arguments() -> None:
+    command = _valid_command()
+    command["action"] = "list_media_pool_items"
+    validate_contract("command", command)
+
+    command["arguments"] = {"property_name": "File Path"}
+    with pytest.raises(ContractValidationError, match="arguments"):
+        validate_contract("command", command)
+
+
 def test_unknown_action_violates_command_contract() -> None:
     command = _valid_command()
     command["action"] = "execute_python"

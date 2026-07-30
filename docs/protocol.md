@@ -33,6 +33,7 @@ that the response `command_id` matches the submitted command.
 ## Additional read actions
 
 - read-only `list_timeline_items` with one existing `timeline_id`;
+- read-only `list_media_pool_items` with an empty arguments object;
 
 ## Write actions
 
@@ -109,6 +110,12 @@ enumerates all video/audio tracks. Each result contains only provider-neutral
 identity, track placement, timeline/source frame bounds, and duration. It does
 not create a backup or expose arbitrary TimelineItem properties.
 
+`list_media_pool_items` recursively walks the current Media Pool root and
+subfolders. It returns bounded provider-neutral identity and logical folder
+placement only. The bridge guards folder cycles and rejects discovery beyond
+1000 folders or 10000 items. Results may include timeline entries returned by
+the documented Folder API; the contract does not infer an undocumented kind.
+
 ## M1 action allowlist
 
 - `ping`
@@ -118,6 +125,7 @@ not create a backup or expose arbitrary TimelineItem properties.
 - `list_timelines`
 - `get_current_timeline`
 - `list_timeline_items`
+- `list_media_pool_items`
 - `get_render_environment`
 - `get_render_job_status`
 

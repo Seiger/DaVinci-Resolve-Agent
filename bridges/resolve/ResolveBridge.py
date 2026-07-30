@@ -37,6 +37,7 @@ ALLOWED_ACTIONS = {
     "list_timelines",
     "get_current_timeline",
     "list_timeline_items",
+    "list_media_pool_items",
     "get_render_environment",
     "get_render_job_status",
     "import_media",
@@ -67,6 +68,7 @@ WRITE_ACTIONS = {
 DESTRUCTIVE_ACTIONS = {"delete_clip"}
 CAPABILITY_BY_ACTION = {
     "list_timeline_items": "clip.read",
+    "list_media_pool_items": "media.read",
     "import_media": "media.import",
     "create_timeline": "timeline.create",
     "set_current_timeline": "timeline.select",
@@ -251,6 +253,7 @@ def collect_bridge_state(
         "timeline.create": "unknown",
         "timeline.select": "unknown",
         "media.import": "unknown",
+        "media.read": "unknown",
         "clip.insert": "unknown",
         "clip.read": "unknown",
         "clip.range_insert": "unknown",
@@ -709,6 +712,14 @@ def command_result(
             arguments or {}
         )
         return _list_timeline_items(resolve, timeline_id)
+    if action == "list_media_pool_items":
+        if resolve is None:
+            raise BridgeOperationError(
+                "RESOLVE_CONTEXT_REQUIRED",
+                "A live Resolve context is required for Media Pool discovery.",
+                retryable=True,
+            )
+        return _list_media_pool_items(resolve)
     if action == "get_render_environment":
         if resolve is None:
             raise BridgeOperationError(
@@ -727,6 +738,124 @@ def command_result(
         job_id = _validate_render_job_arguments(action, arguments or {})
         return _render_job_status(resolve, job_id)
     raise ValueError("Unsupported or unsafe bridge action.")
+
+
+def _list_media_pool_items(resolve: Any) -> dict[str, Any]:
+    _, _, media_pool = _require_project(resolve)
+    get_root_folder = getattr(media_pool, "GetRootFolder", None)
+    if not callable(get_root_folder):
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "The media pool cannot report its root folder.",
+            details={"missing_methods": ["GetRootFolder"]},
+        )
+    root = get_root_folder()
+    if root is None:
+        raise BridgeOperationError(
+            "MEDIA_POOL_ROOT_UNAVAILABLE",
+            "Resolve MediaPool returned no root folder.",
+            retryable=True,
+        )
+
+    media_pool_items: list[dict[str, Any]] = []
+    visited_folder_ids: set[str] = set()
+    pending: list[tuple[Any, tuple[str, ...]]] = [(root, ())]
+    while pending:
+        if len(visited_folder_ids) >= 1_000:
+            raise BridgeOperationError(
+                "MEDIA_POOL_LIMIT_EXCEEDED",
+                "Media Pool folder discovery exceeded 1000 folders.",
+            )
+        folder, parent_path = pending.pop(0)
+        required_folder_methods = (
+            "GetUniqueId",
+            "GetName",
+            "GetClipList",
+            "GetSubFolderList",
+        )
+        missing = [
+            name
+            for name in required_folder_methods
+            if not callable(getattr(folder, name, None))
+        ]
+        if missing:
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "A Media Pool folder cannot report bounded metadata.",
+                details={"missing_methods": missing},
+            )
+        folder_id = str(folder.GetUniqueId())
+        if not folder_id or len(folder_id) > 128:
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Media Pool folder ID is invalid.",
+            )
+        if folder_id in visited_folder_ids:
+            continue
+        visited_folder_ids.add(folder_id)
+        folder_name = str(folder.GetName())
+        folder_path = (*parent_path, folder_name)
+        clips = folder.GetClipList()
+        subfolders = folder.GetSubFolderList()
+        if not isinstance(clips, list) or not isinstance(subfolders, list):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Media Pool folder lists are invalid.",
+                details={"folder_id": folder_id},
+            )
+        for clip in clips:
+            if len(media_pool_items) >= 10_000:
+                raise BridgeOperationError(
+                    "MEDIA_POOL_LIMIT_EXCEEDED",
+                    "Media Pool discovery exceeded 10000 items.",
+                )
+            get_media_id = getattr(clip, "GetMediaId", None)
+            get_name = getattr(clip, "GetName", None)
+            if not callable(get_media_id) or not callable(get_name):
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "A media asset cannot report identity metadata.",
+                    details={"missing_methods": ["GetMediaId", "GetName"]},
+                )
+            asset_id = str(get_media_id())
+            if not asset_id or len(asset_id) > 128:
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "MediaPoolItem.GetMediaId() returned an invalid value.",
+                )
+            media_pool_items.append(
+                {
+                    "asset_id": asset_id,
+                    "name": str(get_name()),
+                    "folder_id": folder_id,
+                    "folder_path": list(folder_path),
+                }
+            )
+        child_entries = [
+            (child, str(child.GetName()))
+            for child in subfolders
+            if callable(getattr(child, "GetName", None))
+        ]
+        if len(child_entries) != len(subfolders):
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "A Media Pool subfolder cannot report its name.",
+                details={"missing_methods": ["GetName"]},
+            )
+        for child, _ in sorted(child_entries, key=lambda entry: entry[1]):
+            pending.append((child, folder_path))
+
+    return {
+        "items": sorted(
+            media_pool_items,
+            key=lambda item: (
+                item["folder_path"],
+                item["name"],
+                item["asset_id"],
+            ),
+        ),
+        "folder_count": len(visited_folder_ids),
+    }
 
 
 def _list_timeline_items(
@@ -2429,6 +2558,15 @@ def process_command_file(
                 _record_verified_capability(
                     directories["state"],
                     "clip.read",
+                )
+            elif (
+                command["action"] == "list_media_pool_items"
+                and directories is not None
+            ):
+                state["capabilities"]["media.read"] = True
+                _record_verified_capability(
+                    directories["state"],
+                    "media.read",
                 )
         response = {
             "protocol_version": PROTOCOL_VERSION,

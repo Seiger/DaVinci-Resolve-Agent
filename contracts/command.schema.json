@@ -48,6 +48,7 @@
         "list_timelines",
         "get_current_timeline",
         "list_timeline_items",
+        "list_media_pool_items",
         "get_render_environment",
         "get_render_job_status",
         "import_media",
@@ -84,6 +85,23 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "list_media_pool_items"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "maxProperties": 0
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {

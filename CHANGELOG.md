@@ -101,3 +101,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   without reliance on historical write receipts.
 - Resolve 21 Free 21.0.3.7 live discovery of synchronized video/audio item IDs
   and matching frame metadata without creating a project backup.
+- M17 read-only recursive Media Pool item discovery with canonical item and
+  folder IDs plus logical folder paths.
+- Bounded folder traversal without raw clip properties, filesystem paths, or
+  Resolve object handles.
+- Resolve 21 Free 21.0.3.7 live discovery of the M10 source ID among five
+  Media Pool items without creating a project backup.

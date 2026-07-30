@@ -104,14 +104,27 @@ class FakeTimelineItem:
 
 
 class FakeFolder:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        folder_id: str = "folder-root",
+        name: str = "Master",
+    ) -> None:
+        self._folder_id = folder_id
+        self._name = name
         self.clips: list[FakeMediaItem] = []
+        self.subfolders: list[FakeFolder] = []
+
+    def GetUniqueId(self) -> str:
+        return self._folder_id
+
+    def GetName(self) -> str:
+        return self._name
 
     def GetClipList(self) -> list[FakeMediaItem]:
         return self.clips
 
     def GetSubFolderList(self) -> list[FakeFolder]:
-        return []
+        return self.subfolders
 
 
 class FakeTimeline:
@@ -770,6 +783,43 @@ def test_timeline_items_are_discovered_with_bounded_metadata(
     ]
     assert resolve.project_manager.export_count == 0
     assert state["capabilities"]["clip.read"] is True
+
+
+def test_media_pool_items_are_discovered_recursively_without_backup(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    root = resolve.project.media_pool.root
+    root.clips.append(FakeMediaItem("asset-root", "screen.mkv"))
+    child = FakeFolder("folder-child", "Interviews")
+    child.clips.append(FakeMediaItem("asset-child", "webcam.mkv"))
+    root.subfolders.append(child)
+    state = collect_bridge_state(resolve)
+    command = _command("list-items", "list_media_pool_items", {})
+    command["safety"]["create_backup"] = False
+
+    response = _run_command(tmp_path, resolve, state, command)
+
+    assert response["status"] == "success"
+    assert response["result"] == {
+        "items": [
+            {
+                "asset_id": "asset-root",
+                "name": "screen.mkv",
+                "folder_id": "folder-root",
+                "folder_path": ["Master"],
+            },
+            {
+                "asset_id": "asset-child",
+                "name": "webcam.mkv",
+                "folder_id": "folder-child",
+                "folder_path": ["Master", "Interviews"],
+            },
+        ],
+        "folder_count": 2,
+    }
+    assert resolve.project_manager.export_count == 0
+    assert state["capabilities"]["media.read"] is True
 
 
 def test_clip_transform_is_bounded_backed_up_and_replay_safe(

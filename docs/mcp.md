@@ -10,6 +10,7 @@ Read-only інструменти:
 - `resolve_list_timelines`;
 - `resolve_get_timeline`;
 - `resolve_list_timeline_items`;
+- `resolve_list_media_pool_items`;
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
 - `resolve_verify_render_output`.
@@ -151,6 +152,16 @@ properties, Fusion compositions та object handles не повертаютьс�
 Live discovery у Resolve 21 Free 21.0.3.7 повернув один V1 та один A1 item із
 duration 96, timeline bounds 86400..86496 і source bounds 0..240 без створення
 project backup.
+
+`resolve_list_media_pool_items` не приймає аргументів і рекурсивно обходить
+поточний Media Pool через документовані Folder APIs. Response містить лише
+канонічний asset ID, назву, folder ID і логічний folder path. Файлові шляхи,
+raw `GetClipProperty` snapshots, metadata та Resolve object handles не
+повертаються. `GetClipList()` може включати timeline entries, тому response
+називає результати Media Pool items, а не гарантує source-media kind. Обхід
+обмежено 1000 folders і 10000 items.
+Live discovery у Resolve 21 Free 21.0.3.7 повернув п'ять items у `Master`,
+зокрема source MKV із відомим `asset_id`, і не створив project backup.
 
 ## Безпечне редагування
 
