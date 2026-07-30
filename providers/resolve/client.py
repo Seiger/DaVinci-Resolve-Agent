@@ -60,6 +60,23 @@ class ResolveProviderClient:
     ) -> dict[str, Any] | None:
         return self._optional_object_result("get_current_timeline", timeout_seconds)
 
+    def render_environment(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return documented render formats, presets, current values, and jobs."""
+        result = self._object_result("get_render_environment", timeout_seconds)
+        if (
+            not isinstance(result.get("formats"), list)
+            or not isinstance(result.get("current"), dict)
+            or not isinstance(result.get("presets"), list)
+            or not isinstance(result.get("jobs"), list)
+        ):
+            raise BridgeProtocolError(
+                "Resolve get_render_environment response is invalid."
+            )
+        return result
+
     def import_media(
         self,
         paths: list[str],
@@ -147,6 +164,24 @@ class ResolveProviderClient:
             create_backup=True,
         )
         return self._object_value("add_marker", result)
+
+    def prepare_render_job(
+        self,
+        custom_name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Add one fixed safe render job with a mandatory project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="prepare_render_job",
+            arguments={"custom_name": custom_name},
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("prepare_render_job", result)
 
     def _object_result(
         self,

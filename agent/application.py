@@ -13,6 +13,7 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.media import MediaPolicy
+from agent.rendering import validate_render_name
 from agent.rough_cut import RoughCutPlanner
 from providers.resolve import ResolveProviderClient
 
@@ -33,6 +34,12 @@ class ResolveReader(Protocol):
         timeout_seconds: float = 30,
     ) -> dict[str, Any] | None:
         """Return the current timeline."""
+
+    def render_environment(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return documented render discovery information."""
 
     def import_media(
         self,
@@ -75,6 +82,15 @@ class ResolveReader(Protocol):
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Add a timeline marker."""
+
+    def prepare_render_job(
+        self,
+        custom_name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Prepare one fixed render job."""
 
 
 class MediaImportPolicy(Protocol):
@@ -179,6 +195,15 @@ class AgentApplication:
             self._validated_timeout(timeout_seconds)
         )
 
+    def resolve_get_render_options(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return Resolve render options without modifying the project."""
+        return self._resolve.render_environment(
+            self._validated_timeout(timeout_seconds)
+        )
+
     def resolve_import_media(
         self,
         paths: list[str],
@@ -257,6 +282,21 @@ class AgentApplication:
             name,
             note,
             duration,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_prepare_render_job(
+        self,
+        custom_name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Prepare one fixed render job without starting rendering."""
+        normalized_name = validate_render_name(custom_name)
+        return self._resolve.prepare_render_job(
+            normalized_name,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

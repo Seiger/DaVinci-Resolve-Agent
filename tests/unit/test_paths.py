@@ -7,6 +7,7 @@ from agent.paths import (
     config_directory,
     plans_directory,
     processed_audio_directory,
+    render_output_directory,
     runtime_directory,
 )
 
@@ -47,4 +48,10 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
         / "Videos"
         / "DaVinciResolveAgent"
         / "processed"
+    )
+    assert render_output_directory(first_environment) == (
+        Path(r"C:\Users\first-user")
+        / "Videos"
+        / "DaVinciResolveAgent"
+        / "renders"
     )

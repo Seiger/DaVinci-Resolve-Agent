@@ -8,7 +8,8 @@ Read-only інструменти:
 - `video_agent_status`;
 - `resolve_get_project`;
 - `resolve_list_timelines`;
-- `resolve_get_timeline`.
+- `resolve_get_timeline`;
+- `resolve_get_render_options`.
 
 Write-інструменти M4:
 
@@ -16,6 +17,7 @@ Write-інструменти M4:
 - `resolve_create_timeline`;
 - `resolve_append_clip`;
 - `resolve_add_marker`.
+- `resolve_prepare_render_job`.
 
 Draft-only інструмент M5:
 
@@ -73,6 +75,15 @@ Resolve-інструменти ставлять команду в локальн
 Типовий timeout становить 30 секунд. Аргумент `timeout_seconds` приймає значення
 понад `0` і не більше `300`. Одноразова модель bridge є навмисним обмеженням
 поточного прототипу.
+
+`resolve_get_render_options` є discovery-only інструментом M7. Він читає
+документовані Resolve formats, codecs, presets, поточні значення та render
+queue. Він не конфігурує й не запускає render.
+
+`resolve_prepare_render_job` приймає лише безпечний filename stem у
+`custom_name`. Він створює `.drp` backup, застосовує фіксований
+`youtube-1080p-h264-v1`, додає MP4/H264 job у queue та повертає
+`started=false`. Output directory не задається через MCP.
 
 ## Безпечне редагування
 

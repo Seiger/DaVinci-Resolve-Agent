@@ -99,6 +99,11 @@ function Get-AgentPaths {
                 Join-Path $env:USERPROFILE "Videos"
             ) $script:ApplicationDirectoryName
         ) "processed"
+        RenderOutputRoot = Join-Path (
+            Join-Path (
+                Join-Path $env:USERPROFILE "Videos"
+            ) $script:ApplicationDirectoryName
+        ) "renders"
         BridgeStateFile = Join-Path (Join-Path $runtimeRoot "state") "bridge.json"
         ResolveScriptsRoot = $resolveScriptsRoot
         BridgeSource = Join-Path $RepositoryRoot "bridges\resolve\ResolveBridge.py"

@@ -72,3 +72,15 @@ def processed_audio_directory(
         / APPLICATION_DIRECTORY_NAME
         / "processed"
     )
+
+
+def render_output_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return the fixed durable output directory for prepared render jobs."""
+    return (
+        Path(_environment_value("USERPROFILE", environment))
+        / "Videos"
+        / APPLICATION_DIRECTORY_NAME
+        / "renders"
+    )

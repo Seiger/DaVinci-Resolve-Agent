@@ -8,6 +8,7 @@ from pathlib import Path
 
 from bridges.resolve.ResolveBridge import (
     collect_bridge_state,
+    command_result,
     ensure_runtime_directories,
     get_resolve_application,
     process_pending_commands,
@@ -20,6 +21,17 @@ class FakeTimeline:
 
     def GetName(self) -> str:
         return self._name
+
+    def GetTrackCount(self, track_type: str) -> int:
+        return 1
+
+    def GetItemListInTrack(
+        self,
+        track_type: str,
+        index: int,
+    ) -> list[str]:
+        assert index == 1
+        return ["item"] if track_type == "video" else []
 
 
 class FakeProject:
@@ -39,6 +51,25 @@ class FakeProject:
 
     def GetCurrentTimeline(self) -> FakeTimeline:
         return self._timelines[0]
+
+    def GetRenderFormats(self) -> dict[str, str]:
+        return {"mp4": "mp4", "mov": "mov"}
+
+    def GetRenderCodecs(self, render_format: str) -> dict[str, str]:
+        return (
+            {"H.264": "H264"}
+            if render_format == "mp4"
+            else {"DNxHR": "DNxHR"}
+        )
+
+    def GetCurrentRenderFormatAndCodec(self) -> dict[str, str]:
+        return {"format": "mp4", "codec": "H264"}
+
+    def GetRenderPresetList(self) -> list[dict[str, str]]:
+        return [{"Name": "H.264 Master"}]
+
+    def GetRenderJobList(self) -> list[dict[str, str]]:
+        return [{"JobId": "job-1", "JobStatus": "Ready"}]
 
 
 class FakeProjectManager:
@@ -109,6 +140,42 @@ def test_collect_bridge_state_handles_no_open_project() -> None:
     assert state["project_name"] is None
     assert state["current_timeline_name"] is None
     assert state["capabilities"]["timeline.read"] == "unknown"
+
+
+def test_render_environment_uses_documented_read_only_api() -> None:
+    resolve = FakeResolve(FakeProject())
+    state = collect_bridge_state(resolve)
+
+    result = command_result("get_render_environment", state, resolve)
+
+    assert result == {
+        "formats": [
+            {
+                "format": "mov",
+                "extension": "mov",
+                "codecs": [
+                    {"description": "DNxHR", "codec": "DNxHR"}
+                ],
+            },
+            {
+                "format": "mp4",
+                "extension": "mp4",
+                "codecs": [
+                    {"description": "H.264", "codec": "H264"}
+                ],
+            },
+        ],
+        "current": {"format": "mp4", "codec": "H264"},
+        "presets": [{"Name": "H.264 Master"}],
+        "jobs": [{"JobId": "job-1", "JobStatus": "Ready"}],
+        "timeline": {
+            "name": "Main",
+            "video_track_count": 1,
+            "audio_track_count": 1,
+            "video_item_count": 1,
+            "audio_item_count": 0,
+        },
+    }
 
 
 def test_ping_command_is_claimed_and_answered(tmp_path: Path) -> None:

@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
+
 from bridges.resolve.ResolveBridge import (
     _apply_verified_capabilities,
     collect_bridge_state,
@@ -118,6 +120,11 @@ class FakeProject:
         self.timelines: list[FakeTimeline] = []
         self.media_pool = FakeMediaPool(self)
         self.current_timeline: FakeTimeline | None = None
+        self.render_jobs: list[dict[str, Any]] = []
+        self.render_settings: dict[str, Any] = {}
+        self.render_format = ""
+        self.render_codec = ""
+        self.render_mode = 0
 
     def GetName(self) -> str:
         return "M4 Test Project"
@@ -139,6 +146,34 @@ class FakeProject:
     def SetCurrentTimeline(self, timeline: FakeTimeline) -> bool:
         self.current_timeline = timeline
         return True
+
+    def GetRenderPresetList(self) -> list[str]:
+        return ["YouTube - 1080p"]
+
+    def LoadRenderPreset(self, preset_name: str) -> bool:
+        return preset_name == "YouTube - 1080p"
+
+    def SetCurrentRenderFormatAndCodec(
+        self,
+        render_format: str,
+        codec: str,
+    ) -> bool:
+        self.render_format = render_format
+        self.render_codec = codec
+        return True
+
+    def SetCurrentRenderMode(self, render_mode: int) -> bool:
+        self.render_mode = render_mode
+        return True
+
+    def SetRenderSettings(self, settings: dict[str, Any]) -> bool:
+        self.render_settings = settings
+        return True
+
+    def AddRenderJob(self) -> str:
+        job_id = f"job-{len(self.render_jobs) + 1}"
+        self.render_jobs.append({"JobId": job_id})
+        return job_id
 
 
 class FakeProjectManager:
@@ -169,6 +204,7 @@ class FakeResolve:
     def __init__(self) -> None:
         self.project = FakeProject()
         self.project_manager = FakeProjectManager(self.project)
+        self.current_page = "edit"
 
     def GetProductName(self) -> str:
         return "DaVinci Resolve"
@@ -181,6 +217,13 @@ class FakeResolve:
 
     def GetProjectManager(self) -> FakeProjectManager:
         return self.project_manager
+
+    def GetCurrentPage(self) -> str:
+        return self.current_page
+
+    def OpenPage(self, page_name: str) -> bool:
+        self.current_page = page_name
+        return True
 
 
 def _command(
@@ -372,3 +415,46 @@ def test_import_outside_bridge_policy_is_rejected_before_backup(
     assert response["status"] == "error"
     assert response["error"]["code"] == "MEDIA_PATH_NOT_ALLOWED"
     assert not list((tmp_path / "backups").glob("*.drp"))
+
+
+def test_prepare_render_job_is_backed_up_and_replay_safe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Render Timeline")
+    resolve.project.SetCurrentTimeline(timeline)
+    state = collect_bridge_state(resolve)
+    first = _command(
+        "render-first",
+        "prepare_render_job",
+        {"custom_name": "M7 Test"},
+        idempotency_key="stable-render",
+    )
+    replay = _command(
+        "render-replay",
+        "prepare_render_job",
+        {"custom_name": "M7 Test"},
+        idempotency_key="stable-render",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert first_response["result"]["started"] is False
+    assert first_response["result"]["format"] == "MP4"
+    assert first_response["result"]["codec"] == "H264"
+    assert Path(first_response["result"]["target_directory"]) == (
+        tmp_path
+        / "profile"
+        / "Videos"
+        / "DaVinciResolveAgent"
+        / "renders"
+    )
+    assert len(resolve.project.render_jobs) == 1
+    assert resolve.project_manager.export_count == 1
+    assert state["capabilities"]["render.configure"] is True
+    assert resolve.current_page == "edit"

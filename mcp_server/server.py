@@ -79,6 +79,16 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
         return {"timeline": timeline}
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def resolve_get_render_options(
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Discover documented render formats, codecs, presets, and jobs."""
+        return await asyncio.to_thread(
+            service.resolve_get_render_options,
+            timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def resolve_import_media(
         paths: list[str],
@@ -143,6 +153,20 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             name,
             note,
             duration,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_prepare_render_job(
+        custom_name: str,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Add a fixed MP4/H264 job after backup without starting render."""
+        return await asyncio.to_thread(
+            service.resolve_prepare_render_job,
+            custom_name,
             timeout_seconds=timeout_seconds,
             idempotency_key=idempotency_key,
         )

@@ -30,7 +30,7 @@ response and are preserved under `failed/`.
 Response files are retained as local audit evidence. The external client checks
 that the response `command_id` matches the submitted command.
 
-## M4 write actions
+## Write actions
 
 The allowlist additionally contains:
 
@@ -38,11 +38,19 @@ The allowlist additionally contains:
 - `create_timeline` with `name`;
 - `append_clip` with `timeline_id` and `asset_id`;
 - `add_marker` with timeline marker fields.
+- `prepare_render_job` with `custom_name`.
 
 Every write envelope must set `allow_destructive` to `false` and
 `create_backup` to `true`. Write actions use `state/receipts` to make a stable
 `idempotency_key` replay-safe. The bridge validates media paths independently
 against `state/media-policy.json` before calling Resolve.
+
+`prepare_render_job` independently rejects paths and invalid Windows filename
+characters, derives the output directory from `USERPROFILE`, loads the fixed
+YouTube 1080p preset, selects MP4/H264, and adds one job. Its response always
+reports `started=false`; the bridge never calls `StartRendering`.
+The bridge temporarily opens the documented `deliver` page required by the
+official Blackmagic example and then restores the previously active page.
 
 ## M1 action allowlist
 
@@ -52,10 +60,17 @@ against `state/media-policy.json` before calling Resolve.
 - `get_current_project`
 - `list_timelines`
 - `get_current_timeline`
+- `get_render_environment`
 
 All actions accept an empty `arguments` object. `allow_destructive` must be
 `false`. There is no action for executing Python, Lua, PowerShell, shell
 commands, or Resolve expressions.
+
+`get_render_environment` is the read-only M7 discovery action. It returns only
+documented formats, codecs, presets, the current format/codec, and existing
+queue metadata. It also reports current timeline audio/video track and item
+counts as a render preflight. It does not change render settings, add a job,
+start rendering, delete a job, or upload media.
 
 ## One-shot lifecycle
 

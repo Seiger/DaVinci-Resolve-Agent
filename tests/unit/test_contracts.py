@@ -58,6 +58,22 @@ def test_unknown_action_violates_command_contract() -> None:
         validate_contract("command", command)
 
 
+def test_prepare_render_job_requires_backup_and_safe_arguments() -> None:
+    command = _valid_command()
+    command["action"] = "prepare_render_job"
+    command["arguments"] = {"custom_name": "M7 Test"}
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+
+    validate_contract("command", command)
+
+    command["arguments"] = {"custom_name": ""}
+    with pytest.raises(ContractValidationError, match="custom_name"):
+        validate_contract("command", command)
+
+
 def test_success_response_cannot_contain_an_error() -> None:
     response = {
         "protocol_version": "1.0",

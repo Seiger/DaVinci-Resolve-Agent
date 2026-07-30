@@ -22,22 +22,26 @@ ALLOWED_ACTIONS = {
     "get_current_project",
     "list_timelines",
     "get_current_timeline",
+    "get_render_environment",
     "import_media",
     "create_timeline",
     "append_clip",
     "add_marker",
+    "prepare_render_job",
 }
 WRITE_ACTIONS = {
     "import_media",
     "create_timeline",
     "append_clip",
     "add_marker",
+    "prepare_render_job",
 }
 CAPABILITY_BY_ACTION = {
     "import_media": "media.import",
     "create_timeline": "timeline.create",
     "append_clip": "clip.insert",
     "add_marker": "marker.create",
+    "prepare_render_job": "render.configure",
 }
 
 
@@ -205,6 +209,7 @@ def collect_bridge_state(
         "clip.insert": "unknown",
         "marker.create": "unknown",
         "render.configure": "unknown",
+        "render.discovery": "unknown",
         "render.start": "unknown",
     }
     return {
@@ -355,10 +360,52 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
         ):
             raise ValueError("duration must be a positive integer.")
         return
+    if action == "prepare_render_job":
+        if set(arguments) != {"custom_name"}:
+            raise ValueError("prepare_render_job requires only custom_name.")
+        _validate_render_name(arguments["custom_name"])
+        return
     raise ValueError("Unsupported write action.")
 
 
-def command_result(action: str, state: dict[str, Any]) -> Any:
+def _validate_render_name(value: Any) -> str:
+    if not isinstance(value, str):
+        raise ValueError("custom_name must be a string.")
+    normalized = value.strip()
+    if not normalized or len(normalized) > 128:
+        raise ValueError("custom_name must contain 1 to 128 characters.")
+    if normalized in {".", ".."}:
+        raise ValueError("custom_name must be a filename stem.")
+    forbidden = set('<>:"/\\|?*')
+    if any(character in forbidden or ord(character) < 32 for character in normalized):
+        raise ValueError("custom_name contains an invalid filename character.")
+    if normalized.endswith((".", " ")):
+        raise ValueError("custom_name must not end with a dot or space.")
+    return normalized
+
+
+def _render_output_directory() -> Path:
+    user_profile = os.environ.get("USERPROFILE")
+    if not user_profile:
+        raise BridgeOperationError(
+            "PATH_CONFIGURATION_ERROR",
+            "The USERPROFILE environment variable is not set.",
+        )
+    output = (
+        Path(user_profile)
+        / "Videos"
+        / APPLICATION_DIRECTORY_NAME
+        / "renders"
+    ).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    return output
+
+
+def command_result(
+    action: str,
+    state: dict[str, Any],
+    resolve: Any | None = None,
+) -> Any:
     """Return a read-only result from the collected snapshot."""
     if action == "ping":
         return {"message": "pong"}
@@ -384,7 +431,158 @@ def command_result(action: str, state: dict[str, Any]) -> Any:
     if action == "get_current_timeline":
         name = state["current_timeline_name"]
         return None if name is None else {"name": name}
+    if action == "get_render_environment":
+        if resolve is None:
+            raise BridgeOperationError(
+                "RESOLVE_CONTEXT_REQUIRED",
+                "A live Resolve context is required for render discovery.",
+                retryable=True,
+            )
+        return _render_environment(resolve)
     raise ValueError("Unsupported or unsafe bridge action.")
+
+
+def _render_environment(resolve: Any) -> dict[str, Any]:
+    project_manager = resolve.GetProjectManager()
+    if project_manager is None:
+        raise BridgeOperationError(
+            "PROJECT_MANAGER_UNAVAILABLE",
+            "Resolve.GetProjectManager() returned no object.",
+            retryable=True,
+        )
+    project = project_manager.GetCurrentProject()
+    if project is None:
+        raise BridgeOperationError(
+            "PROJECT_NOT_OPEN",
+            "Open a Resolve project before discovering render options.",
+            retryable=True,
+        )
+
+    required_methods = (
+        "GetRenderFormats",
+        "GetRenderCodecs",
+        "GetCurrentRenderFormatAndCodec",
+        "GetRenderPresetList",
+        "GetRenderJobList",
+    )
+    missing = [
+        name
+        for name in required_methods
+        if not callable(getattr(project, name, None))
+    ]
+    if missing:
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "The current Resolve project does not expose render discovery.",
+            details={"missing_methods": missing},
+        )
+
+    raw_formats = project.GetRenderFormats()
+    if not isinstance(raw_formats, Mapping):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "Resolve.GetRenderFormats() returned an invalid value.",
+        )
+    formats: list[dict[str, Any]] = []
+    for format_name, extension in sorted(
+        raw_formats.items(),
+        key=lambda item: str(item[0]),
+    ):
+        raw_codecs = project.GetRenderCodecs(str(format_name))
+        if not isinstance(raw_codecs, Mapping):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Resolve.GetRenderCodecs() returned an invalid value.",
+                details={"format": str(format_name)},
+            )
+        formats.append(
+            {
+                "format": str(format_name),
+                "extension": str(extension),
+                "codecs": [
+                    {
+                        "description": str(description),
+                        "codec": str(codec),
+                    }
+                    for description, codec in sorted(
+                        raw_codecs.items(),
+                        key=lambda item: str(item[0]),
+                    )
+                ],
+            }
+        )
+
+    current = project.GetCurrentRenderFormatAndCodec()
+    if not isinstance(current, Mapping):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "Resolve.GetCurrentRenderFormatAndCodec() returned an invalid value.",
+        )
+    presets = project.GetRenderPresetList()
+    jobs = project.GetRenderJobList()
+    if not isinstance(presets, list) or not isinstance(jobs, list):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "Resolve returned an invalid render preset or job list.",
+        )
+    timeline = project.GetCurrentTimeline()
+    timeline_summary: dict[str, Any] | None = None
+    if timeline is not None:
+        if not callable(getattr(timeline, "GetTrackCount", None)) or not callable(
+            getattr(timeline, "GetItemListInTrack", None)
+        ):
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "The current timeline does not expose documented track inspection.",
+                details={
+                    "missing_methods": [
+                        "GetTrackCount",
+                        "GetItemListInTrack",
+                    ]
+                },
+            )
+        video_track_count = int(timeline.GetTrackCount("video"))
+        audio_track_count = int(timeline.GetTrackCount("audio"))
+        timeline_summary = {
+            "name": str(timeline.GetName()),
+            "video_track_count": video_track_count,
+            "audio_track_count": audio_track_count,
+            "video_item_count": sum(
+                len(timeline.GetItemListInTrack("video", index) or [])
+                for index in range(1, video_track_count + 1)
+            ),
+            "audio_item_count": sum(
+                len(timeline.GetItemListInTrack("audio", index) or [])
+                for index in range(1, audio_track_count + 1)
+            ),
+        }
+    return {
+        "formats": formats,
+        "current": {
+            "format": _optional_string(current.get("format")),
+            "codec": _optional_string(current.get("codec")),
+        },
+        "presets": _json_safe(presets),
+        "jobs": _json_safe(jobs),
+        "timeline": timeline_summary,
+    }
+
+
+def _optional_string(value: Any) -> str | None:
+    return None if value is None else str(value)
+
+
+def _json_safe(value: Any) -> Any:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, Mapping):
+        return {
+            str(key): _json_safe(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return str(value)
 
 
 def _require_project(resolve: Any) -> tuple[Any, Any, Any]:
@@ -653,7 +851,8 @@ def _apply_verified_capabilities(
         return
     capabilities = state["capabilities"]
     for capability, value in verified.items():
-        if capability in CAPABILITY_BY_ACTION.values() and value is True:
+        supported = set(CAPABILITY_BY_ACTION.values()) | {"render.discovery"}
+        if capability in supported and value is True:
             capabilities[capability] = True
 
 
@@ -781,6 +980,119 @@ def _execute_write_command(
                 "custom_data": custom_data,
                 "backup_path": backup_path,
             }
+        elif action == "prepare_render_job":
+            custom_name = _validate_render_name(arguments["custom_name"])
+            preset_name = "YouTube - 1080p"
+            if not callable(getattr(resolve, "OpenPage", None)) or not callable(
+                getattr(resolve, "GetCurrentPage", None)
+            ):
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "Resolve does not expose documented page navigation.",
+                    details={
+                        "missing_methods": ["GetCurrentPage", "OpenPage"],
+                    },
+                )
+            required_methods = (
+                "GetCurrentTimeline",
+                "GetRenderPresetList",
+                "LoadRenderPreset",
+                "SetCurrentRenderFormatAndCodec",
+                "SetCurrentRenderMode",
+                "SetRenderSettings",
+                "AddRenderJob",
+            )
+            missing = [
+                name
+                for name in required_methods
+                if not callable(getattr(project, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The current Resolve project cannot prepare render jobs.",
+                    details={"missing_methods": missing},
+                )
+            if project.GetCurrentTimeline() is None:
+                raise BridgeOperationError(
+                    "TIMELINE_NOT_OPEN",
+                    "Open a timeline before preparing a render job.",
+                    retryable=True,
+                )
+            previous_page = resolve.GetCurrentPage()
+            if resolve.OpenPage("deliver") is not True:
+                raise BridgeOperationError(
+                    "DELIVER_PAGE_OPEN_FAILED",
+                    "Resolve could not open the Deliver page.",
+                    retryable=True,
+                )
+            try:
+                presets = project.GetRenderPresetList()
+                if not isinstance(presets, list) or preset_name not in presets:
+                    raise BridgeOperationError(
+                        "RENDER_PRESET_UNAVAILABLE",
+                        f"Resolve render preset is unavailable: {preset_name}",
+                    )
+                if project.LoadRenderPreset(preset_name) is not True:
+                    raise BridgeOperationError(
+                        "RENDER_PRESET_LOAD_FAILED",
+                        f"Resolve could not load render preset: {preset_name}",
+                        retryable=True,
+                    )
+                if (
+                    project.SetCurrentRenderFormatAndCodec("MP4", "H264")
+                    is not True
+                ):
+                    raise BridgeOperationError(
+                        "RENDER_FORMAT_FAILED",
+                        "Resolve could not select MP4/H264 rendering.",
+                        retryable=True,
+                    )
+                if project.SetCurrentRenderMode(1) is not True:
+                    raise BridgeOperationError(
+                        "RENDER_MODE_FAILED",
+                        "Resolve could not select single-clip render mode.",
+                        retryable=True,
+                    )
+                target_directory = _render_output_directory()
+                settings = {
+                    "SelectAllFrames": True,
+                    "TargetDir": str(target_directory),
+                    "CustomName": custom_name,
+                    "ExportVideo": True,
+                    "ExportAudio": True,
+                }
+                if project.SetRenderSettings(settings) is not True:
+                    raise BridgeOperationError(
+                        "RENDER_SETTINGS_FAILED",
+                        "Resolve could not apply the fixed render settings.",
+                        retryable=True,
+                    )
+                job_id = project.AddRenderJob()
+                if not isinstance(job_id, str) or not job_id:
+                    raise BridgeOperationError(
+                        "RENDER_JOB_CREATE_FAILED",
+                        "Resolve did not add the render job.",
+                        retryable=True,
+                    )
+            finally:
+                if (
+                    isinstance(previous_page, str)
+                    and previous_page
+                    and previous_page != "deliver"
+                ):
+                    resolve.OpenPage(previous_page)
+            result = {
+                "job_id": job_id,
+                "preset": "youtube-1080p-h264-v1",
+                "resolve_preset": preset_name,
+                "format": "MP4",
+                "codec": "H264",
+                "target_directory": str(target_directory),
+                "custom_name": custom_name,
+                "started": False,
+                "backup_path": backup_path,
+            }
         else:
             raise BridgeOperationError(
                 "UNSUPPORTED_WRITE_ACTION",
@@ -833,7 +1145,16 @@ def process_command_file(
             state["capabilities"][capability] = True
             _record_verified_capability(directories["state"], capability)
         else:
-            result = command_result(command["action"], state)
+            result = command_result(command["action"], state, resolve)
+            if (
+                command["action"] == "get_render_environment"
+                and directories is not None
+            ):
+                state["capabilities"]["render.discovery"] = True
+                _record_verified_capability(
+                    directories["state"],
+                    "render.discovery",
+                )
         response = {
             "protocol_version": PROTOCOL_VERSION,
             "command_id": command_id,

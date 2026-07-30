@@ -16,7 +16,10 @@ param(
     [bool]$PreserveAudioReports = $true,
 
     [Parameter(Mandatory = $false)]
-    [bool]$PreserveProcessedAudio = $true
+    [bool]$PreserveProcessedAudio = $true,
+
+    [Parameter(Mandatory = $false)]
+    [bool]$PreserveRenderOutput = $true
 )
 
 Set-StrictMode -Version Latest
@@ -136,6 +139,16 @@ if (
     Write-Host "Removed derived audio: $($paths.ProcessedAudioRoot)"
 } elseif ($PreserveProcessedAudio) {
     Write-Host "Preserved derived audio: $($paths.ProcessedAudioRoot)"
+}
+
+if (
+    -not $PreserveRenderOutput -and
+    (Test-Path -LiteralPath $paths.RenderOutputRoot)
+) {
+    Remove-Item -LiteralPath $paths.RenderOutputRoot -Recurse -Force
+    Write-Host "Removed rendered outputs: $($paths.RenderOutputRoot)"
+} elseif ($PreserveRenderOutput) {
+    Write-Host "Preserved rendered outputs: $($paths.RenderOutputRoot)"
 }
 
 Write-Host "Uninstallation completed. Repository, media, and Resolve projects were not removed."

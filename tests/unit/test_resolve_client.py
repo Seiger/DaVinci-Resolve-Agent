@@ -29,6 +29,7 @@ class StubCommandClient:
             "create_timeline",
             "append_clip",
             "add_marker",
+            "prepare_render_job",
         }:
             assert arguments is not None
             assert create_backup is True
@@ -51,6 +52,12 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
             "get_current_project": {"name": "Test Project"},
             "list_timelines": [{"index": 1, "name": "Main"}],
             "get_current_timeline": {"name": "Main"},
+            "get_render_environment": {
+                "formats": [],
+                "current": {"format": "mp4", "codec": "H264"},
+                "presets": [],
+                "jobs": [],
+            },
             "import_media": {
                 "items": [{"asset_id": "asset-1", "name": "sample.wav"}]
             },
@@ -69,6 +76,11 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 "frame": 0,
                 "color": "Green",
             },
+            "prepare_render_job": {
+                "job_id": "job-1",
+                "preset": "youtube-1080p-h264-v1",
+                "started": False,
+            },
         }
     )
     client = ResolveProviderClient(command_client)
@@ -78,6 +90,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     assert client.current_project() == {"name": "Test Project"}
     assert client.timelines() == [{"index": 1, "name": "Main"}]
     assert client.current_timeline() == {"name": "Main"}
+    assert client.render_environment()["current"]["format"] == "mp4"
     assert client.import_media(
         ["sample.wav"],
         idempotency_key="stable-key",
@@ -100,14 +113,20 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         1,
         idempotency_key="stable-key",
     )["frame"] == 0
+    assert client.prepare_render_job(
+        "M7 Test",
+        idempotency_key="stable-key",
+    )["started"] is False
     assert command_client.actions == [
         "ping",
         "get_capabilities",
         "get_current_project",
         "list_timelines",
         "get_current_timeline",
+        "get_render_environment",
         "import_media",
         "create_timeline",
         "append_clip",
         "add_marker",
+        "prepare_render_job",
     ]

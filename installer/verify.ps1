@@ -59,6 +59,7 @@ try {
         $paths.PlansRoot,
         $paths.AudioReportsRoot,
         $paths.ProcessedAudioRoot,
+        $paths.RenderOutputRoot,
         $paths.LogsRoot,
         $paths.ResolveScriptsRoot
     )) {

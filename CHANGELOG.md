@@ -42,3 +42,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Deterministic RMS-level preset with peak guard and preserved source assets.
 - Canonical before/after audio reports with target validation.
 - Local `clean_dialogue_audio` MCP tool independent from Resolve.
+- M7 read-only discovery of documented Resolve render formats, codecs, presets,
+  current format/codec, and queued jobs.
+- M7 fixed MP4/H264 render-job preparation with backup, idempotency, and a
+  durable non-configurable output directory.
+- Resolve 21 Free 21.0.3.7 live verification of 1080p render-job preparation,
+  queue discovery, backup creation, and idempotent replay without rendering.

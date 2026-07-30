@@ -89,6 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("project", "Show the current Resolve project."),
         ("timelines", "List timelines in the current Resolve project."),
         ("timeline", "Show the current Resolve timeline."),
+        ("render-options", "Discover render formats, codecs, presets, and jobs."),
     ):
         request_parser = resolve_subparsers.add_parser(command, help=help_text)
         _add_request_options(request_parser)
@@ -151,6 +152,8 @@ def _run_resolve_request(
         result = client.timelines(timeout_seconds)
     elif command == "timeline":
         result = client.current_timeline(timeout_seconds)
+    elif command == "render-options":
+        result = client.render_environment(timeout_seconds)
     else:
         raise AgentClientError(f"Unknown Resolve CLI command: {command}")
 
@@ -171,6 +174,16 @@ def _run_resolve_request(
                 print(f"{timeline['index']}: {timeline['name']}")
     elif command == "timeline":
         print("No Resolve timeline is open." if result is None else result["name"])
+    elif command == "render-options":
+        current = result["current"]
+        print(
+            "Current: "
+            f"{current.get('format') or 'unknown'} / "
+            f"{current.get('codec') or 'unknown'}"
+        )
+        print(f"Formats: {len(result['formats'])}")
+        print(f"Presets: {len(result['presets'])}")
+        print(f"Queued jobs: {len(result['jobs'])}")
     else:
         for name, value in sorted(result.items()):
             print(f"{name}: {value}")
@@ -217,4 +230,3 @@ def main(arguments: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

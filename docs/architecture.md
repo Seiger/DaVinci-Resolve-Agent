@@ -153,6 +153,47 @@ or editor runtime. It measures RMS dBFS rather than claiming standards-compliant
 LUFS. Original assets are preserved, derived assets use a durable user video
 directory, and reports remain under the local runtime directory.
 
+## M7 delivery discovery
+
+The first M7 slice is read-only:
+
+```text
+CLI / MCP resolve_get_render_options
+ └─ AgentApplication
+     └─ ResolveProviderClient
+         └─ get_render_environment command
+             └─ ResolveBridge
+                 ├─ GetRenderFormats
+                 ├─ GetRenderCodecs
+                 ├─ GetCurrentRenderFormatAndCodec
+                 ├─ GetRenderPresetList
+                 └─ GetRenderJobList
+```
+
+Successful discovery records `render.discovery=true`, but leaves
+`render.configure` and `render.start` unknown. No render setting or queue state
+is changed by this slice.
+
+The write slice remains intentionally narrow:
+
+```text
+MCP resolve_prepare_render_job
+ └─ validate custom_name
+     └─ backup project
+         └─ fixed YouTube 1080p + MP4/H264 settings
+             └─ AddRenderJob
+```
+
+The bridge derives the target directory from `USERPROFILE`; clients cannot
+provide a path, codec, preset, filter, upload target, or executable command.
+Successful preparation verifies `render.configure`, while `render.start`
+remains unknown and unavailable.
+The bridge temporarily opens the documented Deliver page for `AddRenderJob`
+and restores the prior Resolve page afterward.
+Live validation on Resolve 21 Free 21.0.3.7 confirmed one 1920x1080 MP4/H.264
+job, one mandatory backup, and replay of the stored result without adding a
+second job or starting rendering.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

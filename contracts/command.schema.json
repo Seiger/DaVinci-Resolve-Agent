@@ -47,10 +47,12 @@
         "get_current_project",
         "list_timelines",
         "get_current_timeline",
+        "get_render_environment",
         "import_media",
         "create_timeline",
         "append_clip",
-        "add_marker"
+        "add_marker",
+        "prepare_render_job"
       ]
     },
     "arguments": {
@@ -78,13 +80,40 @@
       "if": {
         "properties": {
           "action": {
+            "const": "prepare_render_job"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "custom_name"
+            ],
+            "properties": {
+              "custom_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
             "enum": [
               "ping",
               "get_bridge_info",
               "get_capabilities",
               "get_current_project",
               "list_timelines",
-              "get_current_timeline"
+              "get_current_timeline",
+              "get_render_environment"
             ]
           }
         }
@@ -243,7 +272,8 @@
               "import_media",
               "create_timeline",
               "append_clip",
-              "add_marker"
+              "add_marker",
+              "prepare_render_job"
             ]
           }
         }

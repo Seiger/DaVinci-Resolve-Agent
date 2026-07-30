@@ -22,6 +22,17 @@ class StubResolveReader:
     def current_timeline(self, timeout_seconds: float = 30) -> dict[str, Any]:
         return {"name": "Main"}
 
+    def render_environment(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "formats": [],
+            "current": {"format": "mp4", "codec": "H264"},
+            "presets": [],
+            "jobs": [],
+        }
+
     def import_media(
         self,
         paths: list[str],
@@ -63,6 +74,15 @@ class StubResolveReader:
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         return {"timeline_id": timeline_id, "frame": frame, "color": color}
+
+    def prepare_render_job(
+        self,
+        custom_name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"job_id": "job-1", "custom_name": custom_name, "started": False}
 
 
 class StubMediaPolicy:
@@ -145,14 +165,20 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             import_annotations = annotations["resolve_import_media"]
             rough_cut_annotations = annotations["create_rough_cut"]
             audio_annotations = annotations["clean_dialogue_audio"]
+            render_annotations = annotations["resolve_get_render_options"]
+            prepare_annotations = annotations["resolve_prepare_render_job"]
             assert status_annotations is not None
             assert import_annotations is not None
             assert rough_cut_annotations is not None
             assert audio_annotations is not None
+            assert render_annotations is not None
+            assert prepare_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
             assert audio_annotations.read_only_hint is False
+            assert render_annotations.read_only_hint is True
+            assert prepare_annotations.read_only_hint is False
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
@@ -162,6 +188,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                 ),
                 "timeline": await client.call_tool(
                     "resolve_get_timeline",
+                    {},
+                ),
+                "render": await client.call_tool(
+                    "resolve_get_render_options",
                     {},
                 ),
                 "status": await client.call_tool("video_agent_status", {}),
@@ -184,6 +214,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "frame": 0,
                         "color": "Green",
                     },
+                ),
+                "prepared": await client.call_tool(
+                    "resolve_prepare_render_job",
+                    {"custom_name": "M7 Test"},
                 ),
                 "rough_cut": await client.call_tool(
                     "create_rough_cut",
@@ -210,10 +244,12 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_get_project",
         "resolve_list_timelines",
         "resolve_get_timeline",
+        "resolve_get_render_options",
         "resolve_import_media",
         "resolve_create_timeline",
         "resolve_append_clip",
         "resolve_add_marker",
+        "resolve_prepare_render_job",
         "create_rough_cut",
         "clean_dialogue_audio",
     }
@@ -226,6 +262,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["timeline"].structured_content == {
         "timeline": {"name": "Main"}
     }
+    assert results["render"].structured_content["current"]["format"] == "mp4"
     assert results["status"].structured_content["healthy"] is True
     assert results["imported"].structured_content["items"][0]["asset_id"] == (
         "asset-1"
@@ -235,5 +272,6 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     )
     assert results["appended"].structured_content["asset_id"] == "asset-1"
     assert results["marker"].structured_content["color"] == "Green"
+    assert results["prepared"].structured_content["started"] is False
     assert results["rough_cut"].structured_content["status"] == "pending_review"
     assert results["audio"].structured_content["status"] == "completed"

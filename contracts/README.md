@@ -13,6 +13,11 @@ status/error consistency, and capability reports with Draft 2020-12 semantics.
 No contract permits arbitrary Python, Lua, PowerShell, shell, or Resolve
 expression execution.
 
+M7 adds the empty-argument read-only `get_render_environment` command and the
+strict `prepare_render_job` write command. The latter accepts only
+`custom_name`, requires backup, and cannot start rendering. Arbitrary render
+settings, deletion, upload, and start commands remain outside the contract.
+
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.

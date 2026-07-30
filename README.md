@@ -4,14 +4,20 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M6: audio workflow**. Він установлює
+Проєкт перебуває на етапі **Milestone M7: delivery preparation**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає read-only та
 чотири безпечні write-інструменти через stdio. M5 також створює локальні
 чернетки rough cut із синхронізацією та аналізом пауз, але не застосовує їх.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
-оригінал. Розширене редагування, рендер і декодування медіаконтейнерів ще не
-реалізовані.
+оригінал. Розширене редагування, запуск рендеру й декодування
+медіаконтейнерів ще не реалізовані.
+Перший підетап M7 додає read-only discovery render formats, codecs, presets і
+queue.
+Після успішної live-перевірки discovery M7 також готує один фіксований
+MP4/H264 job, але ніколи не запускає render автоматично.
+Discovery та ідемпотентну підготовку такого job перевірено у Resolve 21 Free
+21.0.3.7 на таймлайні з відео й аудіо.
 
 ## Вимоги
 
@@ -59,6 +65,7 @@ cd DaVinci-Resolve-Agent
 .\.venv\Scripts\davinci-agent.exe resolve project
 .\.venv\Scripts\davinci-agent.exe resolve timelines
 .\.venv\Scripts\davinci-agent.exe resolve timeline
+.\.venv\Scripts\davinci-agent.exe resolve render-options
 ```
 
 `status` читає останній збережений heartbeat. Інші команди ставлять перевірений
@@ -87,6 +94,7 @@ Read-only інструменти:
 - `resolve_get_project`;
 - `resolve_list_timelines`;
 - `resolve_get_timeline`.
+- `resolve_get_render_options`.
 
 Безпечні write-інструменти:
 
@@ -94,6 +102,7 @@ Read-only інструменти:
 - `resolve_create_timeline`;
 - `resolve_append_clip`;
 - `resolve_add_marker`.
+- `resolve_prepare_render_job`.
 
 Draft-only інструмент M5:
 
@@ -119,6 +128,11 @@ runtime-директорії. Деталі наведено в
 WAV. Preset виконує детерміноване RMS leveling із peak guard, зберігає
 оригінал і створює derived WAV. RMS dBFS не заявляється як LUFS. Деталі:
 [audio workflow](docs/audio-workflow.md).
+
+`resolve_prepare_render_job` використовує лише preset
+`youtube-1080p-h264-v1`, створює `.drp` backup, пише output у
+`%USERPROFILE%\Videos\DaVinciResolveAgent\renders` і додає job у queue.
+Rendering залишається незапущеним.
 
 ## Розробка
 
@@ -155,7 +169,8 @@ py -3.12 -m venv .venv
     -PreserveBackups $true `
     -PreservePlans $true `
     -PreserveAudioReports $true `
-    -PreserveProcessedAudio $true
+    -PreserveProcessedAudio $true `
+    -PreserveRenderOutput $true
 ```
 
 Скрипт видаляє лише `.venv` цього репозиторію та каталоги застосунку, створені в
