@@ -17,6 +17,7 @@ runtime/
   failed/
   state/
   logs/
+  backups/
 ```
 
 The external writer creates `commands/<id>.json.tmp` and atomically renames it
@@ -28,6 +29,20 @@ response and are preserved under `failed/`.
 
 Response files are retained as local audit evidence. The external client checks
 that the response `command_id` matches the submitted command.
+
+## M4 write actions
+
+The allowlist additionally contains:
+
+- `import_media` with `paths`;
+- `create_timeline` with `name`;
+- `append_clip` with `timeline_id` and `asset_id`;
+- `add_marker` with timeline marker fields.
+
+Every write envelope must set `allow_destructive` to `false` and
+`create_backup` to `true`. Write actions use `state/receipts` to make a stable
+`idempotency_key` replay-safe. The bridge validates media paths independently
+against `state/media-policy.json` before calling Resolve.
 
 ## M1 action allowlist
 

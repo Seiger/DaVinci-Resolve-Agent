@@ -1,8 +1,10 @@
 # Contracts
 
-Protocol version `1.0` accepts only the read-only Resolve actions listed in
-`command.schema.json`. The bridge performs a minimal validation pass without
-third-party dependencies because it runs inside Resolve.
+Protocol version `1.0` accepts the read-only Resolve actions and four M4
+safe-editing actions listed in `command.schema.json`. Write actions have strict
+argument shapes and require `create_backup=true`. The bridge performs a minimal
+validation pass without third-party dependencies because it runs inside
+Resolve.
 
 The JSON Schemas are canonical protocol documentation. From M2 onward, the
 external agent validates commands, responses, date-time formats, response

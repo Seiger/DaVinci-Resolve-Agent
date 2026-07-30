@@ -66,6 +66,8 @@ class CommandClient(Protocol):
         action: str,
         arguments: dict[str, Any] | None = None,
         timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+        create_backup: bool = False,
     ) -> Any:
         """Submit a provider command and return its result."""
         ...
@@ -94,17 +96,22 @@ class FilesystemCommandClient:
         action: str,
         arguments: dict[str, Any] | None = None,
         timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+        create_backup: bool = False,
     ) -> Any:
-        """Submit one non-destructive command and return its validated result."""
+        """Submit one allowlisted command and return its validated result."""
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than zero.")
+        if idempotency_key is not None and not idempotency_key:
+            raise ValueError("idempotency_key must not be empty.")
 
         command_id = str(uuid4())
+        stable_key = command_id if idempotency_key is None else idempotency_key
         now = datetime.now(timezone.utc)
         command = {
             "protocol_version": PROTOCOL_VERSION,
             "command_id": command_id,
-            "idempotency_key": command_id,
+            "idempotency_key": stable_key,
             "created_at": now.isoformat().replace("+00:00", "Z"),
             "expires_at": (now + timedelta(seconds=timeout_seconds + 5))
             .isoformat()
@@ -114,7 +121,7 @@ class FilesystemCommandClient:
             "arguments": {} if arguments is None else arguments,
             "safety": {
                 "allow_destructive": False,
-                "create_backup": False,
+                "create_backup": create_backup,
             },
         }
         try:

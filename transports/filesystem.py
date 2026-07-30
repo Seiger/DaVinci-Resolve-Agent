@@ -39,6 +39,10 @@ class FilesystemLayout:
     def logs(self) -> Path:
         return self.root / "logs"
 
+    @property
+    def backups(self) -> Path:
+        return self.root / "backups"
+
     def directories(self) -> tuple[Path, ...]:
         """Return every directory owned by the runtime layout."""
         return (
@@ -48,6 +52,7 @@ class FilesystemLayout:
             self.failed,
             self.state,
             self.logs,
+            self.backups,
         )
 
     def ensure_directories(self) -> None:
@@ -75,4 +80,3 @@ def read_json_object(path: Path) -> dict[str, Any]:
     if not isinstance(loaded, dict):
         raise ValueError(f"Expected a JSON object in {path}.")
     return loaded
-

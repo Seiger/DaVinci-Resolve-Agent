@@ -57,7 +57,9 @@ For an M2 live request, start a command in PowerShell and invoke
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\responses\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\failed\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\state\
+%LOCALAPPDATA%\DaVinciResolveAgent\runtime\state\receipts\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\logs\
+%LOCALAPPDATA%\DaVinciResolveAgent\runtime\backups\
 ```
 
 ## Uninstall
@@ -71,10 +73,14 @@ Run interactively:
 Or provide both preservation choices:
 
 ```powershell
-.\installer\uninstall.ps1 -PreserveConfig $true -PreserveLogs $true
+.\installer\uninstall.ps1 `
+    -PreserveConfig $true `
+    -PreserveLogs $true `
+    -PreserveBackups $true
 ```
 
 The script removes only `.venv` and the named application directories. It does
 not remove the repository, media, or Resolve projects. It removes the installed
 bridge only when it still matches the repository source and restores a previous
-bridge backup when available.
+bridge backup when available. Project `.drp` backups are preserved by default;
+pass `-PreserveBackups $false` only when their deletion is intentional.

@@ -28,3 +28,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Read-only MCP tools for bridge status, current project, timelines, and current
   timeline.
 - MCP client configuration and one-shot bridge usage documentation.
+- M4 allowlisted media import, timeline creation, clip append, and marker tools.
+- Mandatory `.drp` project exports before write operations.
+- External and bridge-side media-root validation.
+- Stable idempotency receipts and documented manual rollback strategy.
+- Resolve 21 Free 21.0.3.7 live verification of all four M4 write operations
+  and replay without duplicate backups.

@@ -87,6 +87,8 @@ function Get-AgentPaths {
         ResponsesRoot = Join-Path $runtimeRoot "responses"
         FailedRoot = Join-Path $runtimeRoot "failed"
         StateRoot = Join-Path $runtimeRoot "state"
+        ReceiptsRoot = Join-Path (Join-Path $runtimeRoot "state") "receipts"
+        BackupsRoot = Join-Path $runtimeRoot "backups"
         BridgeStateFile = Join-Path (Join-Path $runtimeRoot "state") "bridge.json"
         ResolveScriptsRoot = $resolveScriptsRoot
         BridgeSource = Join-Path $RepositoryRoot "bridges\resolve\ResolveBridge.py"

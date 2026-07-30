@@ -31,6 +31,25 @@ def test_valid_command_contract() -> None:
     validate_contract("command", _valid_command())
 
 
+def test_write_command_requires_backup_and_action_arguments() -> None:
+    command = _valid_command()
+    command["action"] = "create_timeline"
+    command["arguments"] = {"name": "M4 Timeline"}
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+
+    validate_contract("command", command)
+
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": False,
+    }
+    with pytest.raises(ContractValidationError, match="create_backup"):
+        validate_contract("command", command)
+
+
 def test_unknown_action_violates_command_contract() -> None:
     command = _valid_command()
     command["action"] = "execute_python"
@@ -58,4 +77,3 @@ def test_success_response_cannot_contain_an_error() -> None:
 
     with pytest.raises(ContractValidationError, match="error"):
         validate_contract("response", response)
-

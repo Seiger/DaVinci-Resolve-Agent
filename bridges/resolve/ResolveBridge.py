@@ -1,14 +1,16 @@
-"""One-shot read-only bridge executed inside DaVinci Resolve."""
+"""One-shot allowlisted bridge executed inside DaVinci Resolve."""
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
 import os
+import re
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 BRIDGE_VERSION = "0.1.0"
 PROTOCOL_VERSION = "1.0"
@@ -20,7 +22,40 @@ ALLOWED_ACTIONS = {
     "get_current_project",
     "list_timelines",
     "get_current_timeline",
+    "import_media",
+    "create_timeline",
+    "append_clip",
+    "add_marker",
 }
+WRITE_ACTIONS = {
+    "import_media",
+    "create_timeline",
+    "append_clip",
+    "add_marker",
+}
+CAPABILITY_BY_ACTION = {
+    "import_media": "media.import",
+    "create_timeline": "timeline.create",
+    "append_clip": "clip.insert",
+    "add_marker": "marker.create",
+}
+
+
+class BridgeOperationError(RuntimeError):
+    """A safe error returned for an allowlisted Resolve operation."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        retryable: bool = False,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self.code = code
+        self.retryable = retryable
+        self.details = {} if details is None else details
+        super().__init__(message)
 
 
 def utc_now() -> str:
@@ -48,6 +83,7 @@ def runtime_directories(root: Path) -> dict[str, Path]:
             "failed",
             "state",
             "logs",
+            "backups",
         )
     }
 
@@ -203,7 +239,7 @@ def _parse_timestamp(value: Any, field_name: str) -> datetime:
 
 
 def validate_command(command: Any) -> dict[str, Any]:
-    """Validate the minimal M1 command envelope and allowlist."""
+    """Validate the fixed command envelope and action-specific arguments."""
     if not isinstance(command, dict):
         raise ValueError("Command must be a JSON object.")
 
@@ -235,25 +271,91 @@ def validate_command(command: Any) -> dict[str, Any]:
     if command.get("protocol_version") != PROTOCOL_VERSION:
         raise ValueError("Unsupported protocol_version.")
     if command["provider"] != "resolve":
-        raise ValueError("M1 bridge only accepts provider 'resolve'.")
+        raise ValueError("ResolveBridge only accepts provider 'resolve'.")
     if command["action"] not in ALLOWED_ACTIONS:
         raise ValueError("Unsupported or unsafe bridge action.")
-    if command.get("arguments") != {}:
-        raise ValueError("M1 read-only actions do not accept arguments.")
+    if not isinstance(command.get("arguments"), dict):
+        raise ValueError("arguments must be a JSON object.")
     if not isinstance(command.get("safety"), dict):
         raise ValueError("safety must be a JSON object.")
     if set(command["safety"]) != {"allow_destructive", "create_backup"}:
         raise ValueError("safety fields do not match the protocol contract.")
     if command["safety"].get("allow_destructive") is not False:
-        raise ValueError("M1 commands must set allow_destructive to false.")
+        raise ValueError("Commands must set allow_destructive to false.")
     if not isinstance(command["safety"].get("create_backup"), bool):
         raise ValueError("safety.create_backup must be a boolean.")
+    if command["action"] in WRITE_ACTIONS:
+        if command["safety"]["create_backup"] is not True:
+            raise ValueError("Write commands must request a project backup.")
+        _validate_write_arguments(command["action"], command["arguments"])
+    elif command["arguments"] != {}:
+        raise ValueError("Read-only actions do not accept arguments.")
 
     _parse_timestamp(command["created_at"], "created_at")
     expires_at = _parse_timestamp(command["expires_at"], "expires_at")
     if expires_at <= datetime.now(timezone.utc):
         raise ValueError("Command has expired.")
     return command
+
+
+def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
+    """Validate bridge-side write arguments without trusting the agent."""
+    if action == "import_media":
+        if set(arguments) != {"paths"}:
+            raise ValueError("import_media requires only paths.")
+        paths = arguments["paths"]
+        if not isinstance(paths, list) or not 1 <= len(paths) <= 100:
+            raise ValueError("paths must contain between 1 and 100 items.")
+        if not all(isinstance(path, str) and path for path in paths):
+            raise ValueError("Every media path must be a non-empty string.")
+        return
+    if action == "create_timeline":
+        if set(arguments) != {"name"}:
+            raise ValueError("create_timeline requires only name.")
+        name = arguments["name"]
+        if not isinstance(name, str) or not name.strip() or len(name) > 128:
+            raise ValueError("Timeline name must contain 1 to 128 characters.")
+        return
+    if action == "append_clip":
+        if set(arguments) != {"timeline_id", "asset_id"}:
+            raise ValueError("append_clip requires timeline_id and asset_id.")
+        for field in ("timeline_id", "asset_id"):
+            if not isinstance(arguments[field], str) or not arguments[field]:
+                raise ValueError(f"{field} must be a non-empty string.")
+        return
+    if action == "add_marker":
+        expected = {
+            "timeline_id",
+            "frame",
+            "color",
+            "name",
+            "note",
+            "duration",
+        }
+        if set(arguments) != expected:
+            raise ValueError("add_marker fields do not match the contract.")
+        if not isinstance(arguments["timeline_id"], str) or not arguments[
+            "timeline_id"
+        ]:
+            raise ValueError("timeline_id must be a non-empty string.")
+        if (
+            not isinstance(arguments["frame"], int)
+            or arguments["frame"] < 0
+        ):
+            raise ValueError("frame must be a non-negative integer.")
+        if not isinstance(arguments["color"], str) or not arguments["color"]:
+            raise ValueError("color must be a non-empty string.")
+        if not isinstance(arguments["name"], str):
+            raise ValueError("name must be a string.")
+        if not isinstance(arguments["note"], str):
+            raise ValueError("note must be a string.")
+        if (
+            not isinstance(arguments["duration"], int)
+            or arguments["duration"] < 1
+        ):
+            raise ValueError("duration must be a positive integer.")
+        return
+    raise ValueError("Unsupported write action.")
 
 
 def command_result(action: str, state: dict[str, Any]) -> Any:
@@ -285,11 +387,427 @@ def command_result(action: str, state: dict[str, Any]) -> Any:
     raise ValueError("Unsupported or unsafe bridge action.")
 
 
+def _require_project(resolve: Any) -> tuple[Any, Any, Any]:
+    project_manager = resolve.GetProjectManager()
+    if project_manager is None:
+        raise BridgeOperationError(
+            "PROJECT_MANAGER_UNAVAILABLE",
+            "Resolve.GetProjectManager() returned no object.",
+            retryable=True,
+        )
+    project = project_manager.GetCurrentProject()
+    if project is None:
+        raise BridgeOperationError(
+            "PROJECT_NOT_OPEN",
+            "Open a Resolve project before running this command.",
+            retryable=True,
+        )
+    media_pool = project.GetMediaPool()
+    if media_pool is None:
+        raise BridgeOperationError(
+            "MEDIA_POOL_UNAVAILABLE",
+            "The current project returned no MediaPool object.",
+            retryable=True,
+        )
+    return project_manager, project, media_pool
+
+
+def _safe_backup_stem(project_name: str) -> str:
+    normalized = re.sub(r"[^A-Za-z0-9._-]+", "-", project_name).strip("-._")
+    return normalized[:80] or "resolve-project"
+
+
+def _create_project_backup(
+    project_manager: Any,
+    project: Any,
+    backups_directory: Path,
+    command_id: str,
+) -> str:
+    if project_manager.SaveProject() is not True:
+        raise BridgeOperationError(
+            "PROJECT_SAVE_FAILED",
+            "Resolve could not save the current project before modification.",
+            retryable=True,
+        )
+    project_name = str(project.GetName())
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup_path = backups_directory / (
+        f"{_safe_backup_stem(project_name)}-{timestamp}-"
+        f"{_safe_backup_stem(command_id)}.drp"
+    )
+    exported = project_manager.ExportProject(
+        project_name,
+        str(backup_path),
+        False,
+    )
+    if exported is not True or not backup_path.is_file():
+        raise BridgeOperationError(
+            "PROJECT_BACKUP_FAILED",
+            "Resolve could not export a project backup; no edit was attempted.",
+            retryable=True,
+            details={"backup_path": str(backup_path)},
+        )
+    return str(backup_path)
+
+
+def _load_media_roots(state_directory: Path) -> tuple[Path, ...]:
+    policy_path = state_directory / "media-policy.json"
+    try:
+        with policy_path.open("r", encoding="utf-8") as policy_file:
+            policy = json.load(policy_file)
+    except (OSError, json.JSONDecodeError) as error:
+        raise BridgeOperationError(
+            "MEDIA_POLICY_UNAVAILABLE",
+            "Resolved media policy is missing or unreadable.",
+            retryable=True,
+        ) from error
+    if (
+        not isinstance(policy, dict)
+        or policy.get("policy_version") != "1.0"
+        or not isinstance(policy.get("allowed_roots"), list)
+        or not policy["allowed_roots"]
+    ):
+        raise BridgeOperationError(
+            "MEDIA_POLICY_INVALID",
+            "Resolved media policy does not match version 1.0.",
+        )
+    roots: list[Path] = []
+    for raw_root in policy["allowed_roots"]:
+        if not isinstance(raw_root, str):
+            raise BridgeOperationError(
+                "MEDIA_POLICY_INVALID",
+                "Every resolved media root must be a string.",
+            )
+        root = Path(raw_root)
+        if not root.is_absolute():
+            raise BridgeOperationError(
+                "MEDIA_POLICY_INVALID",
+                "Every resolved media root must be absolute.",
+            )
+        roots.append(root.resolve())
+    return tuple(roots)
+
+
+def _validate_bridge_media_paths(
+    raw_paths: list[str],
+    state_directory: Path,
+) -> list[str]:
+    roots = _load_media_roots(state_directory)
+    validated: list[str] = []
+    for raw_path in raw_paths:
+        candidate = Path(raw_path)
+        if not candidate.is_absolute():
+            raise BridgeOperationError(
+                "MEDIA_PATH_NOT_ABSOLUTE",
+                f"Media path must be absolute: {raw_path}",
+            )
+        resolved = candidate.resolve()
+        if not resolved.is_file():
+            raise BridgeOperationError(
+                "MEDIA_FILE_NOT_FOUND",
+                f"Media file does not exist: {resolved}",
+            )
+        if not any(resolved.is_relative_to(root) for root in roots):
+            raise BridgeOperationError(
+                "MEDIA_PATH_NOT_ALLOWED",
+                f"Media path is outside configured allowed roots: {resolved}",
+            )
+        validated.append(str(resolved))
+    return validated
+
+
+def _find_timeline(project: Any, timeline_id: str) -> Any:
+    for index in range(1, int(project.GetTimelineCount()) + 1):
+        timeline = project.GetTimelineByIndex(index)
+        if timeline is not None and str(timeline.GetUniqueId()) == timeline_id:
+            return timeline
+    raise BridgeOperationError(
+        "TIMELINE_NOT_FOUND",
+        f"Resolve timeline was not found: {timeline_id}",
+    )
+
+
+def _find_media_item(folder: Any, asset_id: str) -> Any:
+    for item in folder.GetClipList() or []:
+        if str(item.GetMediaId()) == asset_id:
+            return item
+    for child in folder.GetSubFolderList() or []:
+        found = _find_media_item_or_none(child, asset_id)
+        if found is not None:
+            return found
+    raise BridgeOperationError(
+        "MEDIA_ASSET_NOT_FOUND",
+        f"Resolve media asset was not found: {asset_id}",
+    )
+
+
+def _find_media_item_or_none(folder: Any, asset_id: str) -> Any:
+    try:
+        return _find_media_item(folder, asset_id)
+    except BridgeOperationError as error:
+        if error.code == "MEDIA_ASSET_NOT_FOUND":
+            return None
+        raise
+
+
+def _request_fingerprint(command: dict[str, Any]) -> str:
+    canonical = json.dumps(
+        {
+            "provider": command["provider"],
+            "action": command["action"],
+            "arguments": command["arguments"],
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _receipt_path(state_directory: Path, idempotency_key: str) -> Path:
+    key_hash = hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()
+    return state_directory / "receipts" / f"{key_hash}.json"
+
+
+def _read_receipt(
+    command: dict[str, Any],
+    state_directory: Path,
+) -> dict[str, Any] | None:
+    path = _receipt_path(state_directory, command["idempotency_key"])
+    if not path.is_file():
+        return None
+    try:
+        with path.open("r", encoding="utf-8") as receipt_file:
+            receipt = json.load(receipt_file)
+    except (OSError, json.JSONDecodeError) as error:
+        raise BridgeOperationError(
+            "IDEMPOTENCY_RECEIPT_INVALID",
+            "The stored idempotency receipt is unreadable.",
+        ) from error
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("fingerprint") != _request_fingerprint(command)
+        or not isinstance(receipt.get("result"), dict)
+    ):
+        raise BridgeOperationError(
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key was already used for a different command.",
+        )
+    return cast(dict[str, Any], receipt["result"])
+
+
+def _write_receipt(
+    command: dict[str, Any],
+    state_directory: Path,
+    result: dict[str, Any],
+) -> None:
+    path = _receipt_path(state_directory, command["idempotency_key"])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(
+        path,
+        {
+            "idempotency_key": command["idempotency_key"],
+            "action": command["action"],
+            "fingerprint": _request_fingerprint(command),
+            "created_at": utc_now(),
+            "result": result,
+        },
+    )
+
+
+def _verified_capabilities_path(state_directory: Path) -> Path:
+    return state_directory / "verified-capabilities.json"
+
+
+def _record_verified_capability(
+    state_directory: Path,
+    capability: str,
+) -> None:
+    path = _verified_capabilities_path(state_directory)
+    verified: dict[str, Any] = {}
+    if path.is_file():
+        try:
+            with path.open("r", encoding="utf-8") as capability_file:
+                loaded = json.load(capability_file)
+            if isinstance(loaded, dict):
+                verified = loaded
+        except (OSError, json.JSONDecodeError):
+            verified = {}
+    verified[capability] = True
+    atomic_write_json(path, verified)
+
+
+def _apply_verified_capabilities(
+    state: dict[str, Any],
+    state_directory: Path,
+) -> None:
+    path = _verified_capabilities_path(state_directory)
+    if not path.is_file():
+        return
+    try:
+        with path.open("r", encoding="utf-8") as capability_file:
+            verified = json.load(capability_file)
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(verified, dict):
+        return
+    capabilities = state["capabilities"]
+    for capability, value in verified.items():
+        if capability in CAPABILITY_BY_ACTION.values() and value is True:
+            capabilities[capability] = True
+
+
+def _execute_write_command(
+    resolve: Any,
+    command: dict[str, Any],
+    directories: dict[str, Path],
+) -> tuple[dict[str, Any], list[str]]:
+    receipt = _read_receipt(command, directories["state"])
+    if receipt is not None:
+        return receipt, ["Returned the stored idempotent result."]
+
+    project_manager, project, media_pool = _require_project(resolve)
+    action = command["action"]
+    arguments = command["arguments"]
+
+    if action == "import_media":
+        arguments = {
+            "paths": _validate_bridge_media_paths(
+                arguments["paths"],
+                directories["state"],
+            )
+        }
+    elif action in {"append_clip", "add_marker"}:
+        timeline = _find_timeline(project, arguments["timeline_id"])
+        if action == "append_clip":
+            root_folder = media_pool.GetRootFolder()
+            if root_folder is None:
+                raise BridgeOperationError(
+                    "MEDIA_POOL_ROOT_UNAVAILABLE",
+                    "Resolve MediaPool returned no root folder.",
+                    retryable=True,
+                )
+            media_item = _find_media_item(root_folder, arguments["asset_id"])
+
+    backup_path = _create_project_backup(
+        project_manager,
+        project,
+        directories["backups"],
+        command["command_id"],
+    )
+
+    try:
+        result: dict[str, Any]
+        if action == "import_media":
+            imported = media_pool.ImportMedia(arguments["paths"])
+            if not imported:
+                raise BridgeOperationError(
+                    "MEDIA_IMPORT_FAILED",
+                    "Resolve did not import any media items.",
+                    retryable=True,
+                )
+            result = {
+                "items": [
+                    {
+                        "asset_id": str(item.GetMediaId()),
+                        "name": str(item.GetName()),
+                    }
+                    for item in imported
+                ],
+                "backup_path": backup_path,
+            }
+        elif action == "create_timeline":
+            timeline = media_pool.CreateEmptyTimeline(arguments["name"])
+            if timeline is None:
+                raise BridgeOperationError(
+                    "TIMELINE_CREATE_FAILED",
+                    "Resolve did not create the requested timeline.",
+                    retryable=True,
+                )
+            result = {
+                "timeline": {
+                    "timeline_id": str(timeline.GetUniqueId()),
+                    "name": str(timeline.GetName()),
+                },
+                "backup_path": backup_path,
+            }
+        elif action == "append_clip":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested timeline.",
+                    retryable=True,
+                )
+            appended = media_pool.AppendToTimeline([media_item])
+            if not appended:
+                raise BridgeOperationError(
+                    "CLIP_APPEND_FAILED",
+                    "Resolve did not append the requested media item.",
+                    retryable=True,
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "asset_id": arguments["asset_id"],
+                "items": [
+                    {
+                        "timeline_item_id": str(item.GetUniqueId()),
+                        "name": str(item.GetName()),
+                    }
+                    for item in appended
+                ],
+                "backup_path": backup_path,
+            }
+        elif action == "add_marker":
+            custom_data = f"davinci-agent:{command['idempotency_key']}"
+            added = timeline.AddMarker(
+                arguments["frame"],
+                arguments["color"],
+                arguments["name"],
+                arguments["note"],
+                arguments["duration"],
+                custom_data,
+            )
+            if added is not True:
+                raise BridgeOperationError(
+                    "MARKER_CREATE_FAILED",
+                    "Resolve did not create the requested timeline marker.",
+                    retryable=True,
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "frame": arguments["frame"],
+                "color": arguments["color"],
+                "name": arguments["name"],
+                "custom_data": custom_data,
+                "backup_path": backup_path,
+            }
+        else:
+            raise BridgeOperationError(
+                "UNSUPPORTED_WRITE_ACTION",
+                f"Unsupported write action: {action}",
+            )
+    except BridgeOperationError as error:
+        error.details.setdefault("backup_path", backup_path)
+        raise
+    except Exception as error:
+        raise BridgeOperationError(
+            "RESOLVE_OPERATION_FAILED",
+            f"Resolve operation failed: {error}",
+            retryable=True,
+            details={"backup_path": backup_path},
+        ) from error
+
+    _write_receipt(command, directories["state"], result)
+    return result, []
+
+
 def process_command_file(
     processing_path: Path,
     response_path: Path,
     failed_path: Path,
     state: dict[str, Any],
+    resolve: Any | None = None,
+    directories: dict[str, Path] | None = None,
 ) -> None:
     """Process one claimed command and write a structured response."""
     started_at = utc_now()
@@ -298,7 +816,24 @@ def process_command_file(
         with processing_path.open("r", encoding="utf-8") as command_file:
             command = validate_command(json.load(command_file))
         command_id = command["command_id"]
-        result = command_result(command["action"], state)
+        warnings: list[str] = []
+        if command["action"] in WRITE_ACTIONS:
+            if resolve is None or directories is None:
+                raise BridgeOperationError(
+                    "RESOLVE_CONTEXT_REQUIRED",
+                    "A live Resolve context is required for write commands.",
+                    retryable=True,
+                )
+            result, warnings = _execute_write_command(
+                resolve,
+                command,
+                directories,
+            )
+            capability = CAPABILITY_BY_ACTION[command["action"]]
+            state["capabilities"][capability] = True
+            _record_verified_capability(directories["state"], capability)
+        else:
+            result = command_result(command["action"], state)
         response = {
             "protocol_version": PROTOCOL_VERSION,
             "command_id": command_id,
@@ -307,10 +842,28 @@ def process_command_file(
             "finished_at": utc_now(),
             "result": result,
             "error": None,
-            "warnings": [],
+            "warnings": warnings,
         }
         atomic_write_json(response_path, response)
         processing_path.unlink()
+    except BridgeOperationError as error:
+        response = {
+            "protocol_version": PROTOCOL_VERSION,
+            "command_id": command_id,
+            "status": "error",
+            "started_at": started_at,
+            "finished_at": utc_now(),
+            "result": None,
+            "error": {
+                "code": error.code,
+                "message": str(error),
+                "details": error.details,
+                "retryable": error.retryable,
+            },
+            "warnings": [],
+        }
+        atomic_write_json(response_path, response)
+        processing_path.replace(failed_path)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         response = {
             "protocol_version": PROTOCOL_VERSION,
@@ -334,6 +887,7 @@ def process_command_file(
 def process_pending_commands(
     directories: dict[str, Path],
     state: dict[str, Any],
+    resolve: Any | None = None,
 ) -> int:
     """Claim and process every complete command currently in the queue."""
     processed = 0
@@ -348,6 +902,8 @@ def process_pending_commands(
             directories["responses"] / command_path.name,
             directories["failed"] / command_path.name,
             state,
+            resolve,
+            directories,
         )
         processed += 1
     return processed
@@ -393,8 +949,10 @@ def main() -> int:
     try:
         resolve = get_resolve_application()
         state = collect_bridge_state(resolve)
+        _apply_verified_capabilities(state, directories["state"])
         atomic_write_json(state_path, state)
-        processed = process_pending_commands(directories, state)
+        processed = process_pending_commands(directories, state, resolve)
+        atomic_write_json(state_path, state)
         append_log(log_path, "INFO", "bridge_run_completed", commands=processed)
         print(
             "DaVinci Resolve Agent bridge ready: "

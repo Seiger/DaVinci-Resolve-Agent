@@ -22,6 +22,53 @@ class StubResolveReader:
     def current_timeline(self, timeout_seconds: float = 30) -> dict[str, Any]:
         return {"name": "Main"}
 
+    def import_media(
+        self,
+        paths: list[str],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"items": [{"asset_id": "asset-1", "name": paths[0]}]}
+
+    def create_timeline(
+        self,
+        name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"timeline": {"timeline_id": "timeline-1", "name": name}}
+
+    def append_clip(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"timeline_id": timeline_id, "asset_id": asset_id}
+
+    def add_marker(
+        self,
+        timeline_id: str,
+        frame: int,
+        color: str,
+        name: str,
+        note: str,
+        duration: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"timeline_id": timeline_id, "frame": frame, "color": color}
+
+
+class StubMediaPolicy:
+    def prepare_import(self, paths: list[str]) -> list[str]:
+        return paths
+
 
 def _fresh_state() -> dict[str, Any]:
     return {
@@ -33,41 +80,94 @@ def _fresh_state() -> dict[str, Any]:
     }
 
 
-def test_mcp_exposes_only_m3_read_only_tools() -> None:
+def test_mcp_exposes_fixed_m4_tool_surface() -> None:
     application = AgentApplication(
         resolve=StubResolveReader(),
         state_loader=_fresh_state,
+        media_policy=StubMediaPolicy(),
     )
     server = create_server(application)
 
-    async def exercise_server() -> tuple[Any, Any, Any, Any, set[str]]:
+    async def exercise_server() -> tuple[dict[str, Any], set[str]]:
         async with Client(server) as client:
             tools = await client.list_tools()
             names = {tool.name for tool in tools.tools}
+            annotations = {
+                tool.name: tool.annotations for tool in tools.tools
+            }
             assert all(
-                tool.annotations is not None
-                and tool.annotations.read_only_hint is True
-                and tool.annotations.destructive_hint is False
-                for tool in tools.tools
+                annotation is not None
+                and annotation.destructive_hint is False
+                for annotation in annotations.values()
             )
+            status_annotations = annotations["video_agent_status"]
+            import_annotations = annotations["resolve_import_media"]
+            assert status_annotations is not None
+            assert import_annotations is not None
+            assert status_annotations.read_only_hint is True
+            assert import_annotations.read_only_hint is False
 
-            project = await client.call_tool("resolve_get_project", {})
-            timelines = await client.call_tool("resolve_list_timelines", {})
-            timeline = await client.call_tool("resolve_get_timeline", {})
-            status = await client.call_tool("video_agent_status", {})
-        return project, timelines, timeline, status, names
+            results = {
+                "project": await client.call_tool("resolve_get_project", {}),
+                "timelines": await client.call_tool(
+                    "resolve_list_timelines",
+                    {},
+                ),
+                "timeline": await client.call_tool(
+                    "resolve_get_timeline",
+                    {},
+                ),
+                "status": await client.call_tool("video_agent_status", {}),
+                "imported": await client.call_tool(
+                    "resolve_import_media",
+                    {"paths": ["sample.wav"]},
+                ),
+                "created": await client.call_tool(
+                    "resolve_create_timeline",
+                    {"name": "M4 Timeline"},
+                ),
+                "appended": await client.call_tool(
+                    "resolve_append_clip",
+                    {"timeline_id": "timeline-1", "asset_id": "asset-1"},
+                ),
+                "marker": await client.call_tool(
+                    "resolve_add_marker",
+                    {
+                        "timeline_id": "timeline-1",
+                        "frame": 0,
+                        "color": "Green",
+                    },
+                ),
+            }
+        return results, names
 
-    project, timelines, timeline, status, names = asyncio.run(exercise_server())
+    results, names = asyncio.run(exercise_server())
 
     assert names == {
         "video_agent_status",
         "resolve_get_project",
         "resolve_list_timelines",
         "resolve_get_timeline",
+        "resolve_import_media",
+        "resolve_create_timeline",
+        "resolve_append_clip",
+        "resolve_add_marker",
     }
-    assert project.structured_content == {"project": {"name": "Test Project"}}
-    assert timelines.structured_content == {
+    assert results["project"].structured_content == {
+        "project": {"name": "Test Project"}
+    }
+    assert results["timelines"].structured_content == {
         "timelines": [{"index": 1, "name": "Main"}]
     }
-    assert timeline.structured_content == {"timeline": {"name": "Main"}}
-    assert status.structured_content["healthy"] is True
+    assert results["timeline"].structured_content == {
+        "timeline": {"name": "Main"}
+    }
+    assert results["status"].structured_content["healthy"] is True
+    assert results["imported"].structured_content["items"][0]["asset_id"] == (
+        "asset-1"
+    )
+    assert results["created"].structured_content["timeline"]["timeline_id"] == (
+        "timeline-1"
+    )
+    assert results["appended"].structured_content["asset_id"] == "asset-1"
+    assert results["marker"].structured_content["color"] == "Green"

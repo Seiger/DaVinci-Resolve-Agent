@@ -84,6 +84,32 @@ bridge. It accepts no arbitrary action names and exposes only the four M3 tools
 listed in the specification. Blocking application calls run in worker threads
 so the MCP event loop remains responsive.
 
+## M4 safe editing
+
+Write requests retain the same boundaries:
+
+```text
+MCP write tool
+ └─ AgentApplication
+     ├─ MediaPolicy (absolute path + allowed root validation)
+     └─ ResolveProviderClient
+         └─ validated command with create_backup=true
+             └─ ResolveBridge
+                 ├─ bridge-side media-policy validation
+                 ├─ SaveProject + ExportProject
+                 ├─ one documented Resolve mutation
+                 └─ idempotency receipt
+```
+
+The bridge advertises write capabilities as `unknown` until a documented
+operation succeeds in the running Resolve edition. Project restore remains an
+explicit user action; the bridge never replaces an open project automatically.
+
+Live validation on Resolve 21 Free 21.0.3.7 confirmed `ImportMedia`,
+`CreateEmptyTimeline`, `AppendToTimeline`, and timeline `AddMarker`. Replaying
+the same four idempotency keys returned the original results without creating
+additional backups or duplicate edits.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

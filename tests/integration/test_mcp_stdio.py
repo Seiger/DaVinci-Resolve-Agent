@@ -33,4 +33,8 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "resolve_get_project",
         "resolve_list_timelines",
         "resolve_get_timeline",
+        "resolve_import_media",
+        "resolve_create_timeline",
+        "resolve_append_clip",
+        "resolve_add_marker",
     }

@@ -17,6 +17,12 @@ READ_ONLY_TOOL = ToolAnnotations(
     idempotent_hint=True,
     open_world_hint=False,
 )
+WRITE_TOOL = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=False,
+)
 
 
 def create_server(application: AgentApplication | None = None) -> MCPServer:
@@ -71,6 +77,74 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             timeout_seconds,
         )
         return {"timeline": timeline}
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_import_media(
+        paths: list[str],
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Import allowlisted local media after exporting a project backup."""
+        return await asyncio.to_thread(
+            service.resolve_import_media,
+            paths,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_create_timeline(
+        name: str,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create an empty timeline after exporting a project backup."""
+        return await asyncio.to_thread(
+            service.resolve_create_timeline,
+            name,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_append_clip(
+        timeline_id: str,
+        asset_id: str,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Append a media asset after exporting a project backup."""
+        return await asyncio.to_thread(
+            service.resolve_append_clip,
+            timeline_id,
+            asset_id,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_add_marker(
+        timeline_id: str,
+        frame: int,
+        color: str,
+        name: str = "",
+        note: str = "",
+        duration: int = 1,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Add a timeline marker after exporting a project backup."""
+        return await asyncio.to_thread(
+            service.resolve_add_marker,
+            timeline_id,
+            frame,
+            color,
+            name,
+            note,
+            duration,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
 
     return server
 

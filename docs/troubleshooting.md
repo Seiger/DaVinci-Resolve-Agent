@@ -50,3 +50,14 @@ workaround. The M1 bridge must run from inside Resolve.
 A direct `DaVinciResolveScript` import may be unavailable even inside a menu
 script. The bridge therefore checks the injected internal Resolve/Fusion
 context before trying the documented module fallback.
+
+## Write command fails before editing
+
+Inspect the structured response under `runtime\responses`. `PROJECT_SAVE_FAILED`
+or `PROJECT_BACKUP_FAILED` means the bridge intentionally skipped the edit.
+`MEDIA_PATH_NOT_ALLOWED` means the requested file is outside
+`media.allowed_roots`.
+
+If an error contains `details.backup_path`, the backup was created before
+Resolve rejected the operation. Follow [rollback.md](rollback.md) rather than
+automatically replacing the open project.

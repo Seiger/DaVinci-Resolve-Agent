@@ -1,4 +1,4 @@
-"""Typed read-only adapter over the provider-neutral command client."""
+"""Typed Resolve adapter over the provider-neutral command client."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from agent.contracts import ContractValidationError, validate_contract
 
 
 class ResolveProviderClient:
-    """Expose only the read-only M1 Resolve command allowlist."""
+    """Expose the explicitly allowlisted Resolve command surface."""
 
     def __init__(
         self,
@@ -60,6 +60,94 @@ class ResolveProviderClient:
     ) -> dict[str, Any] | None:
         return self._optional_object_result("get_current_timeline", timeout_seconds)
 
+    def import_media(
+        self,
+        paths: list[str],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Import validated media paths with a mandatory project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="import_media",
+            arguments={"paths": paths},
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("import_media", result)
+
+    def create_timeline(
+        self,
+        name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create an empty timeline with a mandatory project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="create_timeline",
+            arguments={"name": name},
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("create_timeline", result)
+
+    def append_clip(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Append a media-pool asset with a mandatory project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="append_clip",
+            arguments={
+                "timeline_id": timeline_id,
+                "asset_id": asset_id,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("append_clip", result)
+
+    def add_marker(
+        self,
+        timeline_id: str,
+        frame: int,
+        color: str,
+        name: str,
+        note: str,
+        duration: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Add a timeline marker with a mandatory project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="add_marker",
+            arguments={
+                "timeline_id": timeline_id,
+                "frame": frame,
+                "color": color,
+                "name": name,
+                "note": note,
+                "duration": duration,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("add_marker", result)
+
     def _object_result(
         self,
         action: str,
@@ -78,6 +166,12 @@ class ResolveProviderClient:
         result = self._request(action, timeout_seconds)
         if result is None:
             return None
+        if not isinstance(result, dict):
+            raise BridgeProtocolError(f"Resolve {action} response is invalid.")
+        return result
+
+    @staticmethod
+    def _object_value(action: str, result: Any) -> dict[str, Any]:
         if not isinstance(result, dict):
             raise BridgeProtocolError(f"Resolve {action} response is invalid.")
         return result

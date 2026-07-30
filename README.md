@@ -4,10 +4,10 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M3: MCP server**. Він установлює
+Проєкт перебуває на етапі **Milestone M4: safe editing**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
-обмінюється командами через локальний файловий транспорт і надає чотири
-read-only MCP-інструменти через stdio. Імпорт медіа, зміна таймлайна, рендер та
+обмінюється командами через локальний файловий транспорт і надає read-only та
+чотири безпечні write-інструменти через stdio. Розширене редагування, рендер та
 аудіообробка ще не реалізовані.
 
 ## Вимоги
@@ -78,16 +78,25 @@ cd DaVinci-Resolve-Agent
 .\.venv\Scripts\davinci-agent-mcp.exe
 ```
 
-Він надає лише read-only інструменти:
+Read-only інструменти:
 
 - `video_agent_status`;
 - `resolve_get_project`;
 - `resolve_list_timelines`;
 - `resolve_get_timeline`.
 
-Для трьох Resolve-запитів потрібно запустити `ResolveBridge` з меню Resolve,
-поки MCP-клієнт очікує відповідь. Приклад конфігурації клієнта наведено в
-[документації MCP](docs/mcp.md).
+Безпечні write-інструменти:
+
+- `resolve_import_media`;
+- `resolve_create_timeline`;
+- `resolve_append_clip`;
+- `resolve_add_marker`.
+
+Для Resolve-запитів потрібно запустити `ResolveBridge` з меню Resolve, поки
+MCP-клієнт очікує відповідь. Перед кожною write-операцією bridge експортує
+проєкт у `.drp`; імпорт дозволений лише з `media.allowed_roots`. Приклад
+конфігурації клієнта наведено в [документації MCP](docs/mcp.md), а відновлення —
+в [rollback strategy](docs/rollback.md).
 
 ## Розробка
 
@@ -101,7 +110,8 @@ py -3.12 -m venv .venv
 
 Докладніше дивись у документації про
 [встановлення у Windows](docs/installation-windows.md),
-[архітектуру](docs/architecture.md) та [MCP](docs/mcp.md).
+[архітектуру](docs/architecture.md), [MCP](docs/mcp.md) та
+[rollback](docs/rollback.md).
 Основні вимоги продукту зафіксовані в
 [SPECIFICATION.md](SPECIFICATION.md).
 
@@ -116,7 +126,10 @@ py -3.12 -m venv .venv
 Без запитань:
 
 ```powershell
-.\installer\uninstall.ps1 -PreserveConfig $true -PreserveLogs $true
+.\installer\uninstall.ps1 `
+    -PreserveConfig $true `
+    -PreserveLogs $true `
+    -PreserveBackups $true
 ```
 
 Скрипт видаляє лише `.venv` цього репозиторію та каталоги застосунку, створені в

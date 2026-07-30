@@ -2,17 +2,24 @@
 
 ## Межі M3
 
-MCP-сервер працює локально через `stdio` і не відкриває мережевий порт. Він
-надає лише чотири read-only інструменти:
+MCP-сервер працює локально через `stdio` і не відкриває мережевий порт.
+Read-only інструменти:
 
 - `video_agent_status`;
 - `resolve_get_project`;
 - `resolve_list_timelines`;
 - `resolve_get_timeline`.
 
-MCP-адаптер звертається до application service. Він не читає й не записує
-runtime-каталоги безпосередньо та не приймає довільних назв команд, Python,
-Lua, PowerShell або shell-коду.
+Write-інструменти M4:
+
+- `resolve_import_media`;
+- `resolve_create_timeline`;
+- `resolve_append_clip`;
+- `resolve_add_marker`.
+
+MCP-адаптер звертається до application service. Він не працює з transport
+runtime безпосередньо та не приймає довільних назв команд, Python, Lua,
+PowerShell або shell-коду.
 
 ## Конфігурація клієнта
 
@@ -46,3 +53,13 @@ Lua, PowerShell або shell-коду.
 Типовий timeout становить 30 секунд. Аргумент `timeout_seconds` приймає значення
 понад `0` і не більше `300`. Одноразова модель bridge є навмисним обмеженням
 поточного прототипу.
+
+## Безпечне редагування
+
+Усі write-tools створюють `.drp` backup до зміни та підтримують необов'язковий
+`idempotency_key`. Для `resolve_import_media` кожен шлях має бути абсолютним,
+існувати й належати до `media.allowed_roots` у локальному `config.toml`.
+
+MCP annotations позначають ці tools як write, але не destructive. M4 не видаляє
+кліпи, таймлайни, медіа чи markers і не відновлює проєкт автоматично. Стратегія
+відновлення описана в [rollback.md](rollback.md).
