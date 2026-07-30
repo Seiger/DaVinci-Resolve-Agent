@@ -1,0 +1,114 @@
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$script:MinimumPythonVersion = [Version]"3.10"
+$script:MaximumPythonVersion = [Version]"3.12"
+$script:ApplicationDirectoryName = "DaVinciResolveAgent"
+
+function Test-SupportedPythonVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Version]$Version
+    )
+
+    return (
+        $Version.Major -eq 3 -and
+        $Version.Minor -ge $script:MinimumPythonVersion.Minor -and
+        $Version.Minor -le $script:MaximumPythonVersion.Minor
+    )
+}
+
+function Find-CompatiblePython {
+    $candidates = @(
+        [PSCustomObject]@{ Command = "py"; Arguments = @("-3.12") },
+        [PSCustomObject]@{ Command = "py"; Arguments = @("-3.11") },
+        [PSCustomObject]@{ Command = "py"; Arguments = @("-3.10") },
+        [PSCustomObject]@{ Command = "python"; Arguments = @() }
+    )
+
+    foreach ($candidate in $candidates) {
+        if (-not (Get-Command $candidate.Command -ErrorAction SilentlyContinue)) {
+            continue
+        }
+
+        $candidateArguments = @($candidate.Arguments)
+        $versionText = & $candidate.Command @candidateArguments -c (
+            "import sys; print('.'.join(map(str, sys.version_info[:3])))"
+        ) 2>$null
+
+        if ($LASTEXITCODE -ne 0 -or -not $versionText) {
+            continue
+        }
+
+        $version = [Version]$versionText.Trim()
+        if (Test-SupportedPythonVersion -Version $version) {
+            return [PSCustomObject]@{
+                Command = $candidate.Command
+                Arguments = $candidateArguments
+                Version = $version
+            }
+        }
+    }
+
+    throw "Python 3.10, 3.11, or 3.12 was not found through 'py' or 'python'."
+}
+
+function Get-AgentPaths {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepositoryRoot
+    )
+
+    if (-not $env:APPDATA) {
+        throw "The APPDATA environment variable is not set."
+    }
+    if (-not $env:LOCALAPPDATA) {
+        throw "The LOCALAPPDATA environment variable is not set."
+    }
+
+    $configRoot = Join-Path $env:APPDATA $script:ApplicationDirectoryName
+    $runtimeRoot = Join-Path (
+        Join-Path $env:LOCALAPPDATA $script:ApplicationDirectoryName
+    ) "runtime"
+    $resolveScriptsRoot = Join-Path $env:APPDATA (
+        "Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit"
+    )
+    $bridgeTarget = Join-Path $resolveScriptsRoot "ResolveBridge.py"
+
+    return [PSCustomObject]@{
+        RepositoryRoot = [System.IO.Path]::GetFullPath($RepositoryRoot)
+        VirtualEnvironment = Join-Path $RepositoryRoot ".venv"
+        ConfigRoot = $configRoot
+        ConfigFile = Join-Path $configRoot "config.toml"
+        RuntimeRoot = $runtimeRoot
+        LogsRoot = Join-Path $runtimeRoot "logs"
+        CommandsRoot = Join-Path $runtimeRoot "commands"
+        ProcessingRoot = Join-Path $runtimeRoot "processing"
+        ResponsesRoot = Join-Path $runtimeRoot "responses"
+        FailedRoot = Join-Path $runtimeRoot "failed"
+        StateRoot = Join-Path $runtimeRoot "state"
+        BridgeStateFile = Join-Path (Join-Path $runtimeRoot "state") "bridge.json"
+        ResolveScriptsRoot = $resolveScriptsRoot
+        BridgeSource = Join-Path $RepositoryRoot "bridges\resolve\ResolveBridge.py"
+        BridgeTarget = $bridgeTarget
+        BridgeBackup = "$bridgeTarget.davinci-agent-backup"
+        BridgeHashMarker = "$bridgeTarget.davinci-agent.sha256"
+    }
+}
+
+function Resolve-PreservationChoice {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Prompt,
+
+        [Parameter(Mandatory = $false)]
+        [object]$ProvidedValue = $null
+    )
+
+    if ($null -ne $ProvidedValue) {
+        return [bool]$ProvidedValue
+    }
+
+    $answer = Read-Host "$Prompt [Y/n]"
+    return $answer -notmatch "^(n|no)$"
+}

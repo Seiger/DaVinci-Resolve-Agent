@@ -1,0 +1,51 @@
+"""Platform path resolution without machine-specific absolute paths."""
+
+from __future__ import annotations
+
+import os
+from collections.abc import Mapping
+from pathlib import Path
+
+APPLICATION_DIRECTORY_NAME = "DaVinciResolveAgent"
+
+
+class PathConfigurationError(ValueError):
+    """Raised when a required platform directory is unavailable."""
+
+
+def _environment_value(name: str, environment: Mapping[str, str] | None) -> str:
+    source = os.environ if environment is None else environment
+    value = source.get(name)
+    if not value:
+        raise PathConfigurationError(
+            f"Required Windows environment variable {name} is not set."
+        )
+    return value
+
+
+def config_directory(environment: Mapping[str, str] | None = None) -> Path:
+    """Return the per-user application configuration directory."""
+    return (
+        Path(_environment_value("APPDATA", environment))
+        / APPLICATION_DIRECTORY_NAME
+    )
+
+
+def config_file(environment: Mapping[str, str] | None = None) -> Path:
+    """Return the per-user application configuration file."""
+    return config_directory(environment) / "config.toml"
+
+
+def runtime_directory(environment: Mapping[str, str] | None = None) -> Path:
+    """Return the per-user local runtime directory."""
+    return (
+        Path(_environment_value("LOCALAPPDATA", environment))
+        / APPLICATION_DIRECTORY_NAME
+        / "runtime"
+    )
+
+
+def logs_directory(environment: Mapping[str, str] | None = None) -> Path:
+    """Return the per-user runtime logs directory."""
+    return runtime_directory(environment) / "logs"
+

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/command.schema.json",
+  "title": "DaVinci Resolve Agent M1 command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version",
+    "command_id",
+    "idempotency_key",
+    "created_at",
+    "expires_at",
+    "provider",
+    "action",
+    "arguments",
+    "safety"
+  ],
+  "properties": {
+    "protocol_version": {
+      "const": "1.0"
+    },
+    "command_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provider": {
+      "const": "resolve"
+    },
+    "action": {
+      "enum": [
+        "ping",
+        "get_bridge_info",
+        "get_capabilities",
+        "get_current_project",
+        "list_timelines",
+        "get_current_timeline"
+      ]
+    },
+    "arguments": {
+      "type": "object",
+      "maxProperties": 0
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allow_destructive",
+        "create_backup"
+      ],
+      "properties": {
+        "allow_destructive": {
+          "const": false
+        },
+        "create_backup": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/capability.schema.json",
+  "title": "DaVinci Resolve Agent capability report",
+  "type": "object",
+  "minProperties": 1,
+  "additionalProperties": {
+    "oneOf": [
+      {
+        "type": "boolean"
+      },
+      {
+        "enum": [
+          "unknown",
+          "requires_confirmation",
+          "requires_studio"
+        ]
+      }
+    ]
+  }
+}

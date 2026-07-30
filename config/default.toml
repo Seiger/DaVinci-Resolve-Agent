@@ -1,0 +1,19 @@
+[agent]
+log_level = "INFO"
+provider = "resolve"
+command_timeout_seconds = 30
+heartbeat_max_age_seconds = 120
+
+[runtime]
+root = "${LOCALAPPDATA}/DaVinciResolveAgent/runtime"
+
+[resolve]
+scripts_category = "Edit"
+poll_interval_ms = 500
+
+[safety]
+allow_destructive = false
+create_backup = true
+
+[media]
+allowed_roots = ["${USERPROFILE}/Videos"]
