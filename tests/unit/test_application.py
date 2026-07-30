@@ -27,6 +27,19 @@ class StubResolveReader:
         self.timeouts.append(timeout_seconds)
         return {"name": "Main"}
 
+    def timeline_items(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "name": "Main",
+            "items": [{"timeline_item_id": "item-1"}],
+        }
+
     def render_environment(
         self,
         timeout_seconds: float = 30,
@@ -352,11 +365,15 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
         {"index": 1, "name": "Main"}
     ]
     assert application.resolve_get_timeline(30) == {"name": "Main"}
+    assert application.resolve_list_timeline_items(
+        "timeline-1",
+        35,
+    )["items"][0]["timeline_item_id"] == "item-1"
     assert application.resolve_get_render_options(40)["current"] == {
         "format": "mp4",
         "codec": "H264",
     }
-    assert resolve.timeouts == [10, 20, 30, 40]
+    assert resolve.timeouts == [10, 20, 30, 35, 40]
 
 
 def test_application_exposes_validated_write_methods() -> None:

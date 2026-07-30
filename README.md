@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M15: confirmed non-ripple clip deletion**. Він установлює
+Проєкт перебуває на етапі **Milestone M16: timeline item discovery**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -61,6 +61,12 @@ M15 додає видалення рівно одного TimelineItem чере�
 підтверджено у Resolve 21 Free 21.0.3.7 на окремому disposable item: delete
 readback, replay без другого backup і повернення preflight до одного video та
 одного audio item.
+M16 закриває addressability loop для editing primitives: read-only discovery
+повертає IDs усіх video/audio TimelineItem вибраного timeline разом із track,
+timeline/source bounds і duration. Інструмент не читає довільні properties і
+не змінює проєкт. Discovery синхронної M10 пари з окремими video/audio IDs,
+однаковими timeline/source bounds і без нового backup перевірено у Resolve 21
+Free 21.0.3.7.
 
 ## Вимоги
 
@@ -137,6 +143,7 @@ Read-only інструменти:
 - `resolve_get_project`;
 - `resolve_list_timelines`;
 - `resolve_get_timeline`.
+- `resolve_list_timeline_items`.
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
 - `resolve_verify_render_output`.
@@ -224,6 +231,11 @@ Tool не приймає raw Resolve property names, keyframes, expressions аб
 `allow_destructive=true`, bridge створює backup, викликає non-ripple delete і
 перевіряє, що item більше не повертається з timeline. Tool не підтримує масове
 або ripple-видалення.
+
+`resolve_list_timeline_items` приймає `timeline_id` і повертає канонічні
+`timeline_item_id` для video/audio tracks, їхні назви, track index,
+timeline/source frame bounds та duration. Tool read-only, не створює backup і
+не повертає raw Resolve objects або довільні clip properties.
 
 ## Розробка
 

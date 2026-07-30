@@ -95,3 +95,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   constrained to `allow_destructive=false`.
 - Resolve 21 Free 21.0.3.7 live verification of isolated non-ripple deletion,
   duplicate-free replay, and preservation of the original video/audio pair.
+- M16 read-only timeline item discovery with canonical IDs, track placement,
+  timeline/source frame bounds, and duration metadata.
+- Provider-neutral item addressability for enable, transform, and delete tools
+  without reliance on historical write receipts.
+- Resolve 21 Free 21.0.3.7 live discovery of synchronized video/audio item IDs
+  and matching frame metadata without creating a project backup.

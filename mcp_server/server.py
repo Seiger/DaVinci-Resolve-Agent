@@ -87,6 +87,18 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         return {"timeline": timeline}
 
     @server.tool(annotations=READ_ONLY_TOOL)
+    async def resolve_list_timeline_items(
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """List bounded metadata for video/audio items in one timeline."""
+        return await asyncio.to_thread(
+            service.resolve_list_timeline_items,
+            timeline_id,
+            timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
     async def resolve_get_render_options(
         timeout_seconds: float = 30,
     ) -> dict[str, Any]:

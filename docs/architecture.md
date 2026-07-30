@@ -378,6 +378,27 @@ identical result and backup. Final read-only preflight returned to one video
 item and one audio item, proving the original M10 pair remained. Capability
 `clip.delete` is persisted as `true`.
 
+## M16 timeline item discovery
+
+```text
+MCP resolve_list_timeline_items(timeline_id)
+ └─ validate one bounded timeline ID
+     └─ resolve the existing timeline
+         └─ enumerate documented video/audio tracks
+             └─ validate item IDs, track readback, and frame metadata
+                 └─ return provider-neutral item summaries
+```
+
+M16 supplies the canonical item IDs needed by enable, transform, and delete
+operations without consulting historical write receipts. It is read-only and
+does not expose Resolve objects, arbitrary properties, subtitles, or Fusion
+state.
+
+Resolve 21 Free 21.0.3.7 live validation discovered the synchronized M10 video
+and audio items with distinct canonical IDs. Both reported duration 96,
+timeline bounds 86400..86496, and source bounds 0..240. No project backup was
+created, and capability `clip.read` was persisted as `true`.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

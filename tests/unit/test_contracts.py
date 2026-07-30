@@ -65,6 +65,17 @@ def test_set_current_timeline_requires_one_bounded_id_and_backup() -> None:
         validate_contract("command", command)
 
 
+def test_list_timeline_items_requires_one_timeline_id() -> None:
+    command = _valid_command()
+    command["action"] = "list_timeline_items"
+    command["arguments"] = {"timeline_id": "timeline-1"}
+    validate_contract("command", command)
+
+    command["arguments"] = {"timeline_id": "", "track_type": "video"}
+    with pytest.raises(ContractValidationError, match="arguments"):
+        validate_contract("command", command)
+
+
 def test_unknown_action_violates_command_contract() -> None:
     command = _valid_command()
     command["action"] = "execute_python"

@@ -61,6 +61,26 @@ class ResolveProviderClient:
     ) -> dict[str, Any] | None:
         return self._optional_object_result("get_current_timeline", timeout_seconds)
 
+    def timeline_items(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return bounded metadata for video/audio items in one timeline."""
+        result = self._client.request(
+            provider="resolve",
+            action="list_timeline_items",
+            arguments={"timeline_id": timeline_id},
+            timeout_seconds=timeout_seconds,
+        )
+        value = self._object_value("list_timeline_items", result)
+        if not isinstance(value.get("items"), list):
+            raise BridgeProtocolError(
+                "Resolve list_timeline_items response is invalid."
+            )
+        return value
+
     def render_environment(
         self,
         timeout_seconds: float = 30,

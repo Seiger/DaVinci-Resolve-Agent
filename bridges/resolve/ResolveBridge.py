@@ -36,6 +36,7 @@ ALLOWED_ACTIONS = {
     "get_current_project",
     "list_timelines",
     "get_current_timeline",
+    "list_timeline_items",
     "get_render_environment",
     "get_render_job_status",
     "import_media",
@@ -65,6 +66,7 @@ WRITE_ACTIONS = {
 }
 DESTRUCTIVE_ACTIONS = {"delete_clip"}
 CAPABILITY_BY_ACTION = {
+    "list_timeline_items": "clip.read",
     "import_media": "media.import",
     "create_timeline": "timeline.create",
     "set_current_timeline": "timeline.select",
@@ -250,6 +252,7 @@ def collect_bridge_state(
         "timeline.select": "unknown",
         "media.import": "unknown",
         "clip.insert": "unknown",
+        "clip.read": "unknown",
         "clip.range_insert": "unknown",
         "clip.enable": "unknown",
         "clip.transform": "unknown",
@@ -349,6 +352,8 @@ def validate_command(command: Any) -> dict[str, Any]:
             command["action"],
             command["arguments"],
         )
+    elif command["action"] == "list_timeline_items":
+        _validate_list_timeline_items_arguments(command["arguments"])
     elif command["arguments"] != {}:
         raise ValueError("This read-only action does not accept arguments.")
 
@@ -357,6 +362,21 @@ def validate_command(command: Any) -> dict[str, Any]:
     if expires_at <= datetime.now(timezone.utc):
         raise ValueError("Command has expired.")
     return command
+
+
+def _validate_list_timeline_items_arguments(
+    arguments: dict[str, Any],
+) -> str:
+    if set(arguments) != {"timeline_id"}:
+        raise ValueError("list_timeline_items requires only timeline_id.")
+    timeline_id = arguments["timeline_id"]
+    if (
+        not isinstance(timeline_id, str)
+        or not timeline_id
+        or len(timeline_id) > 128
+    ):
+        raise ValueError("timeline_id must contain 1 to 128 characters.")
+    return timeline_id
 
 
 def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
@@ -678,6 +698,17 @@ def command_result(
             if name is None or timeline_id is None
             else {"timeline_id": timeline_id, "name": name}
         )
+    if action == "list_timeline_items":
+        if resolve is None:
+            raise BridgeOperationError(
+                "RESOLVE_CONTEXT_REQUIRED",
+                "A live Resolve context is required for timeline item discovery.",
+                retryable=True,
+            )
+        timeline_id = _validate_list_timeline_items_arguments(
+            arguments or {}
+        )
+        return _list_timeline_items(resolve, timeline_id)
     if action == "get_render_environment":
         if resolve is None:
             raise BridgeOperationError(
@@ -696,6 +727,111 @@ def command_result(
         job_id = _validate_render_job_arguments(action, arguments or {})
         return _render_job_status(resolve, job_id)
     raise ValueError("Unsupported or unsafe bridge action.")
+
+
+def _list_timeline_items(
+    resolve: Any,
+    timeline_id: str,
+) -> dict[str, Any]:
+    _, project, _ = _require_project(resolve)
+    timeline = _find_timeline(project, timeline_id)
+    required_timeline_methods = ("GetTrackCount", "GetItemListInTrack")
+    missing = [
+        name
+        for name in required_timeline_methods
+        if not callable(getattr(timeline, name, None))
+    ]
+    if missing:
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "The timeline cannot enumerate video and audio items.",
+            details={"missing_methods": missing},
+        )
+
+    discovered: list[dict[str, Any]] = []
+    item_methods = (
+        "GetUniqueId",
+        "GetName",
+        "GetDuration",
+        "GetStart",
+        "GetEnd",
+        "GetSourceStartFrame",
+        "GetSourceEndFrame",
+        "GetTrackTypeAndIndex",
+    )
+    for track_type in ("video", "audio"):
+        track_count = timeline.GetTrackCount(track_type)
+        if (
+            not isinstance(track_count, int)
+            or isinstance(track_count, bool)
+            or track_count < 0
+        ):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Timeline.GetTrackCount() returned an invalid value.",
+                details={"track_type": track_type},
+            )
+        for track_index in range(1, track_count + 1):
+            items = timeline.GetItemListInTrack(track_type, track_index)
+            if not isinstance(items, list):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Timeline.GetItemListInTrack() returned an invalid value.",
+                    details={
+                        "track_type": track_type,
+                        "track_index": track_index,
+                    },
+                )
+            for item in items:
+                missing_item_methods = [
+                    name
+                    for name in item_methods
+                    if not callable(getattr(item, name, None))
+                ]
+                if missing_item_methods:
+                    raise BridgeOperationError(
+                        "UNSUPPORTED_CAPABILITY",
+                        "A timeline item cannot report bounded metadata.",
+                        details={"missing_methods": missing_item_methods},
+                    )
+                actual_track = item.GetTrackTypeAndIndex()
+                if actual_track not in (
+                    [track_type, track_index],
+                    (track_type, track_index),
+                ):
+                    raise BridgeOperationError(
+                        "INVALID_RESOLVE_RESPONSE",
+                        "TimelineItem track readback does not match enumeration.",
+                    )
+                numeric_values = {
+                    "duration_frames": item.GetDuration(False),
+                    "timeline_start_frame": item.GetStart(False),
+                    "timeline_end_frame": item.GetEnd(False),
+                    "source_start_frame": item.GetSourceStartFrame(),
+                    "source_end_frame": item.GetSourceEndFrame(),
+                }
+                if any(
+                    not isinstance(value, int) or isinstance(value, bool)
+                    for value in numeric_values.values()
+                ):
+                    raise BridgeOperationError(
+                        "INVALID_RESOLVE_RESPONSE",
+                        "TimelineItem frame readback is invalid.",
+                    )
+                discovered.append(
+                    {
+                        "timeline_item_id": str(item.GetUniqueId()),
+                        "name": str(item.GetName()),
+                        "track_type": track_type,
+                        "track_index": track_index,
+                        **numeric_values,
+                    }
+                )
+    return {
+        "timeline_id": timeline_id,
+        "name": str(timeline.GetName()),
+        "items": discovered,
+    }
 
 
 def _render_environment(resolve: Any) -> dict[str, Any]:
@@ -2284,6 +2420,15 @@ def process_command_file(
                 _record_verified_capability(
                     directories["state"],
                     "render.discovery",
+                )
+            elif (
+                command["action"] == "list_timeline_items"
+                and directories is not None
+            ):
+                state["capabilities"]["clip.read"] = True
+                _record_verified_capability(
+                    directories["state"],
+                    "clip.read",
                 )
         response = {
             "protocol_version": PROTOCOL_VERSION,

@@ -47,6 +47,7 @@
         "get_current_project",
         "list_timelines",
         "get_current_timeline",
+        "list_timeline_items",
         "get_render_environment",
         "get_render_job_status",
         "import_media",
@@ -108,6 +109,32 @@
             "properties": {
               "allow_destructive": {
                 "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "list_timeline_items"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id"
+            ],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
               }
             }
           }

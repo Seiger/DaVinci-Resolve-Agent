@@ -30,6 +30,10 @@ response and are preserved under `failed/`.
 Response files are retained as local audit evidence. The external client checks
 that the response `command_id` matches the submitted command.
 
+## Additional read actions
+
+- read-only `list_timeline_items` with one existing `timeline_id`;
+
 ## Write actions
 
 The allowlist additionally contains:
@@ -100,6 +104,11 @@ track, creates a project backup, and calls documented
 verify the item ID is absent. Ripple deletion, multiple IDs, and implicit
 linked-item expansion are not representable.
 
+`list_timeline_items` resolves a timeline by documented unique ID and
+enumerates all video/audio tracks. Each result contains only provider-neutral
+identity, track placement, timeline/source frame bounds, and duration. It does
+not create a backup or expose arbitrary TimelineItem properties.
+
 ## M1 action allowlist
 
 - `ping`
@@ -108,6 +117,7 @@ linked-item expansion are not representable.
 - `get_current_project`
 - `list_timelines`
 - `get_current_timeline`
+- `list_timeline_items`
 - `get_render_environment`
 - `get_render_job_status`
 

@@ -75,6 +75,10 @@ class FakeTimelineItem:
         assert subframe_precision is False
         return self._timeline_end
 
+    def GetDuration(self, subframe_precision: bool) -> int:
+        assert subframe_precision is False
+        return self._timeline_end - self._timeline_start
+
     def GetSourceStartFrame(self) -> int:
         return self._source_start
 
@@ -698,6 +702,74 @@ def test_clip_enabled_state_is_backed_up_read_back_and_replay_safe(
         "Returned the stored idempotent result."
     ]
     assert state["capabilities"]["clip.enable"] is True
+
+
+def test_timeline_items_are_discovered_with_bounded_metadata(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M16 Items")
+    resolve.project.SetCurrentTimeline(timeline)
+    timeline.items.extend(
+        [
+            FakeTimelineItem(
+                "video-1",
+                "screen.mkv",
+                timeline_start=86400,
+                timeline_end=86640,
+                source_start=0,
+                source_end=240,
+                track_type="video",
+            ),
+            FakeTimelineItem(
+                "audio-1",
+                "screen.mkv",
+                timeline_start=86400,
+                timeline_end=86640,
+                source_start=0,
+                source_end=240,
+                track_type="audio",
+            ),
+        ]
+    )
+    state = collect_bridge_state(resolve)
+    command = _command(
+        "list-items",
+        "list_timeline_items",
+        {"timeline_id": timeline.GetUniqueId()},
+    )
+    command["safety"]["create_backup"] = False
+
+    response = _run_command(tmp_path, resolve, state, command)
+
+    assert response["status"] == "success"
+    assert response["result"]["timeline_id"] == timeline.GetUniqueId()
+    assert response["result"]["items"] == [
+        {
+            "timeline_item_id": "video-1",
+            "name": "screen.mkv",
+            "track_type": "video",
+            "track_index": 1,
+            "duration_frames": 240,
+            "timeline_start_frame": 86400,
+            "timeline_end_frame": 86640,
+            "source_start_frame": 0,
+            "source_end_frame": 240,
+        },
+        {
+            "timeline_item_id": "audio-1",
+            "name": "screen.mkv",
+            "track_type": "audio",
+            "track_index": 1,
+            "duration_frames": 240,
+            "timeline_start_frame": 86400,
+            "timeline_end_frame": 86640,
+            "source_start_frame": 0,
+            "source_end_frame": 240,
+        },
+    ]
+    assert resolve.project_manager.export_count == 0
+    assert state["capabilities"]["clip.read"] is True
 
 
 def test_clip_transform_is_bounded_backed_up_and_replay_safe(

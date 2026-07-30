@@ -42,6 +42,10 @@ class StubCommandClient:
             assert create_backup is True
             assert idempotency_key == "stable-key"
             assert allow_destructive is (action == "delete_clip")
+        elif action == "list_timeline_items":
+            assert arguments == {"timeline_id": "timeline-1"}
+            assert create_backup is False
+            assert allow_destructive is False
         elif action == "get_render_job_status":
             assert arguments == {"job_id": "job-1"}
             assert create_backup is False
@@ -63,6 +67,17 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
             "get_current_project": {"name": "Test Project"},
             "list_timelines": [{"index": 1, "name": "Main"}],
             "get_current_timeline": {"name": "Main"},
+            "list_timeline_items": {
+                "timeline_id": "timeline-1",
+                "name": "Main",
+                "items": [
+                    {
+                        "timeline_item_id": "item-1",
+                        "track_type": "video",
+                        "track_index": 1,
+                    }
+                ],
+            },
             "get_render_environment": {
                 "formats": [],
                 "current": {"format": "mp4", "codec": "H264"},
@@ -145,6 +160,9 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     assert client.current_project() == {"name": "Test Project"}
     assert client.timelines() == [{"index": 1, "name": "Main"}]
     assert client.current_timeline() == {"name": "Main"}
+    assert client.timeline_items("timeline-1")["items"][0][
+        "timeline_item_id"
+    ] == "item-1"
     assert client.render_environment()["current"]["format"] == "mp4"
     assert client.import_media(
         ["sample.wav"],
@@ -217,6 +235,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "get_current_project",
         "list_timelines",
         "get_current_timeline",
+        "list_timeline_items",
         "get_render_environment",
         "import_media",
         "create_timeline",

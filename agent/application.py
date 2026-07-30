@@ -44,6 +44,14 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any] | None:
         """Return the current timeline."""
 
+    def timeline_items(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return bounded metadata for items in one timeline."""
+
     def render_environment(
         self,
         timeout_seconds: float = 30,
@@ -281,6 +289,19 @@ class AgentApplication:
         """Return the current Resolve timeline through the provider."""
         return self._resolve.current_timeline(
             self._validated_timeout(timeout_seconds)
+        )
+
+    def resolve_list_timeline_items(
+        self,
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """List addressable video/audio items in one Resolve timeline."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        return self._resolve.timeline_items(
+            timeline_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
         )
 
     def resolve_get_render_options(

@@ -9,6 +9,7 @@ Read-only інструменти:
 - `resolve_get_project`;
 - `resolve_list_timelines`;
 - `resolve_get_timeline`;
+- `resolve_list_timeline_items`;
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
 - `resolve_verify_render_output`.
@@ -141,6 +142,15 @@ destructive safety flag і обов'язковий backup. Масив IDs, linke
 та ripple-параметр зовнішньому клієнту не доступні. Видалення окремого
 disposable item, replay без другого backup і незмінені первинні video/audio
 counts перевірено у Resolve 21 Free 21.0.3.7.
+
+`resolve_list_timeline_items` приймає один `timeline_id` і read-only перелічує
+video/audio tracks через документовані `GetTrackCount` та
+`GetItemListInTrack`. Для кожного item повертаються ID, назва, track,
+timeline/source frame bounds і duration. Subtitle items, raw Resolve
+properties, Fusion compositions та object handles не повертаються.
+Live discovery у Resolve 21 Free 21.0.3.7 повернув один V1 та один A1 item із
+duration 96, timeline bounds 86400..86496 і source bounds 0..240 без створення
+project backup.
 
 ## Безпечне редагування
 
