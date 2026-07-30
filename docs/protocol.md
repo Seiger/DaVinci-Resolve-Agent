@@ -39,6 +39,7 @@ The allowlist additionally contains:
 - `append_clip` with `timeline_id` and `asset_id`;
 - `add_marker` with timeline marker fields.
 - `prepare_render_job` with `custom_name`.
+- `start_render_job` with `job_id`.
 
 Every write envelope must set `allow_destructive` to `false` and
 `create_backup` to `true`. Write actions use `state/receipts` to make a stable
@@ -47,10 +48,17 @@ against `state/media-policy.json` before calling Resolve.
 
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
-YouTube 1080p preset, selects MP4/H264, and adds one job. Its response always
-reports `started=false`; the bridge never calls `StartRendering`.
+YouTube 1080p preset, selects MP4/H264, and adds one job. Its response reports
+`started=false`.
 The bridge temporarily opens the documented `deliver` page required by the
 official Blackmagic example and then restores the previously active page.
+
+`start_render_job` accepts only one safe `job_id`. Before the documented
+`StartRendering([jobId], False)` call, the bridge verifies the M7 preparation
+receipt and matching live queue metadata, rejects any existing render process,
+creates a project backup, and atomically reserves the job under
+`state/render-starts`. The command receipt handles same-key replay; the
+per-job record blocks a second start under a different key.
 
 ## M1 action allowlist
 
@@ -61,10 +69,12 @@ official Blackmagic example and then restores the previously active page.
 - `list_timelines`
 - `get_current_timeline`
 - `get_render_environment`
+- `get_render_job_status`
 
-All actions accept an empty `arguments` object. `allow_destructive` must be
-`false`. There is no action for executing Python, Lua, PowerShell, shell
-commands, or Resolve expressions.
+All actions except `get_render_job_status` accept an empty `arguments` object;
+status accepts only `job_id`. `allow_destructive` must be `false`. There is no
+action for executing Python, Lua, PowerShell, shell commands, or Resolve
+expressions.
 
 `get_render_environment` is the read-only M7 discovery action. It returns only
 documented formats, codecs, presets, the current format/codec, and existing

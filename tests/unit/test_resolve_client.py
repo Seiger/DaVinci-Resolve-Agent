@@ -30,10 +30,14 @@ class StubCommandClient:
             "append_clip",
             "add_marker",
             "prepare_render_job",
+            "start_render_job",
         }:
             assert arguments is not None
             assert create_backup is True
             assert idempotency_key == "stable-key"
+        elif action == "get_render_job_status":
+            assert arguments == {"job_id": "job-1"}
+            assert create_backup is False
         else:
             assert arguments is None
             assert create_backup is False
@@ -81,6 +85,14 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 "preset": "youtube-1080p-h264-v1",
                 "started": False,
             },
+            "get_render_job_status": {
+                "job_id": "job-1",
+                "status": {"JobStatus": "Ready"},
+            },
+            "start_render_job": {
+                "job_id": "job-1",
+                "started": True,
+            },
         }
     )
     client = ResolveProviderClient(command_client)
@@ -117,6 +129,11 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "M7 Test",
         idempotency_key="stable-key",
     )["started"] is False
+    assert client.render_job_status("job-1")["status"]["JobStatus"] == "Ready"
+    assert client.start_render_job(
+        "job-1",
+        idempotency_key="stable-key",
+    )["started"] is True
     assert command_client.actions == [
         "ping",
         "get_capabilities",
@@ -129,4 +146,6 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "append_clip",
         "add_marker",
         "prepare_render_job",
+        "get_render_job_status",
+        "start_render_job",
     ]

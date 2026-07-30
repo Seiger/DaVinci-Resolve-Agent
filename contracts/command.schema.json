@@ -48,11 +48,13 @@
         "list_timelines",
         "get_current_timeline",
         "get_render_environment",
+        "get_render_job_status",
         "import_media",
         "create_timeline",
         "append_clip",
         "add_marker",
-        "prepare_render_job"
+        "prepare_render_job",
+        "start_render_job"
       ]
     },
     "arguments": {
@@ -76,6 +78,36 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "enum": [
+              "get_render_job_status",
+              "start_render_job"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "job_id"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._:-]+$"
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {
@@ -273,7 +305,8 @@
               "create_timeline",
               "append_clip",
               "add_marker",
-              "prepare_render_job"
+              "prepare_render_job",
+              "start_render_job"
             ]
           }
         }

@@ -48,3 +48,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   durable non-configurable output directory.
 - Resolve 21 Free 21.0.3.7 live verification of 1080p render-job preparation,
   queue discovery, backup creation, and idempotent replay without rendering.
+- M8 read-only render-job status and guarded start for agent-prepared jobs.
+- Durable per-job start records, live queue policy checks, mandatory backup,
+  and replay protection before documented Resolve rendering calls.
+- Resolve 21 Free 21.0.3.7 live verification of read-only `Ready` job status
+  without starting or changing the render queue.

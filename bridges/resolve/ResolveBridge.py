@@ -23,11 +23,13 @@ ALLOWED_ACTIONS = {
     "list_timelines",
     "get_current_timeline",
     "get_render_environment",
+    "get_render_job_status",
     "import_media",
     "create_timeline",
     "append_clip",
     "add_marker",
     "prepare_render_job",
+    "start_render_job",
 }
 WRITE_ACTIONS = {
     "import_media",
@@ -35,6 +37,7 @@ WRITE_ACTIONS = {
     "append_clip",
     "add_marker",
     "prepare_render_job",
+    "start_render_job",
 }
 CAPABILITY_BY_ACTION = {
     "import_media": "media.import",
@@ -42,6 +45,7 @@ CAPABILITY_BY_ACTION = {
     "append_clip": "clip.insert",
     "add_marker": "marker.create",
     "prepare_render_job": "render.configure",
+    "start_render_job": "render.start",
 }
 
 
@@ -293,8 +297,13 @@ def validate_command(command: Any) -> dict[str, Any]:
         if command["safety"]["create_backup"] is not True:
             raise ValueError("Write commands must request a project backup.")
         _validate_write_arguments(command["action"], command["arguments"])
+    elif command["action"] == "get_render_job_status":
+        _validate_render_job_arguments(
+            command["action"],
+            command["arguments"],
+        )
     elif command["arguments"] != {}:
-        raise ValueError("Read-only actions do not accept arguments.")
+        raise ValueError("This read-only action does not accept arguments.")
 
     _parse_timestamp(command["created_at"], "created_at")
     expires_at = _parse_timestamp(command["expires_at"], "expires_at")
@@ -365,6 +374,9 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
             raise ValueError("prepare_render_job requires only custom_name.")
         _validate_render_name(arguments["custom_name"])
         return
+    if action == "start_render_job":
+        _validate_render_job_arguments(action, arguments)
+        return
     raise ValueError("Unsupported write action.")
 
 
@@ -382,6 +394,23 @@ def _validate_render_name(value: Any) -> str:
     if normalized.endswith((".", " ")):
         raise ValueError("custom_name must not end with a dot or space.")
     return normalized
+
+
+def _validate_render_job_arguments(
+    action: str,
+    arguments: dict[str, Any],
+) -> str:
+    if set(arguments) != {"job_id"}:
+        raise ValueError(f"{action} requires only job_id.")
+    job_id = arguments["job_id"]
+    if (
+        not isinstance(job_id, str)
+        or re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", job_id) is None
+    ):
+        raise ValueError(
+            "job_id must contain 1 to 128 safe identifier characters."
+        )
+    return job_id
 
 
 def _render_output_directory() -> Path:
@@ -405,6 +434,7 @@ def command_result(
     action: str,
     state: dict[str, Any],
     resolve: Any | None = None,
+    arguments: dict[str, Any] | None = None,
 ) -> Any:
     """Return a read-only result from the collected snapshot."""
     if action == "ping":
@@ -439,6 +469,15 @@ def command_result(
                 retryable=True,
             )
         return _render_environment(resolve)
+    if action == "get_render_job_status":
+        if resolve is None:
+            raise BridgeOperationError(
+                "RESOLVE_CONTEXT_REQUIRED",
+                "A live Resolve context is required for render status.",
+                retryable=True,
+            )
+        job_id = _validate_render_job_arguments(action, arguments or {})
+        return _render_job_status(resolve, job_id)
     raise ValueError("Unsupported or unsafe bridge action.")
 
 
@@ -565,6 +604,53 @@ def _render_environment(resolve: Any) -> dict[str, Any]:
         "presets": _json_safe(presets),
         "jobs": _json_safe(jobs),
         "timeline": timeline_summary,
+    }
+
+
+def _render_job_status(resolve: Any, job_id: str) -> dict[str, Any]:
+    project_manager = resolve.GetProjectManager()
+    if project_manager is None:
+        raise BridgeOperationError(
+            "PROJECT_MANAGER_UNAVAILABLE",
+            "Resolve.GetProjectManager() returned no object.",
+            retryable=True,
+        )
+    project = project_manager.GetCurrentProject()
+    if project is None:
+        raise BridgeOperationError(
+            "PROJECT_NOT_OPEN",
+            "Open a Resolve project before reading render status.",
+            retryable=True,
+        )
+    required_methods = (
+        "GetRenderJobList",
+        "GetRenderJobStatus",
+        "IsRenderingInProgress",
+    )
+    missing = [
+        name
+        for name in required_methods
+        if not callable(getattr(project, name, None))
+    ]
+    if missing:
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "The current Resolve project cannot report render status.",
+            details={"missing_methods": missing},
+        )
+    job = _find_render_job(project, job_id)
+    status = project.GetRenderJobStatus(job_id)
+    if not isinstance(status, Mapping):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "Resolve.GetRenderJobStatus() returned an invalid value.",
+            details={"job_id": job_id},
+        )
+    return {
+        "job_id": job_id,
+        "rendering_in_progress": bool(project.IsRenderingInProgress()),
+        "status": _json_safe(status),
+        "job": _json_safe(job),
     }
 
 
@@ -813,6 +899,111 @@ def _write_receipt(
     )
 
 
+def _find_render_job(project: Any, job_id: str) -> dict[str, Any]:
+    jobs = project.GetRenderJobList()
+    if not isinstance(jobs, list):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "Resolve.GetRenderJobList() returned an invalid value.",
+        )
+    for item in jobs:
+        if isinstance(item, Mapping) and str(item.get("JobId", "")) == job_id:
+            return {str(key): value for key, value in item.items()}
+    raise BridgeOperationError(
+        "RENDER_JOB_NOT_FOUND",
+        f"Resolve render job was not found: {job_id}",
+    )
+
+
+def _find_prepared_render_result(
+    state_directory: Path,
+    job_id: str,
+) -> dict[str, Any]:
+    receipts_directory = state_directory / "receipts"
+    for path in receipts_directory.glob("*.json"):
+        try:
+            with path.open("r", encoding="utf-8") as receipt_file:
+                receipt = json.load(receipt_file)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(receipt, dict) or receipt.get("action") != (
+            "prepare_render_job"
+        ):
+            continue
+        result = receipt.get("result")
+        if isinstance(result, dict) and result.get("job_id") == job_id:
+            return cast(dict[str, Any], result)
+    raise BridgeOperationError(
+        "RENDER_JOB_NOT_AGENT_PREPARED",
+        "The render job was not prepared by DaVinci Resolve Agent.",
+        details={"job_id": job_id},
+    )
+
+
+def _verify_agent_prepared_render_job(
+    project: Any,
+    state_directory: Path,
+    job_id: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    prepared = _find_prepared_render_result(state_directory, job_id)
+    job = _find_render_job(project, job_id)
+    expected_directory = _render_output_directory()
+    expected_name = f"{prepared.get('custom_name', '')}.mp4"
+    prepared_directory = Path(str(prepared.get("target_directory", ""))).resolve()
+    live_directory = Path(str(job.get("TargetDir", ""))).resolve()
+    valid = (
+        prepared.get("preset") == "youtube-1080p-h264-v1"
+        and prepared.get("resolve_preset") == "YouTube - 1080p"
+        and prepared.get("format") == "MP4"
+        and prepared.get("codec") == "H264"
+        and prepared.get("started") is False
+        and prepared_directory == expected_directory
+        and live_directory == expected_directory
+        and job.get("PresetName") == "YouTube - 1080p"
+        and job.get("VideoFormat") == "MP4"
+        and job.get("VideoCodec") in {"H.264", "H264"}
+        and job.get("OutputFilename") == expected_name
+    )
+    if not valid:
+        raise BridgeOperationError(
+            "RENDER_JOB_POLICY_MISMATCH",
+            "The render job no longer matches the fixed safe render policy.",
+            details={"job_id": job_id},
+        )
+    return prepared, job
+
+
+def _render_start_path(state_directory: Path, job_id: str) -> Path:
+    job_hash = hashlib.sha256(job_id.encode("utf-8")).hexdigest()
+    return state_directory / "render-starts" / f"{job_hash}.json"
+
+
+def _reserve_render_start(
+    state_directory: Path,
+    command: dict[str, Any],
+    job_id: str,
+) -> Path:
+    path = _render_start_path(state_directory, job_id)
+    if path.is_file():
+        raise BridgeOperationError(
+            "RENDER_JOB_ALREADY_STARTED",
+            "This agent-prepared render job already has a start record.",
+            details={"job_id": job_id},
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(
+        path,
+        {
+            "job_id": job_id,
+            "command_id": command["command_id"],
+            "idempotency_key": command["idempotency_key"],
+            "status": "starting",
+            "created_at": utc_now(),
+        },
+    )
+    return path
+
+
 def _verified_capabilities_path(state_directory: Path) -> Path:
     return state_directory / "verified-capabilities.json"
 
@@ -887,6 +1078,42 @@ def _execute_write_command(
                     retryable=True,
                 )
             media_item = _find_media_item(root_folder, arguments["asset_id"])
+    elif action == "start_render_job":
+        job_id = _validate_render_job_arguments(action, arguments)
+        required_methods = (
+            "GetRenderJobList",
+            "GetRenderJobStatus",
+            "IsRenderingInProgress",
+            "StartRendering",
+        )
+        missing = [
+            name
+            for name in required_methods
+            if not callable(getattr(project, name, None))
+        ]
+        if missing:
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "The current Resolve project cannot start render jobs.",
+                details={"missing_methods": missing},
+            )
+        _verify_agent_prepared_render_job(
+            project,
+            directories["state"],
+            job_id,
+        )
+        if _render_start_path(directories["state"], job_id).is_file():
+            raise BridgeOperationError(
+                "RENDER_JOB_ALREADY_STARTED",
+                "This agent-prepared render job already has a start record.",
+                details={"job_id": job_id},
+            )
+        if project.IsRenderingInProgress() is True:
+            raise BridgeOperationError(
+                "RENDER_ALREADY_IN_PROGRESS",
+                "Resolve is already rendering a job.",
+                retryable=True,
+            )
 
     backup_path = _create_project_backup(
         project_manager,
@@ -993,7 +1220,7 @@ def _execute_write_command(
                         "missing_methods": ["GetCurrentPage", "OpenPage"],
                     },
                 )
-            required_methods = (
+            prepare_required_methods = (
                 "GetCurrentTimeline",
                 "GetRenderPresetList",
                 "LoadRenderPreset",
@@ -1004,7 +1231,7 @@ def _execute_write_command(
             )
             missing = [
                 name
-                for name in required_methods
+                for name in prepare_required_methods
                 if not callable(getattr(project, name, None))
             ]
             if missing:
@@ -1093,6 +1320,38 @@ def _execute_write_command(
                 "started": False,
                 "backup_path": backup_path,
             }
+        elif action == "start_render_job":
+            job_id = _validate_render_job_arguments(action, arguments)
+            start_path = _reserve_render_start(
+                directories["state"],
+                command,
+                job_id,
+            )
+            if project.StartRendering([job_id], False) is not True:
+                raise BridgeOperationError(
+                    "RENDER_START_FAILED",
+                    "Resolve did not start the requested render job.",
+                    retryable=False,
+                    details={"job_id": job_id},
+                )
+            status = _render_job_status(resolve, job_id)
+            atomic_write_json(
+                start_path,
+                {
+                    "job_id": job_id,
+                    "command_id": command["command_id"],
+                    "idempotency_key": command["idempotency_key"],
+                    "status": "accepted",
+                    "created_at": utc_now(),
+                },
+            )
+            result = {
+                "job_id": job_id,
+                "started": True,
+                "rendering_in_progress": status["rendering_in_progress"],
+                "status": status["status"],
+                "backup_path": backup_path,
+            }
         else:
             raise BridgeOperationError(
                 "UNSUPPORTED_WRITE_ACTION",
@@ -1145,7 +1404,12 @@ def process_command_file(
             state["capabilities"][capability] = True
             _record_verified_capability(directories["state"], capability)
         else:
-            result = command_result(command["action"], state, resolve)
+            result = command_result(
+                command["action"],
+                state,
+                resolve,
+                command["arguments"],
+            )
             if (
                 command["action"] == "get_render_environment"
                 and directories is not None

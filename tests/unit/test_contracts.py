@@ -74,6 +74,24 @@ def test_prepare_render_job_requires_backup_and_safe_arguments() -> None:
         validate_contract("command", command)
 
 
+def test_render_start_and_status_require_safe_job_id() -> None:
+    command = _valid_command()
+    command["action"] = "get_render_job_status"
+    command["arguments"] = {"job_id": "job-1"}
+    validate_contract("command", command)
+
+    command["action"] = "start_render_job"
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"] = {"job_id": "../job"}
+    with pytest.raises(ContractValidationError, match="job_id"):
+        validate_contract("command", command)
+
+
 def test_success_response_cannot_contain_an_error() -> None:
     response = {
         "protocol_version": "1.0",

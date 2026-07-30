@@ -125,6 +125,10 @@ class FakeProject:
         self.render_format = ""
         self.render_codec = ""
         self.render_mode = 0
+        self.render_preset = ""
+        self.rendering = False
+        self.render_start_count = 0
+        self.render_statuses: dict[str, dict[str, Any]] = {}
 
     def GetName(self) -> str:
         return "M4 Test Project"
@@ -151,6 +155,7 @@ class FakeProject:
         return ["YouTube - 1080p"]
 
     def LoadRenderPreset(self, preset_name: str) -> bool:
+        self.render_preset = preset_name
         return preset_name == "YouTube - 1080p"
 
     def SetCurrentRenderFormatAndCodec(
@@ -172,8 +177,48 @@ class FakeProject:
 
     def AddRenderJob(self) -> str:
         job_id = f"job-{len(self.render_jobs) + 1}"
-        self.render_jobs.append({"JobId": job_id})
+        self.render_jobs.append(
+            {
+                "JobId": job_id,
+                "TargetDir": self.render_settings["TargetDir"],
+                "OutputFilename": (
+                    f"{self.render_settings['CustomName']}.mp4"
+                ),
+                "PresetName": self.render_preset,
+                "VideoFormat": self.render_format,
+                "VideoCodec": "H.264",
+            }
+        )
+        self.render_statuses[job_id] = {
+            "JobStatus": "Ready",
+            "CompletionPercentage": 0,
+        }
         return job_id
+
+    def GetRenderJobList(self) -> list[dict[str, Any]]:
+        return self.render_jobs
+
+    def GetRenderJobStatus(self, job_id: str) -> dict[str, Any]:
+        return self.render_statuses[job_id]
+
+    def IsRenderingInProgress(self) -> bool:
+        return self.rendering
+
+    def StartRendering(
+        self,
+        job_ids: list[str],
+        interactive: bool,
+    ) -> bool:
+        assert interactive is False
+        if len(job_ids) != 1 or job_ids[0] not in self.render_statuses:
+            return False
+        self.rendering = True
+        self.render_start_count += 1
+        self.render_statuses[job_ids[0]] = {
+            "JobStatus": "Rendering",
+            "CompletionPercentage": 1,
+        }
+        return True
 
 
 class FakeProjectManager:
@@ -458,3 +503,116 @@ def test_prepare_render_job_is_backed_up_and_replay_safe(
     assert resolve.project_manager.export_count == 1
     assert state["capabilities"]["render.configure"] is True
     assert resolve.current_page == "edit"
+
+
+def test_agent_prepared_render_job_starts_once_and_reports_status(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Render Timeline")
+    resolve.project.SetCurrentTimeline(timeline)
+    state = collect_bridge_state(resolve)
+    prepared = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "render-prepare",
+            "prepare_render_job",
+            {"custom_name": "M8 Test"},
+            idempotency_key="stable-prepare",
+        ),
+    )
+    job_id = prepared["result"]["job_id"]
+    first = _command(
+        "render-start",
+        "start_render_job",
+        {"job_id": job_id},
+        idempotency_key="stable-start",
+    )
+    replay = _command(
+        "render-start-replay",
+        "start_render_job",
+        {"job_id": job_id},
+        idempotency_key="stable-start",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+    status_command = _command(
+        "render-status",
+        "get_render_job_status",
+        {"job_id": job_id},
+    )
+    status_command["safety"]["create_backup"] = False
+    status_response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        status_command,
+    )
+    resolve.project.rendering = False
+    second_key_response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "render-start-second-key",
+            "start_render_job",
+            {"job_id": job_id},
+            idempotency_key="different-start-key",
+        ),
+    )
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert first_response["result"]["started"] is True
+    assert first_response["result"]["status"]["JobStatus"] == "Rendering"
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
+    assert status_response["result"]["rendering_in_progress"] is True
+    assert second_key_response["status"] == "error"
+    assert second_key_response["error"]["code"] == "RENDER_JOB_ALREADY_STARTED"
+    assert resolve.project.render_start_count == 1
+    assert resolve.project_manager.export_count == 2
+    assert state["capabilities"]["render.start"] is True
+    assert len(list((tmp_path / "state" / "render-starts").glob("*.json"))) == 1
+
+
+def test_unprepared_render_job_cannot_start(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    resolve = FakeResolve()
+    resolve.project.render_jobs.append(
+        {
+            "JobId": "foreign-job",
+            "TargetDir": str(tmp_path),
+            "OutputFilename": "foreign.mp4",
+            "PresetName": "YouTube - 1080p",
+            "VideoFormat": "MP4",
+            "VideoCodec": "H.264",
+        }
+    )
+    resolve.project.render_statuses["foreign-job"] = {"JobStatus": "Ready"}
+    state = collect_bridge_state(resolve)
+
+    response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "foreign-start",
+            "start_render_job",
+            {"job_id": "foreign-job"},
+        ),
+    )
+
+    assert response["status"] == "error"
+    assert response["error"]["code"] == "RENDER_JOB_NOT_AGENT_PREPARED"
+    assert resolve.project.render_start_count == 0
+    assert resolve.project_manager.export_count == 0

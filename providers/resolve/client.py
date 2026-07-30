@@ -183,6 +183,39 @@ class ResolveProviderClient:
         )
         return self._object_value("prepare_render_job", result)
 
+    def render_job_status(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return documented status for one queued render job."""
+        result = self._client.request(
+            provider="resolve",
+            action="get_render_job_status",
+            arguments={"job_id": job_id},
+            timeout_seconds=timeout_seconds,
+        )
+        return self._object_value("get_render_job_status", result)
+
+    def start_render_job(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Start one agent-prepared render job after a project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="start_render_job",
+            arguments={"job_id": job_id},
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("start_render_job", result)
+
     def _object_result(
         self,
         action: str,

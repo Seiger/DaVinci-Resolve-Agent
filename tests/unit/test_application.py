@@ -94,6 +94,25 @@ class StubResolveReader:
         self.timeouts.append(timeout_seconds)
         return {"job_id": "job-1", "custom_name": custom_name, "started": False}
 
+    def render_job_status(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {"job_id": job_id, "status": {"JobStatus": "Ready"}}
+
+    def start_render_job(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {"job_id": job_id, "started": True}
+
 
 class StubMediaPolicy:
     def __init__(self) -> None:
@@ -225,6 +244,14 @@ def test_application_exposes_validated_write_methods() -> None:
         "M7 Test",
         timeout_seconds=50,
     )
+    render_status = application.resolve_get_render_job_status(
+        "job-1",
+        timeout_seconds=60,
+    )
+    render_start = application.resolve_start_render_job(
+        "job-1",
+        timeout_seconds=70,
+    )
 
     assert media_policy.paths == ["sample.wav"]
     assert imported["items"][0]["name"] == "normalized:sample.wav"
@@ -233,7 +260,9 @@ def test_application_exposes_validated_write_methods() -> None:
     assert marker["color"] == "Green"
     assert render_job["started"] is False
     assert render_job["custom_name"] == "M7 Test"
-    assert resolve.timeouts == [10, 20, 30, 40, 50]
+    assert render_status["status"]["JobStatus"] == "Ready"
+    assert render_start["started"] is True
+    assert resolve.timeouts == [10, 20, 30, 40, 50, 60, 70]
 
 
 def test_application_creates_review_only_plan_without_resolve_call() -> None:

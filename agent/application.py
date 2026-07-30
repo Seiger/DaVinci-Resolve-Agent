@@ -13,7 +13,7 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.media import MediaPolicy
-from agent.rendering import validate_render_name
+from agent.rendering import validate_render_job_id, validate_render_name
 from agent.rough_cut import RoughCutPlanner
 from providers.resolve import ResolveProviderClient
 
@@ -91,6 +91,23 @@ class ResolveReader(Protocol):
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Prepare one fixed render job."""
+
+    def render_job_status(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return the current status of one render job."""
+
+    def start_render_job(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Start one agent-prepared render job."""
 
 
 class MediaImportPolicy(Protocol):
@@ -297,6 +314,34 @@ class AgentApplication:
         normalized_name = validate_render_name(custom_name)
         return self._resolve.prepare_render_job(
             normalized_name,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_get_render_job_status(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return documented status for one Resolve render job."""
+        normalized_job_id = validate_render_job_id(job_id)
+        return self._resolve.render_job_status(
+            normalized_job_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+        )
+
+    def resolve_start_render_job(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Start one agent-prepared Resolve render job."""
+        normalized_job_id = validate_render_job_id(job_id)
+        return self._resolve.start_render_job(
+            normalized_job_id,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

@@ -14,8 +14,13 @@ already present in the filesystem queue, and exits. M4 write operations require
 a successful `.drp` project export and store idempotency receipts.
 
 M7 render discovery uses only documented read methods. Its separate preparation
-action adds one fixed MP4/H264 job only after project backup and never starts,
-stops, deletes, or uploads anything.
+action adds one fixed MP4/H264 job only after project backup.
+
+M8 can read one job status and start one agent-prepared job through documented
+Resolve methods. Before start it verifies the preparation receipt, fixed preset,
+codec, output name and output root, creates a project backup, and writes a
+durable per-job start record. It cannot start arbitrary or all queued jobs,
+stop rendering, delete jobs, change settings, or upload anything.
 
 The one-shot lifecycle is intentional: persistent polling is not enabled until
 live testing proves that it does not block the Resolve UI.

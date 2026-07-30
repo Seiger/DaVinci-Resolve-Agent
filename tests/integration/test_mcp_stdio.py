@@ -39,6 +39,8 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "resolve_append_clip",
         "resolve_add_marker",
         "resolve_prepare_render_job",
+        "resolve_get_render_job_status",
+        "resolve_start_render_job",
         "create_rough_cut",
         "clean_dialogue_audio",
     }

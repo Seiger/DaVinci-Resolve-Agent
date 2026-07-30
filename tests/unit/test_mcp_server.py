@@ -84,6 +84,23 @@ class StubResolveReader:
     ) -> dict[str, Any]:
         return {"job_id": "job-1", "custom_name": custom_name, "started": False}
 
+    def render_job_status(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {"job_id": job_id, "status": {"JobStatus": "Ready"}}
+
+    def start_render_job(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"job_id": job_id, "started": True}
+
 
 class StubMediaPolicy:
     def prepare_import(self, paths: list[str]) -> list[str]:
@@ -167,18 +184,26 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             audio_annotations = annotations["clean_dialogue_audio"]
             render_annotations = annotations["resolve_get_render_options"]
             prepare_annotations = annotations["resolve_prepare_render_job"]
+            job_status_annotations = annotations[
+                "resolve_get_render_job_status"
+            ]
+            start_annotations = annotations["resolve_start_render_job"]
             assert status_annotations is not None
             assert import_annotations is not None
             assert rough_cut_annotations is not None
             assert audio_annotations is not None
             assert render_annotations is not None
             assert prepare_annotations is not None
+            assert job_status_annotations is not None
+            assert start_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
             assert audio_annotations.read_only_hint is False
             assert render_annotations.read_only_hint is True
             assert prepare_annotations.read_only_hint is False
+            assert job_status_annotations.read_only_hint is True
+            assert start_annotations.read_only_hint is False
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
@@ -219,6 +244,14 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                     "resolve_prepare_render_job",
                     {"custom_name": "M7 Test"},
                 ),
+                "render_status": await client.call_tool(
+                    "resolve_get_render_job_status",
+                    {"job_id": "job-1"},
+                ),
+                "render_start": await client.call_tool(
+                    "resolve_start_render_job",
+                    {"job_id": "job-1"},
+                ),
                 "rough_cut": await client.call_tool(
                     "create_rough_cut",
                     {
@@ -250,6 +283,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_append_clip",
         "resolve_add_marker",
         "resolve_prepare_render_job",
+        "resolve_get_render_job_status",
+        "resolve_start_render_job",
         "create_rough_cut",
         "clean_dialogue_audio",
     }
@@ -273,5 +308,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["appended"].structured_content["asset_id"] == "asset-1"
     assert results["marker"].structured_content["color"] == "Green"
     assert results["prepared"].structured_content["started"] is False
+    assert results["render_status"].structured_content["status"][
+        "JobStatus"
+    ] == "Ready"
+    assert results["render_start"].structured_content["started"] is True
     assert results["rough_cut"].structured_content["status"] == "pending_review"
     assert results["audio"].structured_content["status"] == "completed"

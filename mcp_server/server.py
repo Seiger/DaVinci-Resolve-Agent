@@ -171,6 +171,32 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             idempotency_key=idempotency_key,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def resolve_get_render_job_status(
+        job_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return current Resolve status for one render job."""
+        return await asyncio.to_thread(
+            service.resolve_get_render_job_status,
+            job_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_start_render_job(
+        job_id: str,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Start one agent-prepared render job after a project backup."""
+        return await asyncio.to_thread(
+            service.resolve_start_render_job,
+            job_id,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def create_rough_cut(
         screen_file: str,

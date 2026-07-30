@@ -194,6 +194,29 @@ Live validation on Resolve 21 Free 21.0.3.7 confirmed one 1920x1080 MP4/H.264
 job, one mandatory backup, and replay of the stored result without adding a
 second job or starting rendering.
 
+## M8 safe render execution
+
+M8 separates status from start:
+
+```text
+MCP resolve_get_render_job_status(job_id)
+ └─ GetRenderJobList + GetRenderJobStatus + IsRenderingInProgress
+
+MCP resolve_start_render_job(job_id)
+ └─ validate M7 preparation receipt
+     └─ verify fixed live queue metadata and no active render
+         └─ backup project + durable start reservation
+             └─ StartRendering([job_id], False)
+```
+
+The start action cannot accept a path, preset, codec, upload destination, job
+list, or all-jobs flag. A same-key replay returns its stored result; a different
+key cannot restart a job with an existing `state/render-starts` record.
+`render.start=true` is persisted only after Resolve accepts a live start.
+Until that live test succeeds, the capability remains `unknown`.
+Read-only status was live-validated on Resolve 21 Free 21.0.3.7 for the M7
+1920x1080 MP4/H.264 job in `Ready` state with zero completion.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

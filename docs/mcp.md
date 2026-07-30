@@ -10,6 +10,7 @@ Read-only інструменти:
 - `resolve_list_timelines`;
 - `resolve_get_timeline`;
 - `resolve_get_render_options`.
+- `resolve_get_render_job_status`.
 
 Write-інструменти M4:
 
@@ -18,6 +19,7 @@ Write-інструменти M4:
 - `resolve_append_clip`;
 - `resolve_add_marker`.
 - `resolve_prepare_render_job`.
+- `resolve_start_render_job`.
 
 Draft-only інструмент M5:
 
@@ -84,6 +86,12 @@ queue. Він не конфігурує й не запускає render.
 `custom_name`. Він створює `.drp` backup, застосовує фіксований
 `youtube-1080p-h264-v1`, додає MP4/H264 job у queue та повертає
 `started=false`. Output directory не задається через MCP.
+
+`resolve_get_render_job_status` читає документований status одного `job_id`.
+`resolve_start_render_job` стартує лише job, який був створений
+`resolve_prepare_render_job`, досі відповідає фіксованому 1080p MP4/H264
+контракту й не має попереднього start-record. Tool не приймає output path,
+codec, preset, список job або upload target. Перед стартом створюється backup.
 
 ## Безпечне редагування
 
