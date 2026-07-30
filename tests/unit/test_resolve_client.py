@@ -29,6 +29,7 @@ class StubCommandClient:
             "create_timeline",
             "append_clip",
             "insert_clip",
+            "set_clip_enabled",
             "add_marker",
             "prepare_render_job",
             "start_render_job",
@@ -84,6 +85,12 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 "asset_id": "asset-1",
                 "item": {"source_start_frame": 0, "source_end_frame": 240},
             },
+            "set_clip_enabled": {
+                "timeline_id": "timeline-1",
+                "timeline_item_id": "item-1",
+                "previous_enabled": True,
+                "enabled": False,
+            },
             "add_marker": {
                 "timeline_id": "timeline-1",
                 "frame": 0,
@@ -135,6 +142,12 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         1,
         idempotency_key="stable-key",
     )["item"]["source_end_frame"] == 240
+    assert client.set_clip_enabled(
+        "timeline-1",
+        "item-1",
+        False,
+        idempotency_key="stable-key",
+    )["enabled"] is False
     assert client.add_marker(
         "timeline-1",
         0,
@@ -165,6 +178,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "create_timeline",
         "append_clip",
         "insert_clip",
+        "set_clip_enabled",
         "add_marker",
         "prepare_render_job",
         "get_render_job_status",

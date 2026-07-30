@@ -136,6 +136,29 @@ def test_insert_clip_requires_bounded_track_and_frame_arguments() -> None:
         validate_contract("command", command)
 
 
+def test_set_clip_enabled_requires_ids_boolean_and_backup() -> None:
+    command = _valid_command()
+    command["action"] = "set_clip_enabled"
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "timeline_item_id": "item-1",
+        "enabled": False,
+    }
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "timeline_item_id": "item-1",
+        "enabled": "false",
+    }
+    with pytest.raises(ContractValidationError, match="enabled"):
+        validate_contract("command", command)
+
+
 def test_success_response_cannot_contain_an_error() -> None:
     response = {
         "protocol_version": "1.0",

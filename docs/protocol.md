@@ -38,6 +38,7 @@ The allowlist additionally contains:
 - `create_timeline` with `name`;
 - `append_clip` with `timeline_id` and `asset_id`;
 - `insert_clip` with IDs, source bounds, timeline-relative position, and track;
+- `set_clip_enabled` with timeline ID, item ID, and boolean enabled state;
 - `add_marker` with timeline marker fields.
 - `prepare_render_job` with `custom_name` and optional allowlisted `profile`.
 - `start_render_job` with `job_id`.
@@ -69,6 +70,11 @@ Resolve `mediaType`, derives `recordFrame` as
 `Timeline.GetStartFrame() + position_frames`, checks the track exists and is
 unlocked, and returns documented TimelineItem source/timeline bounds and track
 readback. It does not mutate existing items.
+
+`set_clip_enabled` locates one video/audio TimelineItem by documented unique
+ID, verifies its track is unlocked, creates a project backup, calls
+`SetClipEnabled(Bool)`, and confirms the exact result with
+`GetClipEnabled()`. It cannot address arbitrary properties or execute code.
 
 ## M1 action allowlist
 

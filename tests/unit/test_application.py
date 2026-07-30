@@ -96,6 +96,23 @@ class StubResolveReader:
             },
         }
 
+    def set_clip_enabled(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        enabled: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "timeline_item_id": timeline_item_id,
+            "previous_enabled": not enabled,
+            "enabled": enabled,
+        }
+
     def add_marker(
         self,
         timeline_id: str,
@@ -314,6 +331,12 @@ def test_application_exposes_validated_write_methods() -> None:
         1,
         timeout_seconds=35,
     )
+    disabled = application.resolve_set_clip_enabled(
+        "timeline-1",
+        "item-1",
+        False,
+        timeout_seconds=37,
+    )
     marker = application.resolve_add_marker(
         "timeline-1",
         0,
@@ -340,13 +363,15 @@ def test_application_exposes_validated_write_methods() -> None:
     assert appended["asset_id"] == "asset-1"
     assert inserted["item"]["source_end_frame"] == 240
     assert inserted["item"]["track_type"] == "video"
+    assert disabled["timeline_item_id"] == "item-1"
+    assert disabled["enabled"] is False
     assert marker["color"] == "Green"
     assert render_job["started"] is False
     assert render_job["custom_name"] == "M7 Test"
     assert render_job["preset"] == "youtube-2160p-h264-v1"
     assert render_status["status"]["JobStatus"] == "Ready"
     assert render_start["started"] is True
-    assert resolve.timeouts == [10, 20, 30, 35, 40, 50, 60, 70]
+    assert resolve.timeouts == [10, 20, 30, 35, 37, 40, 50, 60, 70]
 
 
 def test_application_verifies_completed_render_output(

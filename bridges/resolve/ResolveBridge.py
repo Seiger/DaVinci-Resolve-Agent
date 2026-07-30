@@ -41,6 +41,7 @@ ALLOWED_ACTIONS = {
     "create_timeline",
     "append_clip",
     "insert_clip",
+    "set_clip_enabled",
     "add_marker",
     "prepare_render_job",
     "start_render_job",
@@ -50,6 +51,7 @@ WRITE_ACTIONS = {
     "create_timeline",
     "append_clip",
     "insert_clip",
+    "set_clip_enabled",
     "add_marker",
     "prepare_render_job",
     "start_render_job",
@@ -59,6 +61,7 @@ CAPABILITY_BY_ACTION = {
     "create_timeline": "timeline.create",
     "append_clip": "clip.insert",
     "insert_clip": "clip.range_insert",
+    "set_clip_enabled": "clip.enable",
     "add_marker": "marker.create",
     "prepare_render_job": "render.configure",
     "start_render_job": "render.start",
@@ -228,6 +231,7 @@ def collect_bridge_state(
         "media.import": "unknown",
         "clip.insert": "unknown",
         "clip.range_insert": "unknown",
+        "clip.enable": "unknown",
         "marker.create": "unknown",
         "render.configure": "unknown",
         "render.discovery": "unknown",
@@ -397,6 +401,24 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
             or not 1 <= track_index <= 128
         ):
             raise ValueError("track_index must be between 1 and 128.")
+        return
+    if action == "set_clip_enabled":
+        if set(arguments) != {"timeline_id", "timeline_item_id", "enabled"}:
+            raise ValueError(
+                "set_clip_enabled fields do not match the contract."
+            )
+        for field in ("timeline_id", "timeline_item_id"):
+            value = arguments[field]
+            if (
+                not isinstance(value, str)
+                or not value
+                or len(value) > 128
+            ):
+                raise ValueError(
+                    f"{field} must contain 1 to 128 characters."
+                )
+        if not isinstance(arguments["enabled"], bool):
+            raise ValueError("enabled must be a boolean.")
         return
     if action == "add_marker":
         expected = {
@@ -914,6 +936,50 @@ def _find_timeline(project: Any, timeline_id: str) -> Any:
     )
 
 
+def _find_timeline_item(timeline: Any, timeline_item_id: str) -> Any:
+    required_methods = ("GetTrackCount", "GetItemListInTrack")
+    missing = [
+        name
+        for name in required_methods
+        if not callable(getattr(timeline, name, None))
+    ]
+    if missing:
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "The timeline cannot enumerate video and audio items.",
+            details={"missing_methods": missing},
+        )
+    for track_type in ("video", "audio"):
+        track_count = timeline.GetTrackCount(track_type)
+        if not isinstance(track_count, int) or track_count < 0:
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Timeline.GetTrackCount() returned an invalid value.",
+                details={"track_type": track_type},
+            )
+        for track_index in range(1, track_count + 1):
+            items = timeline.GetItemListInTrack(track_type, track_index)
+            if not isinstance(items, list):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Timeline.GetItemListInTrack() returned an invalid value.",
+                    details={
+                        "track_type": track_type,
+                        "track_index": track_index,
+                    },
+                )
+            for item in items:
+                get_unique_id = getattr(item, "GetUniqueId", None)
+                if callable(get_unique_id) and str(
+                    get_unique_id()
+                ) == timeline_item_id:
+                    return item
+    raise BridgeOperationError(
+        "TIMELINE_ITEM_NOT_FOUND",
+        f"Resolve timeline item was not found: {timeline_item_id}",
+    )
+
+
 def _find_media_item(folder: Any, asset_id: str) -> Any:
     for item in folder.GetClipList() or []:
         if str(item.GetMediaId()) == asset_id:
@@ -1178,7 +1244,12 @@ def _execute_write_command(
                 directories["state"],
             )
         }
-    elif action in {"append_clip", "insert_clip", "add_marker"}:
+    elif action in {
+        "append_clip",
+        "insert_clip",
+        "set_clip_enabled",
+        "add_marker",
+    }:
         timeline = _find_timeline(project, arguments["timeline_id"])
         if action in {"append_clip", "insert_clip"}:
             root_folder = media_pool.GetRootFolder()
@@ -1238,6 +1309,62 @@ def _execute_write_command(
                 raise BridgeOperationError(
                     "FRAME_RANGE_INVALID",
                     "The requested timeline position exceeds the supported range.",
+                )
+        elif action == "set_clip_enabled":
+            item = _find_timeline_item(
+                timeline,
+                arguments["timeline_item_id"],
+            )
+            enable_item_methods = (
+                "GetUniqueId",
+                "GetName",
+                "GetTrackTypeAndIndex",
+                "GetClipEnabled",
+                "SetClipEnabled",
+            )
+            missing = [
+                name
+                for name in enable_item_methods
+                if not callable(getattr(item, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline item cannot change enabled state.",
+                    details={"missing_methods": missing},
+                )
+            actual_track = item.GetTrackTypeAndIndex()
+            if (
+                not isinstance(actual_track, (list, tuple))
+                or len(actual_track) != 2
+                or actual_track[0] not in {"video", "audio"}
+                or not isinstance(actual_track[1], int)
+            ):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "TimelineItem track readback is invalid.",
+                )
+            get_locked = getattr(timeline, "GetIsTrackLocked", None)
+            if not callable(get_locked):
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot report track lock state.",
+                    details={"missing_methods": ["GetIsTrackLocked"]},
+                )
+            if get_locked(actual_track[0], actual_track[1]) is True:
+                raise BridgeOperationError(
+                    "TIMELINE_TRACK_LOCKED",
+                    "The timeline item track is locked.",
+                    details={
+                        "track_type": actual_track[0],
+                        "track_index": actual_track[1],
+                    },
+                )
+            previous_enabled = item.GetClipEnabled()
+            if not isinstance(previous_enabled, bool):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "TimelineItem.GetClipEnabled() returned an invalid value.",
                 )
     elif action == "start_render_job":
         job_id = _validate_render_job_arguments(action, arguments)
@@ -1409,6 +1536,42 @@ def _execute_write_command(
                     "track_type": str(actual_track[0]),
                     "track_index": int(actual_track[1]),
                 },
+                "backup_path": backup_path,
+            }
+        elif action == "set_clip_enabled":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested timeline.",
+                    retryable=True,
+                )
+            if item.SetClipEnabled(arguments["enabled"]) is not True:
+                raise BridgeOperationError(
+                    "CLIP_ENABLE_FAILED",
+                    "Resolve did not change the timeline item enabled state.",
+                    retryable=True,
+                )
+            actual_enabled = item.GetClipEnabled()
+            if (
+                not isinstance(actual_enabled, bool)
+                or actual_enabled is not arguments["enabled"]
+            ):
+                raise BridgeOperationError(
+                    "CLIP_ENABLE_READBACK_FAILED",
+                    "Resolve did not report the requested enabled state.",
+                    details={
+                        "requested_enabled": arguments["enabled"],
+                        "actual_enabled": actual_enabled,
+                    },
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "timeline_item_id": arguments["timeline_item_id"],
+                "name": str(item.GetName()),
+                "track_type": str(actual_track[0]),
+                "track_index": int(actual_track[1]),
+                "previous_enabled": previous_enabled,
+                "enabled": actual_enabled,
                 "backup_path": backup_path,
             }
         elif action == "add_marker":

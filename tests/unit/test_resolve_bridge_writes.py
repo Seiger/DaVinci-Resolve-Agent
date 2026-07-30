@@ -50,6 +50,7 @@ class FakeTimelineItem:
         self._source_end = source_end
         self._track_type = track_type
         self._track_index = track_index
+        self._enabled = True
 
     def GetUniqueId(self) -> str:
         return self._item_id
@@ -74,6 +75,13 @@ class FakeTimelineItem:
     def GetTrackTypeAndIndex(self) -> list[str | int]:
         return [self._track_type, self._track_index]
 
+    def SetClipEnabled(self, enabled: bool) -> bool:
+        self._enabled = enabled
+        return True
+
+    def GetClipEnabled(self) -> bool:
+        return self._enabled
+
 
 class FakeFolder:
     def __init__(self) -> None:
@@ -91,6 +99,7 @@ class FakeTimeline:
         self._timeline_id = timeline_id
         self._name = name
         self.markers: dict[int, dict[str, Any]] = {}
+        self.items: list[FakeTimelineItem] = []
 
     def GetUniqueId(self) -> str:
         return self._timeline_id
@@ -109,6 +118,17 @@ class FakeTimeline:
         assert track_type in {"video", "audio"}
         assert track_index == 1
         return False
+
+    def GetItemListInTrack(
+        self,
+        track_type: str,
+        track_index: int,
+    ) -> list[FakeTimelineItem]:
+        return [
+            item
+            for item in self.items
+            if item.GetTrackTypeAndIndex() == [track_type, track_index]
+        ]
 
     def AddMarker(
         self,
@@ -158,26 +178,28 @@ class FakeMediaPool:
             self.appended.append(media_item)
             track_type = "video" if clip_info["mediaType"] == 1 else "audio"
             duration = clip_info["endFrame"] - clip_info["startFrame"]
-            return [
-                FakeTimelineItem(
-                    f"item-{len(self.appended)}",
-                    media_item.GetName(),
-                    timeline_start=clip_info["recordFrame"],
-                    timeline_end=clip_info["recordFrame"] + duration,
-                    source_start=clip_info["startFrame"],
-                    source_end=clip_info["endFrame"],
-                    track_type=track_type,
-                    track_index=clip_info["trackIndex"],
-                )
-            ]
+            item = FakeTimelineItem(
+                f"item-{len(self.appended)}",
+                media_item.GetName(),
+                timeline_start=clip_info["recordFrame"],
+                timeline_end=clip_info["recordFrame"] + duration,
+                source_start=clip_info["startFrame"],
+                source_end=clip_info["endFrame"],
+                track_type=track_type,
+                track_index=clip_info["trackIndex"],
+            )
+            if self._project.current_timeline is not None:
+                self._project.current_timeline.items.append(item)
+            return [item]
         media_items = cast(list[FakeMediaItem], items)
         self.appended.extend(media_items)
-        return [
-            FakeTimelineItem(
-                f"item-{len(self.appended)}",
-                media_items[0].GetName(),
-            )
-        ]
+        item = FakeTimelineItem(
+            f"item-{len(self.appended)}",
+            media_items[0].GetName(),
+        )
+        if self._project.current_timeline is not None:
+            self._project.current_timeline.items.append(item)
+        return [item]
 
 
 class FakeProject:
@@ -555,6 +577,48 @@ def test_ranged_clip_insert_is_backed_up_and_replay_safe(
     assert len(resolve.project.media_pool.appended) == 1
     assert resolve.project_manager.export_count == 1
     assert state["capabilities"]["clip.range_insert"] is True
+
+
+def test_clip_enabled_state_is_backed_up_read_back_and_replay_safe(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M12 Enable")
+    resolve.project.SetCurrentTimeline(timeline)
+    item = FakeTimelineItem("item-1", "source.mkv")
+    timeline.items.append(item)
+    state = collect_bridge_state(resolve)
+    first = _command(
+        "disable-first",
+        "set_clip_enabled",
+        {
+            "timeline_id": timeline.GetUniqueId(),
+            "timeline_item_id": item.GetUniqueId(),
+            "enabled": False,
+        },
+        idempotency_key="stable-disable",
+    )
+    replay = _command(
+        "disable-replay",
+        "set_clip_enabled",
+        first["arguments"],
+        idempotency_key="stable-disable",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert first_response["result"]["previous_enabled"] is True
+    assert first_response["result"]["enabled"] is False
+    assert first_response["result"]["track_type"] == "video"
+    assert item.GetClipEnabled() is False
+    assert resolve.project_manager.export_count == 1
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
+    assert state["capabilities"]["clip.enable"] is True
 
 
 def test_import_outside_bridge_policy_is_rejected_before_backup(

@@ -169,6 +169,30 @@ class ResolveProviderClient:
         )
         return self._object_value("insert_clip", result)
 
+    def set_clip_enabled(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        enabled: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Set one timeline item enabled state after a project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="set_clip_enabled",
+            arguments={
+                "timeline_id": timeline_id,
+                "timeline_item_id": timeline_item_id,
+                "enabled": enabled,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("set_clip_enabled", result)
+
     def add_marker(
         self,
         timeline_id: str,

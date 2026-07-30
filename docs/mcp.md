@@ -19,6 +19,7 @@ Write-інструменти M4:
 - `resolve_create_timeline`;
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
+- `resolve_set_clip_enabled`;
 - `resolve_add_marker`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
@@ -106,6 +107,12 @@ codec, preset, список job або upload target. Перед стартом 
 `video|audio` track. `position_frames` є offset від початку timeline, а не
 абсолютним Resolve frame. Tool не приймає довільний `clipInfo`, ripple,
 delete, move, transform або код. Перед вставкою створюється `.drp` backup.
+
+`resolve_set_clip_enabled` змінює лише enabled-state одного TimelineItem.
+Аргументи: `timeline_id`, `timeline_item_id`, `enabled`. Bridge сканує
+video/audio tracks через документований `GetItemListInTrack`, відхиляє
+locked track, створює backup і перевіряє результат через `GetClipEnabled`.
+Tool не приймає track index, довільну властивість або Resolve expression.
 
 ## Безпечне редагування
 

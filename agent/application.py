@@ -92,6 +92,17 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Insert a bounded source range on one timeline track."""
 
+    def set_clip_enabled(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        enabled: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Set one timeline item's enabled state."""
+
     def add_marker(
         self,
         timeline_id: str,
@@ -363,6 +374,34 @@ class AgentApplication:
             name,
             note,
             duration,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_set_clip_enabled(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        enabled: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Set one Resolve timeline item enabled state."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError(
+                "timeline_id must contain 1 to 128 characters."
+            )
+        if not timeline_item_id or len(timeline_item_id) > 128:
+            raise ValueError(
+                "timeline_item_id must contain 1 to 128 characters."
+            )
+        if not isinstance(enabled, bool):
+            raise ValueError("enabled must be a boolean.")
+        return self._resolve.set_clip_enabled(
+            timeline_id,
+            timeline_item_id,
+            enabled,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

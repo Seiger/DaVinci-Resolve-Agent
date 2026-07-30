@@ -284,6 +284,25 @@ Resolve 21 Free 21.0.3.7 completed the live smoke job in 3262 ms. The
 verification reported `CompletionPercentage=100`, `JobStatus=Complete`, no
 render in progress, and a managed non-empty MP4 of 804100 bytes.
 
+## M12 reversible clip enable state
+
+```text
+MCP resolve_set_clip_enabled(timeline_id, timeline_item_id, enabled)
+ └─ enumerate video/audio TimelineItems by documented unique ID
+     └─ verify item methods and unlocked track
+         └─ backup project
+             └─ SetClipEnabled(bool)
+                 └─ GetClipEnabled readback + idempotency receipt
+```
+
+The action changes one boolean property only. It cannot address subtitle
+items, accept arbitrary property names, move or trim an item, or delete
+timeline content. A same-key replay returns the original result and backup.
+Resolve 21 Free 21.0.3.7 live validation disabled the M10 V1 item, read back
+`enabled=false`, replayed the same receipt and backup without another edit,
+then restored the original `enabled=true` state with a separate backup.
+Capability `clip.enable` is persisted as `true` only after a successful call.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

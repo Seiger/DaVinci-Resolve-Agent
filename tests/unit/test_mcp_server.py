@@ -86,6 +86,22 @@ class StubResolveReader:
             },
         }
 
+    def set_clip_enabled(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        enabled: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline_id": timeline_id,
+            "timeline_item_id": timeline_item_id,
+            "previous_enabled": not enabled,
+            "enabled": enabled,
+        }
+
     def add_marker(
         self,
         timeline_id: str,
@@ -220,6 +236,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             ]
             start_annotations = annotations["resolve_start_render_job"]
             verify_annotations = annotations["resolve_verify_render_output"]
+            enabled_annotations = annotations["resolve_set_clip_enabled"]
             assert status_annotations is not None
             assert import_annotations is not None
             assert rough_cut_annotations is not None
@@ -229,6 +246,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert job_status_annotations is not None
             assert start_annotations is not None
             assert verify_annotations is not None
+            assert enabled_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
@@ -238,6 +256,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert job_status_annotations.read_only_hint is True
             assert start_annotations.read_only_hint is False
             assert verify_annotations.read_only_hint is True
+            assert enabled_annotations.read_only_hint is False
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
@@ -276,6 +295,14 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "position_frames": 0,
                         "track_type": "video",
                         "track_index": 1,
+                    },
+                ),
+                "disabled": await client.call_tool(
+                    "resolve_set_clip_enabled",
+                    {
+                        "timeline_id": "timeline-1",
+                        "timeline_item_id": "item-1",
+                        "enabled": False,
                     },
                 ),
                 "marker": await client.call_tool(
@@ -331,6 +358,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_create_timeline",
         "resolve_append_clip",
         "resolve_insert_clip",
+        "resolve_set_clip_enabled",
         "resolve_add_marker",
         "resolve_prepare_render_job",
         "resolve_get_render_job_status",
@@ -360,6 +388,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["inserted"].structured_content["item"][
         "source_end_frame"
     ] == 240
+    assert results["disabled"].structured_content["enabled"] is False
     assert results["marker"].structured_content["color"] == "Green"
     assert results["prepared"].structured_content["started"] is False
     assert results["prepared"].structured_content["preset"] == (

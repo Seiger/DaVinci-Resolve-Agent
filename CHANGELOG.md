@@ -69,3 +69,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   location, file existence, and non-zero size.
 - Resolve 21 Free 21.0.3.7 live verification of guarded 1080p render start,
   completion, and the resulting managed non-empty MP4.
+- M12 backup-backed TimelineItem enable/disable operation with locked-track
+  protection, documented state readback, and idempotent replay.
+- Resolve 21 Free 21.0.3.7 live verification of clip disable, duplicate-free
+  replay, and restoration of the original enabled state.

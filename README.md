@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M11: render smoke test**. Він установлює
+Проєкт перебуває на етапі **Milestone M12: reversible clip enable state**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -37,6 +37,11 @@ output-директорію, 100% завершення й ненульовий �
 перевірка тривалості та візуального вмісту на цьому етапі не виконуються.
 Live-тест у Resolve 21 Free 21.0.3.7 завершив чотирисекундний job за
 3262 мс і підтвердив MP4 розміром 804100 байт.
+M12 додає backup-backed увімкнення або вимкнення одного TimelineItem за
+його ID. Bridge знаходить item лише у video/audio tracks, перевіряє lock-state,
+викликає документований `SetClipEnabled(Bool)` і читає результат через
+`GetClipEnabled()`. Вимкнення, replay без другого backup і відновлення
+початкового стану перевірено у Resolve 21 Free 21.0.3.7.
 
 ## Вимоги
 
@@ -123,6 +128,7 @@ Read-only інструменти:
 - `resolve_create_timeline`;
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
+- `resolve_set_clip_enabled`;
 - `resolve_add_marker`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
@@ -173,6 +179,11 @@ WAV. Preset виконує детерміноване RMS leveling із peak gua
 timeline-relative `position_frames`, `track_type` (`video` або `audio`) і
 `track_index`. Bridge перевіряє track та lock-state, створює backup і повертає
 фактичні bounds із TimelineItem.
+
+`resolve_set_clip_enabled` приймає лише `timeline_id`, `timeline_item_id` і
+boolean `enabled`. Перед зміною bridge перевіряє існування item і lock-state
+й створює `.drp` backup. Tool не переміщує, не обрізає, не розділяє і не
+видаляє кліп.
 
 ## Розробка
 
