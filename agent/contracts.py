@@ -9,14 +9,19 @@ from typing import Any, Literal
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-ContractName = Literal["command", "response", "capability"]
+ContractName = Literal[
+    "command",
+    "response",
+    "capability",
+    "rough-cut-plan",
+]
 
 
 class ContractValidationError(ValueError):
     """Raised when a protocol payload violates its canonical schema."""
 
 
-@lru_cache(maxsize=3)
+@lru_cache(maxsize=4)
 def _validator(contract_name: ContractName) -> Draft202012Validator:
     resource = resources.files("contracts").joinpath(f"{contract_name}.schema.json")
     with resource.open("r", encoding="utf-8") as contract_file:
@@ -42,4 +47,3 @@ def validate_contract(
     raise ContractValidationError(
         f"{contract_name} contract violation at {location}: {error.message}"
     )
-

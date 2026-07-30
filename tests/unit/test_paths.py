@@ -2,7 +2,7 @@
 
 from pathlib import Path, PureWindowsPath
 
-from agent.paths import config_directory, runtime_directory
+from agent.paths import config_directory, plans_directory, runtime_directory
 
 
 def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
@@ -30,4 +30,4 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     assert config_directory(first_environment) == (
         Path(first_environment["APPDATA"]) / "DaVinciResolveAgent"
     )
-
+    assert plans_directory(first_environment) == first_runtime / "plans"

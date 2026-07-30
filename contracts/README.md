@@ -12,3 +12,7 @@ status/error consistency, and capability reports with Draft 2020-12 semantics.
 
 No contract permits arbitrary Python, Lua, PowerShell, shell, or Resolve
 expression execution.
+
+`rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
+bridge command. It requires a pending human review and explicitly states that
+applying the draft is unsupported in M5.

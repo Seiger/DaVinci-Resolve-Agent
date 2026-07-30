@@ -49,3 +49,7 @@ def logs_directory(environment: Mapping[str, str] | None = None) -> Path:
     """Return the per-user runtime logs directory."""
     return runtime_directory(environment) / "logs"
 
+
+def plans_directory(environment: Mapping[str, str] | None = None) -> Path:
+    """Return the per-user review-only rough-cut plans directory."""
+    return runtime_directory(environment) / "plans"

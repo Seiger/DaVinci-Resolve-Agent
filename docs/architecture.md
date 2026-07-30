@@ -110,6 +110,28 @@ Live validation on Resolve 21 Free 21.0.3.7 confirmed `ImportMedia`,
 the same four idempotency keys returned the original results without creating
 additional backups or duplicate edits.
 
+## M5 rough-cut draft
+
+M5 adds analysis and planning without expanding the Resolve mutation surface:
+
+```text
+MCP create_rough_cut
+ └─ AgentApplication
+     ├─ MediaPolicy (read-only path validation)
+     └─ RoughCutPlanner
+         ├─ PCM WAV envelope analysis
+         ├─ audio-correlation synchronization
+         ├─ long-pause detection
+         ├─ canonical rough-cut plan validation
+         └─ runtime/plans/<plan_id>.json
+```
+
+The plan is deterministic for the same inputs and parameters. Its contract
+requires `pending_review`, `approved=false`, and `apply_supported=false`.
+Neither the Resolve provider nor the bridge is called while creating it.
+Video decoding is intentionally outside the core analyzer and remains a future
+provider responsibility.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

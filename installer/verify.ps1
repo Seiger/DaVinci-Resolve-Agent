@@ -56,6 +56,7 @@ try {
         $paths.StateRoot,
         $paths.ReceiptsRoot,
         $paths.BackupsRoot,
+        $paths.PlansRoot,
         $paths.LogsRoot,
         $paths.ResolveScriptsRoot
     )) {

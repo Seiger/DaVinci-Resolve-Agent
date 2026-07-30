@@ -4,11 +4,12 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M4: safe editing**. Він установлює
+Проєкт перебуває на етапі **Milestone M5: rough-cut workflow**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає read-only та
-чотири безпечні write-інструменти через stdio. Розширене редагування, рендер та
-аудіообробка ще не реалізовані.
+чотири безпечні write-інструменти через stdio. M5 також створює локальні
+чернетки rough cut із синхронізацією та аналізом пауз, але не застосовує їх.
+Розширене редагування, рендер та декодування медіа ще не реалізовані.
 
 ## Вимоги
 
@@ -92,11 +93,21 @@ Read-only інструменти:
 - `resolve_append_clip`;
 - `resolve_add_marker`.
 
+Draft-only інструмент M5:
+
+- `create_rough_cut`.
+
 Для Resolve-запитів потрібно запустити `ResolveBridge` з меню Resolve, поки
 MCP-клієнт очікує відповідь. Перед кожною write-операцією bridge експортує
 проєкт у `.drp`; імпорт дозволений лише з `media.allowed_roots`. Приклад
 конфігурації клієнта наведено в [документації MCP](docs/mcp.md), а відновлення —
 в [rollback strategy](docs/rollback.md).
+
+`create_rough_cut` не звертається до Resolve і не змінює проєкт. Для
+детермінованого аналізу йому потрібні окремі нестиснені 16-bit PCM WAV-доріжки.
+Результат завжди має статус `pending_review` та зберігається в локальній
+runtime-директорії. Деталі наведено в
+[документації rough cut](docs/rough-cut.md).
 
 ## Розробка
 
@@ -111,7 +122,7 @@ py -3.12 -m venv .venv
 Докладніше дивись у документації про
 [встановлення у Windows](docs/installation-windows.md),
 [архітектуру](docs/architecture.md), [MCP](docs/mcp.md) та
-[rollback](docs/rollback.md).
+[rough cut](docs/rough-cut.md), [rollback](docs/rollback.md).
 Основні вимоги продукту зафіксовані в
 [SPECIFICATION.md](SPECIFICATION.md).
 
@@ -129,7 +140,8 @@ py -3.12 -m venv .venv
 .\installer\uninstall.ps1 `
     -PreserveConfig $true `
     -PreserveLogs $true `
-    -PreserveBackups $true
+    -PreserveBackups $true `
+    -PreservePlans $true
 ```
 
 Скрипт видаляє лише `.venv` цього репозиторію та каталоги застосунку, створені в

@@ -1,6 +1,6 @@
 # Налаштування MCP-клієнта
 
-## Межі M3
+## Межі MCP
 
 MCP-сервер працює локально через `stdio` і не відкриває мережевий порт.
 Read-only інструменти:
@@ -17,9 +17,18 @@ Write-інструменти M4:
 - `resolve_append_clip`;
 - `resolve_add_marker`.
 
+Draft-only інструмент M5:
+
+- `create_rough_cut`.
+
 MCP-адаптер звертається до application service. Він не працює з transport
 runtime безпосередньо та не приймає довільних назв команд, Python, Lua,
 PowerShell або shell-коду.
+
+`create_rough_cut` валідовує локальні файли, аналізує окремі PCM WAV-доріжки
+та зберігає `pending_review` план. Він не ставить команду bridge, не відкриває
+проєкт Resolve й не застосовує запропоновані операції. Формат і обмеження
+описано в [rough-cut.md](rough-cut.md).
 
 ## Конфігурація клієнта
 
@@ -43,8 +52,9 @@ PowerShell або shell-коду.
 
 ## Виконання Resolve-запитів
 
-`video_agent_status` повертає кешований стан bridge одразу. Інші інструменти
-ставлять команду в локальну чергу. Поки клієнт очікує відповідь:
+`video_agent_status` повертає кешований стан bridge одразу.
+`create_rough_cut` також працює без bridge. Resolve-інструменти ставлять команду
+в локальну чергу. Поки клієнт очікує відповідь:
 
 1. відкрий потрібний проєкт у DaVinci Resolve;
 2. запусти `Workspace → Scripts → Edit → ResolveBridge`;

@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/rough-cut-plan.schema.json",
+  "title": "DaVinci Resolve Agent M5 rough-cut draft plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_version",
+    "plan_id",
+    "created_at",
+    "status",
+    "inputs",
+    "timeline",
+    "synchronization",
+    "pause_analysis",
+    "proposed_operations",
+    "required_capabilities",
+    "review",
+    "warnings"
+  ],
+  "properties": {
+    "plan_version": {
+      "const": "1.0"
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "const": "pending_review"
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "screen_file",
+        "webcam_file",
+        "screen_audio_file",
+        "webcam_audio_file",
+        "speech_audio_file"
+      ],
+      "properties": {
+        "screen_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "webcam_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "screen_audio_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "webcam_audio_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "speech_audio_file": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "layout"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "layout": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "track_type",
+              "track_index",
+              "start_ms"
+            ],
+            "properties": {
+              "role": {
+                "enum": [
+                  "screen",
+                  "webcam"
+                ]
+              },
+              "track_type": {
+                "const": "video"
+              },
+              "track_index": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "start_ms": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "synchronization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "reference",
+        "aligned",
+        "webcam_offset_ms",
+        "correlation_score",
+        "window_ms"
+      ],
+      "properties": {
+        "strategy": {
+          "const": "audio_correlation"
+        },
+        "reference": {
+          "const": "screen"
+        },
+        "aligned": {
+          "const": "webcam"
+        },
+        "webcam_offset_ms": {
+          "type": "integer"
+        },
+        "correlation_score": {
+          "type": "number"
+        },
+        "window_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "pause_analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_role",
+        "threshold_dbfs",
+        "min_duration_ms",
+        "preserve_context_ms",
+        "detected_pauses",
+        "proposed_cuts"
+      ],
+      "properties": {
+        "source_role": {
+          "const": "speech_audio"
+        },
+        "threshold_dbfs": {
+          "type": "number",
+          "maximum": 0
+        },
+        "min_duration_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "preserve_context_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "detected_pauses": {
+          "$ref": "#/$defs/timeRanges"
+        },
+        "proposed_cuts": {
+          "$ref": "#/$defs/timeRanges"
+        }
+      }
+    },
+    "proposed_operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "details"
+        ],
+        "properties": {
+          "operation": {
+            "enum": [
+              "import_media",
+              "create_timeline",
+              "place_media",
+              "remove_pauses"
+            ]
+          },
+          "details": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "required_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "approved",
+        "apply_supported"
+      ],
+      "properties": {
+        "required": {
+          "const": true
+        },
+        "approved": {
+          "const": false
+        },
+        "apply_supported": {
+          "const": false
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "timeRanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "start_ms",
+          "end_ms",
+          "duration_ms"
+        ],
+        "properties": {
+          "start_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "threshold_dbfs": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

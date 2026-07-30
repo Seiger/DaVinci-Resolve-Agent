@@ -12,6 +12,7 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.media import MediaPolicy
+from agent.rough_cut import RoughCutPlanner
 from providers.resolve import ResolveProviderClient
 
 MAX_COMMAND_TIMEOUT_SECONDS = 300.0
@@ -81,6 +82,29 @@ class MediaImportPolicy(Protocol):
     def prepare_import(self, paths: list[str]) -> list[str]:
         """Validate paths and publish the bridge policy."""
 
+    def validate_files(self, paths: list[str]) -> list[str]:
+        """Validate paths without publishing a Resolve write policy."""
+
+
+class RoughCutPlanBuilder(Protocol):
+    """Provider-neutral draft planner required by the application layer."""
+
+    def create_plan(
+        self,
+        *,
+        screen_file: str,
+        webcam_file: str,
+        screen_audio_file: str,
+        webcam_audio_file: str,
+        speech_audio_file: str,
+        timeline_name: str,
+        max_sync_offset_ms: int = 30_000,
+        pause_threshold_dbfs: float = -40.0,
+        min_pause_duration_ms: int = 700,
+        preserve_context_ms: int = 120,
+    ) -> dict[str, Any]:
+        """Create a review-only rough-cut plan."""
+
 
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
@@ -90,10 +114,12 @@ class AgentApplication:
         resolve: ResolveReader | None = None,
         state_loader: Callable[[], dict[str, Any]] = load_bridge_state,
         media_policy: MediaImportPolicy | None = None,
+        rough_cut_planner: RoughCutPlanBuilder | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
         self._state_loader = state_loader
         self._media_policy = media_policy
+        self._rough_cut_planner = rough_cut_planner
 
     def status(
         self,
@@ -218,6 +244,53 @@ class AgentApplication:
             duration,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
+        )
+
+    def create_rough_cut(
+        self,
+        *,
+        screen_file: str,
+        webcam_file: str,
+        screen_audio_file: str,
+        webcam_audio_file: str,
+        speech_audio_file: str,
+        timeline_name: str,
+        max_sync_offset_ms: int = 30_000,
+        pause_threshold_dbfs: float = -40.0,
+        min_pause_duration_ms: int = 700,
+        preserve_context_ms: int = 120,
+    ) -> dict[str, Any]:
+        """Validate sources and create an M5 draft without changing Resolve."""
+        policy = (
+            MediaPolicy.from_local_config()
+            if self._media_policy is None
+            else self._media_policy
+        )
+        normalized = policy.validate_files(
+            [
+                screen_file,
+                webcam_file,
+                screen_audio_file,
+                webcam_audio_file,
+                speech_audio_file,
+            ]
+        )
+        planner = (
+            RoughCutPlanner()
+            if self._rough_cut_planner is None
+            else self._rough_cut_planner
+        )
+        return planner.create_plan(
+            screen_file=normalized[0],
+            webcam_file=normalized[1],
+            screen_audio_file=normalized[2],
+            webcam_audio_file=normalized[3],
+            speech_audio_file=normalized[4],
+            timeline_name=timeline_name,
+            max_sync_offset_ms=max_sync_offset_ms,
+            pause_threshold_dbfs=pause_threshold_dbfs,
+            min_pause_duration_ms=min_pause_duration_ms,
+            preserve_context_ms=preserve_context_ms,
         )
 
     @staticmethod

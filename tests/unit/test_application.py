@@ -81,6 +81,46 @@ class StubMediaPolicy:
         self.paths = paths
         return [f"normalized:{path}" for path in paths]
 
+    def validate_files(self, paths: list[str]) -> list[str]:
+        self.paths = paths
+        return [f"normalized:{path}" for path in paths]
+
+
+class StubRoughCutPlanner:
+    def __init__(self) -> None:
+        self.arguments: dict[str, Any] = {}
+
+    def create_plan(
+        self,
+        *,
+        screen_file: str,
+        webcam_file: str,
+        screen_audio_file: str,
+        webcam_audio_file: str,
+        speech_audio_file: str,
+        timeline_name: str,
+        max_sync_offset_ms: int = 30_000,
+        pause_threshold_dbfs: float = -40.0,
+        min_pause_duration_ms: int = 700,
+        preserve_context_ms: int = 120,
+    ) -> dict[str, Any]:
+        self.arguments = {
+            "screen_file": screen_file,
+            "webcam_file": webcam_file,
+            "screen_audio_file": screen_audio_file,
+            "webcam_audio_file": webcam_audio_file,
+            "speech_audio_file": speech_audio_file,
+            "timeline_name": timeline_name,
+            "max_sync_offset_ms": max_sync_offset_ms,
+            "pause_threshold_dbfs": pause_threshold_dbfs,
+            "min_pause_duration_ms": min_pause_duration_ms,
+            "preserve_context_ms": preserve_context_ms,
+        }
+        return {
+            "status": "pending_review",
+            "review": {"apply_supported": False},
+        }
+
 
 def _fresh_state() -> dict[str, Any]:
     return {
@@ -142,6 +182,38 @@ def test_application_exposes_validated_write_methods() -> None:
     assert appended["asset_id"] == "asset-1"
     assert marker["color"] == "Green"
     assert resolve.timeouts == [10, 20, 30, 40]
+
+
+def test_application_creates_review_only_plan_without_resolve_call() -> None:
+    resolve = StubResolveReader()
+    media_policy = StubMediaPolicy()
+    planner = StubRoughCutPlanner()
+    application = AgentApplication(
+        resolve=resolve,
+        media_policy=media_policy,
+        rough_cut_planner=planner,
+    )
+
+    plan = application.create_rough_cut(
+        screen_file="screen.mkv",
+        webcam_file="webcam.mkv",
+        screen_audio_file="screen.wav",
+        webcam_audio_file="webcam.wav",
+        speech_audio_file="speech.wav",
+        timeline_name="M5 Draft",
+    )
+
+    assert plan["status"] == "pending_review"
+    assert plan["review"]["apply_supported"] is False
+    assert planner.arguments["screen_file"] == "normalized:screen.mkv"
+    assert media_policy.paths == [
+        "screen.mkv",
+        "webcam.mkv",
+        "screen.wav",
+        "webcam.wav",
+        "speech.wav",
+    ]
+    assert resolve.timeouts == []
 
 
 @pytest.mark.parametrize("timeout_seconds", [0, -1, 301])

@@ -82,6 +82,12 @@ class MediaPolicy:
 
     def prepare_import(self, paths: Sequence[str]) -> list[str]:
         """Validate import files and publish the bridge-readable policy."""
+        normalized = self.validate_files(paths)
+        self._publish()
+        return normalized
+
+    def validate_files(self, paths: Sequence[str]) -> list[str]:
+        """Validate local files without issuing or publishing a write request."""
         if not paths:
             raise MediaPolicyError("At least one media path is required.")
 
@@ -105,8 +111,6 @@ class MediaPolicy:
                     f"Media path is outside configured allowed roots: {resolved}"
                 )
             normalized.append(str(resolved))
-
-        self._publish()
         return normalized
 
     def _publish(self) -> None:

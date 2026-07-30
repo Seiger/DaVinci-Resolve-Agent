@@ -34,3 +34,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Stable idempotency receipts and documented manual rollback strategy.
 - Resolve 21 Free 21.0.3.7 live verification of all four M4 write operations
   and replay without duplicate backups.
+- M5 provider-neutral PCM WAV synchronization and long-pause analysis.
+- Deterministic rough-cut draft plans with a mandatory human review gate.
+- Local `create_rough_cut` MCP tool that never applies edits to Resolve.
+- Installer-managed runtime plan storage preserved on uninstall by default.

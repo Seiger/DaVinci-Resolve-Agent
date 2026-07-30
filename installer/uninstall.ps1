@@ -7,7 +7,10 @@ param(
     [Nullable[bool]]$PreserveLogs = $null,
 
     [Parameter(Mandatory = $false)]
-    [bool]$PreserveBackups = $true
+    [bool]$PreserveBackups = $true,
+
+    [Parameter(Mandatory = $false)]
+    [bool]$PreservePlans = $true
 )
 
 Set-StrictMode -Version Latest
@@ -76,13 +79,16 @@ if (-not $keepConfig -and (Test-Path -LiteralPath $paths.ConfigRoot)) {
 }
 
 if (Test-Path -LiteralPath $paths.RuntimeRoot) {
-    if ($keepLogs -or $PreserveBackups) {
+    if ($keepLogs -or $PreserveBackups -or $PreservePlans) {
         $preservedPaths = @()
         if ($keepLogs) {
             $preservedPaths += $paths.LogsRoot
         }
         if ($PreserveBackups) {
             $preservedPaths += $paths.BackupsRoot
+        }
+        if ($PreservePlans) {
+            $preservedPaths += $paths.PlansRoot
         }
         Get-ChildItem -LiteralPath $paths.RuntimeRoot -Force |
             Where-Object { $_.FullName -notin $preservedPaths } |
@@ -93,10 +99,13 @@ if (Test-Path -LiteralPath $paths.RuntimeRoot) {
         if ($PreserveBackups) {
             Write-Host "Preserved project backups: $($paths.BackupsRoot)"
         }
+        if ($PreservePlans) {
+            Write-Host "Preserved rough-cut plans: $($paths.PlansRoot)"
+        }
     } else {
         Remove-Item -LiteralPath $paths.RuntimeRoot -Recurse -Force
         Write-Host (
-            "Removed application runtime, logs, and project backups: " +
+            "Removed application runtime, logs, project backups, and plans: " +
             $paths.RuntimeRoot
         )
     }

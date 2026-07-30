@@ -1,4 +1,4 @@
-"""Local stdio MCP server exposing the read-only application API."""
+"""Local stdio MCP server exposing the fixed application API."""
 
 from __future__ import annotations
 
@@ -31,10 +31,11 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
     server = MCPServer(
         name="davinci-resolve-agent",
         version=__version__,
-        instructions=(
-            "Local read-only access to DaVinci Resolve Agent. "
+    instructions=(
+            "Local access to DaVinci Resolve Agent. "
             "The Resolve tools require the one-shot ResolveBridge script to be "
-            "launched inside DaVinci Resolve while the request is waiting."
+            "launched inside DaVinci Resolve while the request is waiting. "
+            "M5 rough-cut planning creates a local draft only and never applies it."
         ),
     )
 
@@ -144,6 +145,34 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             duration,
             timeout_seconds=timeout_seconds,
             idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def create_rough_cut(
+        screen_file: str,
+        webcam_file: str,
+        screen_audio_file: str,
+        webcam_audio_file: str,
+        speech_audio_file: str,
+        timeline_name: str,
+        max_sync_offset_ms: int = 30_000,
+        pause_threshold_dbfs: float = -40.0,
+        min_pause_duration_ms: int = 700,
+        preserve_context_ms: int = 120,
+    ) -> dict[str, Any]:
+        """Create and persist a pending-review plan without changing Resolve."""
+        return await asyncio.to_thread(
+            service.create_rough_cut,
+            screen_file=screen_file,
+            webcam_file=webcam_file,
+            screen_audio_file=screen_audio_file,
+            webcam_audio_file=webcam_audio_file,
+            speech_audio_file=speech_audio_file,
+            timeline_name=timeline_name,
+            max_sync_offset_ms=max_sync_offset_ms,
+            pause_threshold_dbfs=pause_threshold_dbfs,
+            min_pause_duration_ms=min_pause_duration_ms,
+            preserve_context_ms=preserve_context_ms,
         )
 
     return server

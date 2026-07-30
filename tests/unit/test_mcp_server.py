@@ -69,6 +69,31 @@ class StubMediaPolicy:
     def prepare_import(self, paths: list[str]) -> list[str]:
         return paths
 
+    def validate_files(self, paths: list[str]) -> list[str]:
+        return paths
+
+
+class StubRoughCutPlanner:
+    def create_plan(
+        self,
+        *,
+        screen_file: str,
+        webcam_file: str,
+        screen_audio_file: str,
+        webcam_audio_file: str,
+        speech_audio_file: str,
+        timeline_name: str,
+        max_sync_offset_ms: int = 30_000,
+        pause_threshold_dbfs: float = -40.0,
+        min_pause_duration_ms: int = 700,
+        preserve_context_ms: int = 120,
+    ) -> dict[str, Any]:
+        return {
+            "status": "pending_review",
+            "timeline": {"name": timeline_name},
+            "review": {"required": True, "apply_supported": False},
+        }
+
 
 def _fresh_state() -> dict[str, Any]:
     return {
@@ -80,11 +105,12 @@ def _fresh_state() -> dict[str, Any]:
     }
 
 
-def test_mcp_exposes_fixed_m4_tool_surface() -> None:
+def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     application = AgentApplication(
         resolve=StubResolveReader(),
         state_loader=_fresh_state,
         media_policy=StubMediaPolicy(),
+        rough_cut_planner=StubRoughCutPlanner(),
     )
     server = create_server(application)
 
@@ -102,10 +128,13 @@ def test_mcp_exposes_fixed_m4_tool_surface() -> None:
             )
             status_annotations = annotations["video_agent_status"]
             import_annotations = annotations["resolve_import_media"]
+            rough_cut_annotations = annotations["create_rough_cut"]
             assert status_annotations is not None
             assert import_annotations is not None
+            assert rough_cut_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
+            assert rough_cut_annotations.read_only_hint is False
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
@@ -138,6 +167,17 @@ def test_mcp_exposes_fixed_m4_tool_surface() -> None:
                         "color": "Green",
                     },
                 ),
+                "rough_cut": await client.call_tool(
+                    "create_rough_cut",
+                    {
+                        "screen_file": "screen.mkv",
+                        "webcam_file": "webcam.mkv",
+                        "screen_audio_file": "screen.wav",
+                        "webcam_audio_file": "webcam.wav",
+                        "speech_audio_file": "speech.wav",
+                        "timeline_name": "M5 Draft",
+                    },
+                ),
             }
         return results, names
 
@@ -152,6 +192,7 @@ def test_mcp_exposes_fixed_m4_tool_surface() -> None:
         "resolve_create_timeline",
         "resolve_append_clip",
         "resolve_add_marker",
+        "create_rough_cut",
     }
     assert results["project"].structured_content == {
         "project": {"name": "Test Project"}
@@ -171,3 +212,4 @@ def test_mcp_exposes_fixed_m4_tool_surface() -> None:
     )
     assert results["appended"].structured_content["asset_id"] == "asset-1"
     assert results["marker"].structured_content["color"] == "Green"
+    assert results["rough_cut"].structured_content["status"] == "pending_review"
