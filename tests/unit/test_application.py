@@ -128,6 +128,32 @@ class StubResolveReader:
             "enabled": enabled,
         }
 
+    def set_clip_transform(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        position_x: float | None = None,
+        position_y: float | None = None,
+        zoom: float | None = None,
+        rotation_degrees: float | None = None,
+        opacity_percent: float | None = None,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "timeline_item_id": timeline_item_id,
+            "transform": {
+                "position_x": position_x,
+                "position_y": position_y,
+                "zoom": zoom,
+                "rotation_degrees": rotation_degrees,
+                "opacity_percent": opacity_percent,
+            },
+        }
+
     def add_marker(
         self,
         timeline_id: str,
@@ -356,6 +382,13 @@ def test_application_exposes_validated_write_methods() -> None:
         False,
         timeout_seconds=37,
     )
+    transformed = application.resolve_set_clip_transform(
+        "timeline-1",
+        "item-1",
+        position_x=320.0,
+        zoom=0.5,
+        timeout_seconds=38,
+    )
     marker = application.resolve_add_marker(
         "timeline-1",
         0,
@@ -385,13 +418,27 @@ def test_application_exposes_validated_write_methods() -> None:
     assert inserted["item"]["track_type"] == "video"
     assert disabled["timeline_item_id"] == "item-1"
     assert disabled["enabled"] is False
+    assert transformed["transform"]["position_x"] == 320.0
+    assert transformed["transform"]["zoom"] == 0.5
     assert marker["color"] == "Green"
     assert render_job["started"] is False
     assert render_job["custom_name"] == "M7 Test"
     assert render_job["preset"] == "youtube-2160p-h264-v1"
     assert render_status["status"]["JobStatus"] == "Ready"
     assert render_start["started"] is True
-    assert resolve.timeouts == [10, 20, 25, 30, 35, 37, 40, 50, 60, 70]
+    assert resolve.timeouts == [
+        10,
+        20,
+        25,
+        30,
+        35,
+        37,
+        38,
+        40,
+        50,
+        60,
+        70,
+    ]
 
 
 def test_application_verifies_completed_render_output(

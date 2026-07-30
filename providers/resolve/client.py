@@ -211,6 +211,43 @@ class ResolveProviderClient:
         )
         return self._object_value("set_clip_enabled", result)
 
+    def set_clip_transform(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        position_x: float | None = None,
+        position_y: float | None = None,
+        zoom: float | None = None,
+        rotation_degrees: float | None = None,
+        opacity_percent: float | None = None,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply one bounded provider-neutral video clip transform."""
+        arguments: dict[str, Any] = {
+            "timeline_id": timeline_id,
+            "timeline_item_id": timeline_item_id,
+        }
+        for name, value in (
+            ("position_x", position_x),
+            ("position_y", position_y),
+            ("zoom", zoom),
+            ("rotation_degrees", rotation_degrees),
+            ("opacity_percent", opacity_percent),
+        ):
+            if value is not None:
+                arguments[name] = value
+        result = self._client.request(
+            provider="resolve",
+            action="set_clip_transform",
+            arguments=arguments,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("set_clip_transform", result)
+
     def add_marker(
         self,
         timeline_id: str,

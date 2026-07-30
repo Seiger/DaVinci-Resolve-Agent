@@ -330,6 +330,31 @@ timeline metadata from describing the pre-write state.
 The control M10 → M7 → M10 round trip confirmed that each cached heartbeat
 immediately matched the completed selection without another bridge run.
 
+## M14 bounded clip transform
+
+```text
+MCP resolve_set_clip_transform(timeline_id, timeline_item_id, fields)
+ └─ validate the fixed provider-neutral transform subset
+     └─ resolve one video TimelineItem by documented unique ID
+         └─ verify unlocked track and timeline-dependent position bounds
+             └─ backup project
+                 └─ TimelineItem.SetProperty(fixed dictionary)
+                     └─ GetProperty readback + idempotency receipt
+```
+
+The external contract exposes only optional position X/Y, uniform zoom,
+rotation degrees, and opacity percent, with at least one value required. The
+Resolve provider owns the fixed mapping to Pan, Tilt, ZoomGang, ZoomX, ZoomY,
+RotationAngle, and Opacity. Clients cannot supply a Resolve property key,
+expression, keyframe, or code. Position is additionally bounded against four
+times the current timeline resolution.
+
+Resolve 21 Free 21.0.3.7 live validation changed opacity from 100 to 90 with
+exact `GetProperty` readback and a project backup. Same-key replay returned
+the identical result and backup. A separate command then restored opacity
+from 90 to 100 with its own backup. Capability `clip.transform` is persisted
+as `true` after the successful call.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

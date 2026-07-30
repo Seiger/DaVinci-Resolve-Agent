@@ -116,6 +116,31 @@ class StubResolveReader:
             "enabled": enabled,
         }
 
+    def set_clip_transform(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        position_x: float | None = None,
+        position_y: float | None = None,
+        zoom: float | None = None,
+        rotation_degrees: float | None = None,
+        opacity_percent: float | None = None,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline_id": timeline_id,
+            "timeline_item_id": timeline_item_id,
+            "transform": {
+                "position_x": position_x,
+                "position_y": position_y,
+                "zoom": zoom,
+                "rotation_degrees": rotation_degrees,
+                "opacity_percent": opacity_percent,
+            },
+        }
+
     def add_marker(
         self,
         timeline_id: str,
@@ -252,6 +277,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             verify_annotations = annotations["resolve_verify_render_output"]
             enabled_annotations = annotations["resolve_set_clip_enabled"]
             select_annotations = annotations["resolve_set_current_timeline"]
+            transform_annotations = annotations["resolve_set_clip_transform"]
             assert status_annotations is not None
             assert import_annotations is not None
             assert rough_cut_annotations is not None
@@ -263,6 +289,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert verify_annotations is not None
             assert enabled_annotations is not None
             assert select_annotations is not None
+            assert transform_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
@@ -274,6 +301,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert verify_annotations.read_only_hint is True
             assert enabled_annotations.read_only_hint is False
             assert select_annotations.read_only_hint is False
+            assert transform_annotations.read_only_hint is False
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
@@ -324,6 +352,15 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "timeline_id": "timeline-1",
                         "timeline_item_id": "item-1",
                         "enabled": False,
+                    },
+                ),
+                "transformed": await client.call_tool(
+                    "resolve_set_clip_transform",
+                    {
+                        "timeline_id": "timeline-1",
+                        "timeline_item_id": "item-1",
+                        "position_x": 320.0,
+                        "zoom": 0.5,
                     },
                 ),
                 "marker": await client.call_tool(
@@ -381,6 +418,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_append_clip",
         "resolve_insert_clip",
         "resolve_set_clip_enabled",
+        "resolve_set_clip_transform",
         "resolve_add_marker",
         "resolve_prepare_render_job",
         "resolve_get_render_job_status",
@@ -414,6 +452,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "source_end_frame"
     ] == 240
     assert results["disabled"].structured_content["enabled"] is False
+    assert results["transformed"].structured_content["transform"]["zoom"] == 0.5
     assert results["marker"].structured_content["color"] == "Green"
     assert results["prepared"].structured_content["started"] is False
     assert results["prepared"].structured_content["preset"] == (

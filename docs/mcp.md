@@ -21,6 +21,7 @@ Write-інструменти M4:
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
 - `resolve_set_clip_enabled`;
+- `resolve_set_clip_transform`;
 - `resolve_add_marker`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
@@ -121,6 +122,16 @@ Tool не приймає track index, довільну властивість а
 та новий timeline. Tool не приймає назву або index і не створює timeline.
 `resolve_list_timelines` і `resolve_get_timeline` повертають потрібні
 канонічні IDs разом із назвами.
+
+`resolve_set_clip_transform` змінює лише дозволені transform-поля одного
+video TimelineItem: `position_x`, `position_y`, рівномірний `zoom`,
+`rotation_degrees` та `opacity_percent`. Щонайменше одне поле обов'язкове.
+Bridge відхиляє locked track, значення поза фіксованими межами та позицію поза
+динамічною межею ±4 розміри поточного timeline. Мапінг на `Pan`, `Tilt`,
+`ZoomGang`, `ZoomX`, `ZoomY`, `RotationAngle` і `Opacity` залишається всередині
+Resolve provider; raw property names, expressions і keyframes через MCP
+не приймаються. Opacity write/readback, replay без другого backup і відновлення
+початкового значення перевірено у Resolve 21 Free 21.0.3.7.
 
 ## Безпечне редагування
 

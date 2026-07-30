@@ -174,6 +174,31 @@ def test_set_clip_enabled_requires_ids_boolean_and_backup() -> None:
         validate_contract("command", command)
 
 
+def test_set_clip_transform_requires_allowlisted_bounded_values() -> None:
+    command = _valid_command()
+    command["action"] = "set_clip_transform"
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "timeline_item_id": "item-1",
+        "position_x": 320.0,
+        "zoom": 0.5,
+        "opacity_percent": 80.0,
+    }
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "timeline_item_id": "item-1",
+        "property_name": "Pan",
+    }
+    with pytest.raises(ContractValidationError, match="arguments"):
+        validate_contract("command", command)
+
+
 def test_success_response_cannot_contain_an_error() -> None:
     response = {
         "protocol_version": "1.0",

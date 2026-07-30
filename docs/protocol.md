@@ -40,6 +40,7 @@ The allowlist additionally contains:
 - `append_clip` with `timeline_id` and `asset_id`;
 - `insert_clip` with IDs, source bounds, timeline-relative position, and track;
 - `set_clip_enabled` with timeline ID, item ID, and boolean enabled state;
+- `set_clip_transform` with timeline/item IDs and a bounded transform subset;
 - `add_marker` with timeline marker fields.
 - `prepare_render_job` with `custom_name` and optional allowlisted `profile`.
 - `start_render_job` with `job_id`.
@@ -83,6 +84,13 @@ readback. It does not mutate existing items.
 ID, verifies its track is unlocked, creates a project backup, calls
 `SetClipEnabled(Bool)`, and confirms the exact result with
 `GetClipEnabled()`. It cannot address arbitrary properties or execute code.
+
+`set_clip_transform` locates one video TimelineItem by documented unique ID,
+verifies the track is unlocked, and maps provider-neutral position, uniform
+zoom, rotation, and opacity fields to a fixed Resolve property dictionary.
+It creates a project backup and confirms every written property through
+`GetProperty`. Arbitrary Resolve property keys, expressions, keyframes, and
+code are not representable.
 
 ## M1 action allowlist
 

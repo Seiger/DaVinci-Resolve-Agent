@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
+import math
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -43,6 +44,7 @@ ALLOWED_ACTIONS = {
     "append_clip",
     "insert_clip",
     "set_clip_enabled",
+    "set_clip_transform",
     "add_marker",
     "prepare_render_job",
     "start_render_job",
@@ -54,6 +56,7 @@ WRITE_ACTIONS = {
     "append_clip",
     "insert_clip",
     "set_clip_enabled",
+    "set_clip_transform",
     "add_marker",
     "prepare_render_job",
     "start_render_job",
@@ -65,6 +68,7 @@ CAPABILITY_BY_ACTION = {
     "append_clip": "clip.insert",
     "insert_clip": "clip.range_insert",
     "set_clip_enabled": "clip.enable",
+    "set_clip_transform": "clip.transform",
     "add_marker": "marker.create",
     "prepare_render_job": "render.configure",
     "start_render_job": "render.start",
@@ -244,6 +248,7 @@ def collect_bridge_state(
         "clip.insert": "unknown",
         "clip.range_insert": "unknown",
         "clip.enable": "unknown",
+        "clip.transform": "unknown",
         "marker.create": "unknown",
         "render.configure": "unknown",
         "render.discovery": "unknown",
@@ -447,6 +452,56 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
                 )
         if not isinstance(arguments["enabled"], bool):
             raise ValueError("enabled must be a boolean.")
+        return
+    if action == "set_clip_transform":
+        required = {"timeline_id", "timeline_item_id"}
+        transform_fields = {
+            "position_x",
+            "position_y",
+            "zoom",
+            "rotation_degrees",
+            "opacity_percent",
+        }
+        if (
+            not required.issubset(arguments)
+            or not set(arguments).issubset(required | transform_fields)
+            or not set(arguments).intersection(transform_fields)
+        ):
+            raise ValueError(
+                "set_clip_transform requires IDs and at least one "
+                "allowlisted transform field."
+            )
+        for field in required:
+            value = arguments[field]
+            if (
+                not isinstance(value, str)
+                or not value
+                or len(value) > 128
+            ):
+                raise ValueError(
+                    f"{field} must contain 1 to 128 characters."
+                )
+        numeric_ranges = {
+            "position_x": (-32_768.0, 32_768.0),
+            "position_y": (-32_768.0, 32_768.0),
+            "zoom": (0.0, 100.0),
+            "rotation_degrees": (-360.0, 360.0),
+            "opacity_percent": (0.0, 100.0),
+        }
+        for field, (minimum, maximum) in numeric_ranges.items():
+            if field not in arguments:
+                continue
+            value = arguments[field]
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or not minimum <= value <= maximum
+            ):
+                raise ValueError(
+                    f"{field} must be a finite number from "
+                    f"{minimum} to {maximum}."
+                )
         return
     if action == "add_marker":
         expected = {
@@ -1299,6 +1354,7 @@ def _execute_write_command(
         "append_clip",
         "insert_clip",
         "set_clip_enabled",
+        "set_clip_transform",
         "add_marker",
     }:
         timeline = _find_timeline(project, arguments["timeline_id"])
@@ -1417,6 +1473,128 @@ def _execute_write_command(
                     "INVALID_RESOLVE_RESPONSE",
                     "TimelineItem.GetClipEnabled() returned an invalid value.",
                 )
+        elif action == "set_clip_transform":
+            item = _find_timeline_item(
+                timeline,
+                arguments["timeline_item_id"],
+            )
+            transform_item_methods = (
+                "GetUniqueId",
+                "GetName",
+                "GetTrackTypeAndIndex",
+                "GetProperty",
+                "SetProperty",
+            )
+            missing = [
+                name
+                for name in transform_item_methods
+                if not callable(getattr(item, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline item cannot change transform properties.",
+                    details={"missing_methods": missing},
+                )
+            actual_track = item.GetTrackTypeAndIndex()
+            if (
+                not isinstance(actual_track, (list, tuple))
+                or len(actual_track) != 2
+                or actual_track[0] != "video"
+                or not isinstance(actual_track[1], int)
+                or isinstance(actual_track[1], bool)
+            ):
+                raise BridgeOperationError(
+                    "VIDEO_TIMELINE_ITEM_REQUIRED",
+                    "Clip transform requires one video timeline item.",
+                )
+            get_locked = getattr(timeline, "GetIsTrackLocked", None)
+            get_setting = getattr(timeline, "GetSetting", None)
+            missing_timeline_methods = [
+                name
+                for name, method in (
+                    ("GetIsTrackLocked", get_locked),
+                    ("GetSetting", get_setting),
+                )
+                if not callable(method)
+            ]
+            if missing_timeline_methods:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot validate clip transforms.",
+                    details={"missing_methods": missing_timeline_methods},
+                )
+            get_locked_call = cast(Callable[..., Any], get_locked)
+            get_setting_call = cast(Callable[..., Any], get_setting)
+            if get_locked_call("video", actual_track[1]) is True:
+                raise BridgeOperationError(
+                    "TIMELINE_TRACK_LOCKED",
+                    "The timeline item track is locked.",
+                    details={
+                        "track_type": "video",
+                        "track_index": actual_track[1],
+                    },
+                )
+            try:
+                timeline_width = int(
+                    get_setting_call("timelineResolutionWidth")
+                )
+                timeline_height = int(
+                    get_setting_call("timelineResolutionHeight")
+                )
+            except (TypeError, ValueError) as error:
+                raise BridgeOperationError(
+                    "TIMELINE_RESOLUTION_INVALID",
+                    "Resolve returned invalid timeline dimensions.",
+                ) from error
+            if timeline_width < 1 or timeline_height < 1:
+                raise BridgeOperationError(
+                    "TIMELINE_RESOLUTION_INVALID",
+                    "Resolve returned invalid timeline dimensions.",
+                )
+            if (
+                "position_x" in arguments
+                and abs(arguments["position_x"]) > 4.0 * timeline_width
+            ):
+                raise BridgeOperationError(
+                    "CLIP_POSITION_OUT_OF_RANGE",
+                    "position_x exceeds four times the timeline width.",
+                    details={"timeline_width": timeline_width},
+                )
+            if (
+                "position_y" in arguments
+                and abs(arguments["position_y"]) > 4.0 * timeline_height
+            ):
+                raise BridgeOperationError(
+                    "CLIP_POSITION_OUT_OF_RANGE",
+                    "position_y exceeds four times the timeline height.",
+                    details={"timeline_height": timeline_height},
+                )
+            resolve_properties: dict[str, bool | float] = {}
+            if "position_x" in arguments:
+                resolve_properties["Pan"] = float(arguments["position_x"])
+            if "position_y" in arguments:
+                resolve_properties["Tilt"] = float(arguments["position_y"])
+            if "zoom" in arguments:
+                resolve_properties.update(
+                    {
+                        "ZoomGang": True,
+                        "ZoomX": float(arguments["zoom"]),
+                        "ZoomY": float(arguments["zoom"]),
+                    }
+                )
+            if "rotation_degrees" in arguments:
+                resolve_properties["RotationAngle"] = float(
+                    arguments["rotation_degrees"]
+                )
+            if "opacity_percent" in arguments:
+                resolve_properties["Opacity"] = float(
+                    arguments["opacity_percent"]
+                )
+            previous_properties = {
+                key: item.GetProperty(key)
+                for key in resolve_properties
+            }
     elif action == "start_render_job":
         job_id = _validate_render_job_arguments(action, arguments)
         required_methods = (
@@ -1656,6 +1834,56 @@ def _execute_write_command(
                 "track_index": int(actual_track[1]),
                 "previous_enabled": previous_enabled,
                 "enabled": actual_enabled,
+                "backup_path": backup_path,
+            }
+        elif action == "set_clip_transform":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested timeline.",
+                    retryable=True,
+                )
+            if item.SetProperty(resolve_properties) is not True:
+                raise BridgeOperationError(
+                    "CLIP_TRANSFORM_FAILED",
+                    "Resolve did not apply the fixed clip transform.",
+                    retryable=True,
+                )
+            actual_properties = {
+                key: item.GetProperty(key)
+                for key in resolve_properties
+            }
+            mismatched: list[str] = []
+            for key, expected in resolve_properties.items():
+                actual = actual_properties[key]
+                if isinstance(expected, bool):
+                    if actual is not expected:
+                        mismatched.append(key)
+                elif (
+                    isinstance(actual, bool)
+                    or not isinstance(actual, (int, float))
+                    or not math.isclose(
+                        float(actual),
+                        expected,
+                        rel_tol=1e-9,
+                        abs_tol=1e-6,
+                    )
+                ):
+                    mismatched.append(key)
+            if mismatched:
+                raise BridgeOperationError(
+                    "CLIP_TRANSFORM_READBACK_FAILED",
+                    "Resolve did not report the requested transform.",
+                    details={"mismatched_properties": mismatched},
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "timeline_item_id": arguments["timeline_item_id"],
+                "name": str(item.GetName()),
+                "track_type": "video",
+                "track_index": int(actual_track[1]),
+                "previous_properties": _json_safe(previous_properties),
+                "properties": _json_safe(actual_properties),
                 "backup_path": backup_path,
             }
         elif action == "add_marker":

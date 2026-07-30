@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -111,6 +112,21 @@ class ResolveReader(Protocol):
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Set one timeline item's enabled state."""
+
+    def set_clip_transform(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        position_x: float | None = None,
+        position_y: float | None = None,
+        zoom: float | None = None,
+        rotation_degrees: float | None = None,
+        opacity_percent: float | None = None,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply one bounded provider-neutral video clip transform."""
 
     def add_marker(
         self,
@@ -429,6 +445,70 @@ class AgentApplication:
             timeline_id,
             timeline_item_id,
             enabled,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_set_clip_transform(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        position_x: float | None = None,
+        position_y: float | None = None,
+        zoom: float | None = None,
+        rotation_degrees: float | None = None,
+        opacity_percent: float | None = None,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply one bounded transform to a Resolve video timeline item."""
+        for name, value in (
+            ("timeline_id", timeline_id),
+            ("timeline_item_id", timeline_item_id),
+        ):
+            if not value or len(value) > 128:
+                raise ValueError(
+                    f"{name} must contain 1 to 128 characters."
+                )
+        values = {
+            "position_x": position_x,
+            "position_y": position_y,
+            "zoom": zoom,
+            "rotation_degrees": rotation_degrees,
+            "opacity_percent": opacity_percent,
+        }
+        if all(value is None for value in values.values()):
+            raise ValueError("At least one transform value is required.")
+        ranges = {
+            "position_x": (-32_768.0, 32_768.0),
+            "position_y": (-32_768.0, 32_768.0),
+            "zoom": (0.0, 100.0),
+            "rotation_degrees": (-360.0, 360.0),
+            "opacity_percent": (0.0, 100.0),
+        }
+        for transform_name, transform_value in values.items():
+            if transform_value is None:
+                continue
+            minimum, maximum = ranges[transform_name]
+            if (
+                isinstance(transform_value, bool)
+                or not isinstance(transform_value, (int, float))
+                or not math.isfinite(transform_value)
+                or not minimum <= transform_value <= maximum
+            ):
+                raise ValueError(
+                    f"{transform_name} must be a finite number from "
+                    f"{minimum} to {maximum}."
+                )
+        return self._resolve.set_clip_transform(
+            timeline_id,
+            timeline_item_id,
+            position_x=position_x,
+            position_y=position_y,
+            zoom=zoom,
+            rotation_degrees=rotation_degrees,
+            opacity_percent=opacity_percent,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

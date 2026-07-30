@@ -83,3 +83,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   completed Resolve operation.
 - Live confirmation that selection heartbeats immediately track an M10 to M7
   to M10 round trip without an extra bridge invocation.
+- M14 backup-backed bounded transform updates for one unlocked video
+  TimelineItem with exact property readback and idempotent replay.
+- Provider-neutral position, uniform zoom, rotation, and opacity fields with
+  fixed validation and no arbitrary Resolve property access or expressions.
+- Resolve 21 Free 21.0.3.7 live verification of opacity write/readback,
+  duplicate-free replay, and restoration of the original value.

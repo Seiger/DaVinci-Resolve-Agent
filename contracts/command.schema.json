@@ -55,6 +55,7 @@
         "append_clip",
         "insert_clip",
         "set_clip_enabled",
+        "set_clip_transform",
         "add_marker",
         "prepare_render_job",
         "start_render_job"
@@ -174,6 +175,80 @@
                 "type": "boolean"
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "set_clip_transform"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id",
+              "timeline_item_id"
+            ],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "timeline_item_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "position_x": {
+                "type": "number",
+                "minimum": -32768,
+                "maximum": 32768
+              },
+              "position_y": {
+                "type": "number",
+                "minimum": -32768,
+                "maximum": 32768
+              },
+              "zoom": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "rotation_degrees": {
+                "type": "number",
+                "minimum": -360,
+                "maximum": 360
+              },
+              "opacity_percent": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "anyOf": [
+              {
+                "required": ["position_x"]
+              },
+              {
+                "required": ["position_y"]
+              },
+              {
+                "required": ["zoom"]
+              },
+              {
+                "required": ["rotation_degrees"]
+              },
+              {
+                "required": ["opacity_percent"]
+              }
+            ]
           }
         }
       }
@@ -439,6 +514,7 @@
               "append_clip",
               "insert_clip",
               "set_clip_enabled",
+              "set_clip_transform",
               "add_marker",
               "prepare_render_job",
               "start_render_job"

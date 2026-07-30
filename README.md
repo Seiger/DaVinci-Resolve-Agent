@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M13: safe current timeline selection**. Він установлює
+Проєкт перебуває на етапі **Milestone M14: bounded clip transform**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -49,6 +49,12 @@ Read-only список і current timeline тепер повертають ка�
 тому вибір не залежить від старих receipts, назви або index.
 ID discovery, перемикання M10 → M7, replay без другого backup і повернення
 M7 → M10 перевірено у Resolve 21 Free 21.0.3.7.
+M14 додає backup-backed зміну обмеженого набору властивостей одного video
+TimelineItem: позиції X/Y, рівномірного zoom, кута повороту та opacity. Зовнішній
+контракт не приймає довільних назв Resolve-властивостей або expressions.
+Bridge перевіряє межі, lock-state доріжки й фактичні значення через
+`GetProperty`. Зміну opacity 100 → 90, replay без другого backup і відновлення
+90 → 100 перевірено у Resolve 21 Free 21.0.3.7.
 
 ## Вимоги
 
@@ -137,6 +143,7 @@ Read-only інструменти:
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
 - `resolve_set_clip_enabled`;
+- `resolve_set_clip_transform`;
 - `resolve_add_marker`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
@@ -197,6 +204,13 @@ boolean `enabled`. Перед зміною bridge перевіряє існув�
 перевіряє його існування, створює `.drp` backup, викликає
 `SetCurrentTimeline` і звіряє фактичний current timeline. Tool не створює,
 не перейменовує і не видаляє timelines.
+
+`resolve_set_clip_transform` приймає `timeline_id`, `timeline_item_id` та
+щонайменше одне з полів `position_x`, `position_y`, `zoom`,
+`rotation_degrees`, `opacity_percent`. Bridge працює лише з video item на
+незаблокованій доріжці, створює `.drp` backup і звіряє записані значення.
+Tool не приймає raw Resolve property names, keyframes, expressions або
+довільний код.
 
 ## Розробка
 

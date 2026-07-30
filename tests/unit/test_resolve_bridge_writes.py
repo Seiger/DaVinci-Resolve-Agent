@@ -51,6 +51,15 @@ class FakeTimelineItem:
         self._track_type = track_type
         self._track_index = track_index
         self._enabled = True
+        self._properties: dict[str, bool | float] = {
+            "Pan": 0.0,
+            "Tilt": 0.0,
+            "ZoomGang": True,
+            "ZoomX": 1.0,
+            "ZoomY": 1.0,
+            "RotationAngle": 0.0,
+            "Opacity": 100.0,
+        }
 
     def GetUniqueId(self) -> str:
         return self._item_id
@@ -82,6 +91,13 @@ class FakeTimelineItem:
     def GetClipEnabled(self) -> bool:
         return self._enabled
 
+    def SetProperty(self, properties: dict[str, bool | float]) -> bool:
+        self._properties.update(properties)
+        return True
+
+    def GetProperty(self, key: str) -> bool | float:
+        return self._properties[key]
+
 
 class FakeFolder:
     def __init__(self) -> None:
@@ -109,6 +125,13 @@ class FakeTimeline:
 
     def GetStartFrame(self) -> int:
         return 86400
+
+    def GetSetting(self, name: str) -> str:
+        settings = {
+            "timelineResolutionWidth": "1920",
+            "timelineResolutionHeight": "1080",
+        }
+        return settings[name]
 
     def GetTrackCount(self, track_type: str) -> int:
         assert track_type in {"video", "audio"}
@@ -663,6 +686,67 @@ def test_clip_enabled_state_is_backed_up_read_back_and_replay_safe(
         "Returned the stored idempotent result."
     ]
     assert state["capabilities"]["clip.enable"] is True
+
+
+def test_clip_transform_is_bounded_backed_up_and_replay_safe(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M14 Transform")
+    resolve.project.SetCurrentTimeline(timeline)
+    item = FakeTimelineItem("item-1", "source.mkv")
+    timeline.items.append(item)
+    state = collect_bridge_state(resolve)
+    arguments = {
+        "timeline_id": timeline.GetUniqueId(),
+        "timeline_item_id": item.GetUniqueId(),
+        "position_x": 320.0,
+        "position_y": -180.0,
+        "zoom": 0.5,
+        "rotation_degrees": 5.0,
+        "opacity_percent": 80.0,
+    }
+    first = _command(
+        "transform-first",
+        "set_clip_transform",
+        arguments,
+        idempotency_key="stable-transform",
+    )
+    replay = _command(
+        "transform-replay",
+        "set_clip_transform",
+        arguments,
+        idempotency_key="stable-transform",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert first_response["result"]["previous_properties"] == {
+        "Pan": 0.0,
+        "Tilt": 0.0,
+        "ZoomGang": True,
+        "ZoomX": 1.0,
+        "ZoomY": 1.0,
+        "RotationAngle": 0.0,
+        "Opacity": 100.0,
+    }
+    assert first_response["result"]["properties"] == {
+        "Pan": 320.0,
+        "Tilt": -180.0,
+        "ZoomGang": True,
+        "ZoomX": 0.5,
+        "ZoomY": 0.5,
+        "RotationAngle": 5.0,
+        "Opacity": 80.0,
+    }
+    assert resolve.project_manager.export_count == 1
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
+    assert state["capabilities"]["clip.transform"] is True
 
 
 def test_import_outside_bridge_policy_is_rejected_before_backup(
