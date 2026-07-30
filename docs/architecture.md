@@ -213,9 +213,10 @@ The start action cannot accept a path, preset, codec, upload destination, job
 list, or all-jobs flag. A same-key replay returns its stored result; a different
 key cannot restart a job with an existing `state/render-starts` record.
 `render.start=true` is persisted only after Resolve accepts a live start.
-Until that live test succeeds, the capability remains `unknown`.
 Read-only status was live-validated on Resolve 21 Free 21.0.3.7 for the M7
 1920x1080 MP4/H.264 job in `Ready` state with zero completion.
+M11 subsequently live-validated the guarded start; the capability is persisted
+as `true` only after Resolve accepts `StartRendering`.
 
 ## M9 verified export profiles
 
@@ -263,6 +264,25 @@ separately on V1 and A1 at the same position. TimelineItem readback reported
 86400..86496 for both, confirming Resolve's 60 fps source to 24 fps timeline
 conversion. Replays returned the original item IDs and backups; preflight
 remained exactly one video item and one audio item.
+
+## M11 render smoke test
+
+```text
+MCP resolve_verify_render_output(job_id)
+ └─ documented live render-job status
+     └─ require managed TargetDir and safe MP4 filename
+         └─ pathlib file existence and non-zero size check
+```
+
+M11 uses the guarded M8 start operation against a dedicated 1080p job on the
+four-second M10 timeline. Output verification is provider-neutral and
+read-only: it reports completion, managed-path membership, existence, and
+file size. It does not claim container validity, expected duration, audio
+presence, or visual quality because media decoding is outside this milestone.
+
+Resolve 21 Free 21.0.3.7 completed the live smoke job in 3262 ms. The
+verification reported `CompletionPercentage=100`, `JobStatus=Complete`, no
+render in progress, and a managed non-empty MP4 of 804100 bytes.
 
 ## Future providers
 

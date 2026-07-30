@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -133,7 +134,18 @@ class StubResolveReader:
         timeout_seconds: float = 30,
     ) -> dict[str, Any]:
         self.timeouts.append(timeout_seconds)
-        return {"job_id": job_id, "status": {"JobStatus": "Ready"}}
+        return {
+            "job_id": job_id,
+            "rendering_in_progress": False,
+            "status": {
+                "JobStatus": "Ready",
+                "CompletionPercentage": 0,
+            },
+            "job": {
+                "TargetDir": "",
+                "OutputFilename": "M11 Test.mp4",
+            },
+        }
 
     def start_render_job(
         self,
@@ -144,6 +156,32 @@ class StubResolveReader:
     ) -> dict[str, Any]:
         self.timeouts.append(timeout_seconds)
         return {"job_id": job_id, "started": True}
+
+
+class StubCompletedResolveReader(StubResolveReader):
+    def __init__(self, output_directory: Path) -> None:
+        super().__init__()
+        self.output_directory = output_directory
+
+    def render_job_status(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "job_id": job_id,
+            "rendering_in_progress": False,
+            "status": {
+                "JobStatus": "Complete",
+                "CompletionPercentage": 100,
+            },
+            "job": {
+                "TargetDir": str(self.output_directory),
+                "OutputFilename": "M11 Test.mp4",
+            },
+        }
 
 
 class StubMediaPolicy:
@@ -309,6 +347,36 @@ def test_application_exposes_validated_write_methods() -> None:
     assert render_status["status"]["JobStatus"] == "Ready"
     assert render_start["started"] is True
     assert resolve.timeouts == [10, 20, 30, 35, 40, 50, 60, 70]
+
+
+def test_application_verifies_completed_render_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    profile = tmp_path / "profile"
+    output_directory = (
+        profile / "Videos" / "DaVinciResolveAgent" / "renders"
+    )
+    output_directory.mkdir(parents=True)
+    output_file = output_directory / "M11 Test.mp4"
+    output_file.write_bytes(b"rendered")
+    monkeypatch.setenv("USERPROFILE", str(profile))
+    resolve = StubCompletedResolveReader(output_directory)
+    application = AgentApplication(resolve=resolve)
+
+    result = application.resolve_verify_render_output(
+        "job-1",
+        timeout_seconds=25,
+    )
+
+    assert result["output"]["path"] == str(output_file.resolve())
+    assert result["output"]["size_bytes"] == 8
+    assert result["validation"] == {
+        "completed": True,
+        "managed_path": True,
+        "non_empty": True,
+        "passed": True,
+    }
 
 
 def test_application_creates_review_only_plan_without_resolve_call() -> None:

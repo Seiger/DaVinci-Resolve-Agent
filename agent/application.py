@@ -18,6 +18,7 @@ from agent.rendering import (
     validate_render_job_id,
     validate_render_name,
     validate_render_profile,
+    verify_render_output,
 )
 from agent.rough_cut import RoughCutPlanner
 from providers.resolve import ResolveProviderClient
@@ -411,6 +412,20 @@ class AgentApplication:
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )
+
+    def resolve_verify_render_output(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Verify that one completed job produced a managed non-empty MP4."""
+        normalized_job_id = validate_render_job_id(job_id)
+        render_status = self._resolve.render_job_status(
+            normalized_job_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+        )
+        return verify_render_output(render_status)
 
     def create_rough_cut(
         self,

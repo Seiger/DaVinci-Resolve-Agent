@@ -65,3 +65,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   and track placement after insertion.
 - Resolve 21 Free 21.0.3.7 live verification of synchronized video/audio ranged
   insertion, 60-to-24 fps frame conversion, backups, and duplicate-free replay.
+- M11 read-only verification of completed render status, managed MP4 output
+  location, file existence, and non-zero size.
+- Resolve 21 Free 21.0.3.7 live verification of guarded 1080p render start,
+  completion, and the resulting managed non-empty MP4.

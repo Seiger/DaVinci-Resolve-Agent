@@ -11,6 +11,7 @@ Read-only інструменти:
 - `resolve_get_timeline`;
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
+- `resolve_verify_render_output`.
 
 Write-інструменти M4:
 
@@ -95,6 +96,11 @@ Resolve preset не задаються через MCP.
 `resolve_prepare_render_job`, досі відповідає фіксованому 1080p MP4/H264
 контракту й не має попереднього start-record. Tool не приймає output path,
 codec, preset, список job або upload target. Перед стартом створюється backup.
+
+`resolve_verify_render_output` повторно читає status і зіставляє
+`TargetDir`/`OutputFilename` із керованою директорією. Успішна перевірка
+вимагає `CompletionPercentage=100`, наявного MP4 і ненульового розміру.
+Інструмент не декодує контейнер і не перевіряє зображення, звук або тривалість.
 
 `resolve_insert_clip` вставляє один bounded source range на вказаний
 `video|audio` track. `position_frames` є offset від початку timeline, а не

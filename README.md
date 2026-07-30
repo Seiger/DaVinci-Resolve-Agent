@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M10: safe ranged clip insertion**. Він установлює
+Проєкт перебуває на етапі **Milestone M11: render smoke test**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -21,7 +21,7 @@ Discovery та ідемпотентну підготовку такого job п
 M8 додає read-only статус і контрольований запуск лише такого
 agent-підготовленого job. Повторний запуск блокується receipt і окремим
 durable start-record. Read-only статус перевірено у Resolve 21 Free 21.0.3.7;
-live-start ще не пройшов перевірку на короткому timeline.
+live-start підтверджено під час M11 на короткому timeline.
 M9 додає офіційне resolution discovery та другий фіксований профіль
 `youtube-2160p-h264-v1`. Наявність MP4/H.264 3840×2160 і preset
 `YouTube - 2160p`, а також backup-backed ідемпотентну підготовку 4K job
@@ -31,6 +31,12 @@ video/audio track. Позиція задається як offset від поча
 items не пересуваються, не обрізаються й не видаляються. Video/audio вставку,
 frame-rate conversion і replay без дублів перевірено у Resolve 21 Free
 21.0.3.7.
+M11 виконує контрольований 1080p render короткого таймлайна та додає
+read-only перевірку результату. Вона приймає лише `job_id`, звіряє керовану
+output-директорію, 100% завершення й ненульовий розмір MP4. Декодування,
+перевірка тривалості та візуального вмісту на цьому етапі не виконуються.
+Live-тест у Resolve 21 Free 21.0.3.7 завершив чотирисекундний job за
+3262 мс і підтвердив MP4 розміром 804100 байт.
 
 ## Вимоги
 
@@ -109,6 +115,7 @@ Read-only інструменти:
 - `resolve_get_timeline`.
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
+- `resolve_verify_render_output`.
 
 Безпечні write-інструменти:
 
@@ -156,6 +163,11 @@ WAV. Preset виконує детерміноване RMS leveling із peak gua
 від `resolve_prepare_render_job` і незміненому job у live queue. Перед стартом
 створюється `.drp` backup. Один job не можна повторно запустити іншим
 `idempotency_key`; довільний або вручну створений job bridge відхиляє.
+
+`resolve_verify_render_output` повторно читає live status job і локально
+перевіряє, що завершений MP4 існує в
+`%USERPROFILE%\Videos\DaVinciResolveAgent\renders` та має ненульовий розмір.
+Інструмент read-only і не запускає render.
 
 `resolve_insert_clip` приймає asset/timeline IDs, source frame bounds,
 timeline-relative `position_frames`, `track_type` (`video` або `audio`) і

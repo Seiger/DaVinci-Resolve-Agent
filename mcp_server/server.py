@@ -226,6 +226,18 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             idempotency_key=idempotency_key,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def resolve_verify_render_output(
+        job_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Verify one completed render as a managed non-empty MP4 file."""
+        return await asyncio.to_thread(
+            service.resolve_verify_render_output,
+            job_id,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def create_rough_cut(
         screen_file: str,

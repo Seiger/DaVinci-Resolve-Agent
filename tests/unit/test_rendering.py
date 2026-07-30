@@ -1,13 +1,17 @@
 """M7 render-job request policy tests."""
 
+from pathlib import Path
+
 import pytest
 
 from agent.rendering import (
     DEFAULT_RENDER_PROFILE,
+    RenderOutputVerificationError,
     RenderPreparationError,
     validate_render_job_id,
     validate_render_name,
     validate_render_profile,
+    verify_render_output,
 )
 
 
@@ -44,3 +48,68 @@ def test_render_profiles_are_a_fixed_allowlist() -> None:
     assert (ultra_hd.width, ultra_hd.height) == (3840, 2160)
     with pytest.raises(RenderPreparationError, match="Unsupported"):
         validate_render_profile("custom-8k")
+
+
+def test_render_output_verification_reports_missing_file(
+    tmp_path: Path,
+) -> None:
+    result = verify_render_output(
+        {
+            "job_id": "job-1",
+            "rendering_in_progress": False,
+            "status": {
+                "JobStatus": "Complete",
+                "CompletionPercentage": 100,
+            },
+            "job": {
+                "TargetDir": str(tmp_path),
+                "OutputFilename": "missing.mp4",
+            },
+        },
+        expected_directory=tmp_path,
+    )
+
+    assert result["output"]["exists"] is False
+    assert result["validation"]["completed"] is True
+    assert result["validation"]["passed"] is False
+
+
+def test_render_output_verification_rejects_unmanaged_path(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(RenderOutputVerificationError, match="outside"):
+        verify_render_output(
+            {
+                "job_id": "job-1",
+                "rendering_in_progress": False,
+                "status": {"CompletionPercentage": 100},
+                "job": {
+                    "TargetDir": str(tmp_path / "foreign"),
+                    "OutputFilename": "render.mp4",
+                },
+            },
+            expected_directory=tmp_path / "managed",
+        )
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["../escape.mp4", "nested/render.mp4", "render.mov"],
+)
+def test_render_output_verification_rejects_unsafe_filename(
+    tmp_path: Path,
+    filename: str,
+) -> None:
+    with pytest.raises(RenderOutputVerificationError, match="safe MP4"):
+        verify_render_output(
+            {
+                "job_id": "job-1",
+                "rendering_in_progress": False,
+                "status": {"CompletionPercentage": 100},
+                "job": {
+                    "TargetDir": str(tmp_path),
+                    "OutputFilename": filename,
+                },
+            },
+            expected_directory=tmp_path,
+        )

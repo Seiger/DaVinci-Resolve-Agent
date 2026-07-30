@@ -219,6 +219,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                 "resolve_get_render_job_status"
             ]
             start_annotations = annotations["resolve_start_render_job"]
+            verify_annotations = annotations["resolve_verify_render_output"]
             assert status_annotations is not None
             assert import_annotations is not None
             assert rough_cut_annotations is not None
@@ -227,6 +228,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert prepare_annotations is not None
             assert job_status_annotations is not None
             assert start_annotations is not None
+            assert verify_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
@@ -235,6 +237,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert prepare_annotations.read_only_hint is False
             assert job_status_annotations.read_only_hint is True
             assert start_annotations.read_only_hint is False
+            assert verify_annotations.read_only_hint is True
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
@@ -332,6 +335,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_prepare_render_job",
         "resolve_get_render_job_status",
         "resolve_start_render_job",
+        "resolve_verify_render_output",
         "create_rough_cut",
         "clean_dialogue_audio",
     }
