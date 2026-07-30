@@ -56,6 +56,7 @@
         "insert_clip",
         "set_clip_enabled",
         "set_clip_transform",
+        "delete_clip",
         "add_marker",
         "prepare_render_job",
         "start_render_job"
@@ -73,7 +74,7 @@
       ],
       "properties": {
         "allow_destructive": {
-          "const": false
+          "type": "boolean"
         },
         "create_backup": {
           "type": "boolean"
@@ -82,6 +83,37 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "delete_clip"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "safety": {
+            "properties": {
+              "allow_destructive": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "safety": {
+            "properties": {
+              "allow_destructive": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {
@@ -249,6 +281,42 @@
                 "required": ["opacity_percent"]
               }
             ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "delete_clip"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id",
+              "timeline_item_id",
+              "confirm_delete"
+            ],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "timeline_item_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "confirm_delete": {
+                "const": true
+              }
+            }
           }
         }
       }
@@ -515,6 +583,7 @@
               "insert_clip",
               "set_clip_enabled",
               "set_clip_transform",
+              "delete_clip",
               "add_marker",
               "prepare_render_job",
               "start_render_job"

@@ -22,6 +22,7 @@ Write-інструменти M4:
 - `resolve_insert_clip`;
 - `resolve_set_clip_enabled`;
 - `resolve_set_clip_transform`;
+- `resolve_delete_clip`;
 - `resolve_add_marker`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
@@ -133,12 +134,20 @@ Resolve provider; raw property names, expressions і keyframes через MCP
 не приймаються. Opacity write/readback, replay без другого backup і відновлення
 початкового значення перевірено у Resolve 21 Free 21.0.3.7.
 
+`resolve_delete_clip` є єдиним destructive MCP tool. Він видаляє рівно один
+video/audio TimelineItem без ripple і лише коли `confirm_delete=true`.
+Application, transport schema та bridge незалежно перевіряють підтвердження,
+destructive safety flag і обов'язковий backup. Масив IDs, linked-item expansion
+та ripple-параметр зовнішньому клієнту не доступні. Видалення окремого
+disposable item, replay без другого backup і незмінені первинні video/audio
+counts перевірено у Resolve 21 Free 21.0.3.7.
+
 ## Безпечне редагування
 
 Усі write-tools створюють `.drp` backup до зміни та підтримують необов'язковий
 `idempotency_key`. Для `resolve_import_media` кожен шлях має бути абсолютним,
 існувати й належати до `media.allowed_roots` у локальному `config.toml`.
 
-MCP annotations позначають ці tools як write, але не destructive. M4 не видаляє
-кліпи, таймлайни, медіа чи markers і не відновлює проєкт автоматично. Стратегія
-відновлення описана в [rollback.md](rollback.md).
+MCP annotations позначають `resolve_delete_clip` як destructive, а решту
+write-tools — як non-destructive. Автоматичного відновлення проєкту немає;
+стратегія ручного відновлення описана в [rollback.md](rollback.md).

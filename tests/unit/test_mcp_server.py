@@ -141,6 +141,23 @@ class StubResolveReader:
             },
         }
 
+    def delete_clip(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        confirm_delete: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        assert confirm_delete is True
+        return {
+            "timeline_id": timeline_id,
+            "timeline_item_id": timeline_item_id,
+            "deleted": True,
+            "ripple": False,
+        }
+
     def add_marker(
         self,
         timeline_id: str,
@@ -259,11 +276,12 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             annotations = {
                 tool.name: tool.annotations for tool in tools.tools
             }
-            assert all(
-                annotation is not None
-                and annotation.destructive_hint is False
-                for annotation in annotations.values()
-            )
+            assert all(annotation is not None for annotation in annotations.values())
+            assert {
+                name
+                for name, annotation in annotations.items()
+                if annotation is not None and annotation.destructive_hint is True
+            } == {"resolve_delete_clip"}
             status_annotations = annotations["video_agent_status"]
             import_annotations = annotations["resolve_import_media"]
             rough_cut_annotations = annotations["create_rough_cut"]
@@ -278,6 +296,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             enabled_annotations = annotations["resolve_set_clip_enabled"]
             select_annotations = annotations["resolve_set_current_timeline"]
             transform_annotations = annotations["resolve_set_clip_transform"]
+            delete_annotations = annotations["resolve_delete_clip"]
             assert status_annotations is not None
             assert import_annotations is not None
             assert rough_cut_annotations is not None
@@ -290,6 +309,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert enabled_annotations is not None
             assert select_annotations is not None
             assert transform_annotations is not None
+            assert delete_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
@@ -302,6 +322,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert enabled_annotations.read_only_hint is False
             assert select_annotations.read_only_hint is False
             assert transform_annotations.read_only_hint is False
+            assert delete_annotations.read_only_hint is False
+            assert delete_annotations.destructive_hint is True
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
@@ -363,6 +385,14 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "zoom": 0.5,
                     },
                 ),
+                "deleted": await client.call_tool(
+                    "resolve_delete_clip",
+                    {
+                        "timeline_id": "timeline-1",
+                        "timeline_item_id": "item-1",
+                        "confirm_delete": True,
+                    },
+                ),
                 "marker": await client.call_tool(
                     "resolve_add_marker",
                     {
@@ -419,6 +449,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_insert_clip",
         "resolve_set_clip_enabled",
         "resolve_set_clip_transform",
+        "resolve_delete_clip",
         "resolve_add_marker",
         "resolve_prepare_render_job",
         "resolve_get_render_job_status",
@@ -453,6 +484,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     ] == 240
     assert results["disabled"].structured_content["enabled"] is False
     assert results["transformed"].structured_content["transform"]["zoom"] == 0.5
+    assert results["deleted"].structured_content["deleted"] is True
     assert results["marker"].structured_content["color"] == "Green"
     assert results["prepared"].structured_content["started"] is False
     assert results["prepared"].structured_content["preset"] == (

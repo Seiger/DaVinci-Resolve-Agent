@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M14: bounded clip transform**. Він установлює
+Проєкт перебуває на етапі **Milestone M15: confirmed non-ripple clip deletion**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -55,6 +55,12 @@ TimelineItem: позиції X/Y, рівномірного zoom, кута пов
 Bridge перевіряє межі, lock-state доріжки й фактичні значення через
 `GetProperty`. Зміну opacity 100 → 90, replay без другого backup і відновлення
 90 → 100 перевірено у Resolve 21 Free 21.0.3.7.
+M15 додає видалення рівно одного TimelineItem через документований
+`Timeline.DeleteClips`. Операція завжди non-ripple, вимагає одночасно
+`confirm_delete=true`, destructive safety flag і `.drp` backup. Live-сумісність
+підтверджено у Resolve 21 Free 21.0.3.7 на окремому disposable item: delete
+readback, replay без другого backup і повернення preflight до одного video та
+одного audio item.
 
 ## Вимоги
 
@@ -144,6 +150,7 @@ Read-only інструменти:
 - `resolve_insert_clip`;
 - `resolve_set_clip_enabled`;
 - `resolve_set_clip_transform`;
+- `resolve_delete_clip`;
 - `resolve_add_marker`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
@@ -211,6 +218,12 @@ boolean `enabled`. Перед зміною bridge перевіряє існув�
 незаблокованій доріжці, створює `.drp` backup і звіряє записані значення.
 Tool не приймає raw Resolve property names, keyframes, expressions або
 довільний код.
+
+`resolve_delete_clip` приймає лише IDs одного TimelineItem і явне
+`confirm_delete=true`. MCP позначає його destructive; transport встановлює
+`allow_destructive=true`, bridge створює backup, викликає non-ripple delete і
+перевіряє, що item більше не повертається з timeline. Tool не підтримує масове
+або ripple-видалення.
 
 ## Розробка
 

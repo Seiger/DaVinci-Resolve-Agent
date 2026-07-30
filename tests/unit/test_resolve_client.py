@@ -21,6 +21,7 @@ class StubCommandClient:
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
         create_backup: bool = False,
+        allow_destructive: bool = False,
     ) -> Any:
         assert provider == "resolve"
         assert timeout_seconds > 0
@@ -32,6 +33,7 @@ class StubCommandClient:
             "insert_clip",
             "set_clip_enabled",
             "set_clip_transform",
+            "delete_clip",
             "add_marker",
             "prepare_render_job",
             "start_render_job",
@@ -39,6 +41,7 @@ class StubCommandClient:
             assert arguments is not None
             assert create_backup is True
             assert idempotency_key == "stable-key"
+            assert allow_destructive is (action == "delete_clip")
         elif action == "get_render_job_status":
             assert arguments == {"job_id": "job-1"}
             assert create_backup is False
@@ -109,6 +112,12 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                     "ZoomY": 0.5,
                 },
             },
+            "delete_clip": {
+                "timeline_id": "timeline-1",
+                "timeline_item_id": "item-1",
+                "deleted": True,
+                "ripple": False,
+            },
             "add_marker": {
                 "timeline_id": "timeline-1",
                 "frame": 0,
@@ -177,6 +186,12 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         zoom=0.5,
         idempotency_key="stable-key",
     )["properties"]["ZoomX"] == 0.5
+    assert client.delete_clip(
+        "timeline-1",
+        "item-1",
+        confirm_delete=True,
+        idempotency_key="stable-key",
+    )["deleted"] is True
     assert client.add_marker(
         "timeline-1",
         0,
@@ -210,6 +225,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "insert_clip",
         "set_clip_enabled",
         "set_clip_transform",
+        "delete_clip",
         "add_marker",
         "prepare_render_job",
         "get_render_job_status",

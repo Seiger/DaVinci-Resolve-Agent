@@ -89,3 +89,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   fixed validation and no arbitrary Resolve property access or expressions.
 - Resolve 21 Free 21.0.3.7 live verification of opacity write/readback,
   duplicate-free replay, and restoration of the original value.
+- M15 confirmed deletion of exactly one TimelineItem through a destructive MCP
+  tool, mandatory backup, non-ripple behavior, readback, and replay protection.
+- Action-specific destructive safety envelopes that keep every other command
+  constrained to `allow_destructive=false`.
+- Resolve 21 Free 21.0.3.7 live verification of isolated non-ripple deletion,
+  duplicate-free replay, and preservation of the original video/audio pair.

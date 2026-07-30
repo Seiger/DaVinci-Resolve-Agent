@@ -45,6 +45,7 @@ ALLOWED_ACTIONS = {
     "insert_clip",
     "set_clip_enabled",
     "set_clip_transform",
+    "delete_clip",
     "add_marker",
     "prepare_render_job",
     "start_render_job",
@@ -57,10 +58,12 @@ WRITE_ACTIONS = {
     "insert_clip",
     "set_clip_enabled",
     "set_clip_transform",
+    "delete_clip",
     "add_marker",
     "prepare_render_job",
     "start_render_job",
 }
+DESTRUCTIVE_ACTIONS = {"delete_clip"}
 CAPABILITY_BY_ACTION = {
     "import_media": "media.import",
     "create_timeline": "timeline.create",
@@ -69,6 +72,7 @@ CAPABILITY_BY_ACTION = {
     "insert_clip": "clip.range_insert",
     "set_clip_enabled": "clip.enable",
     "set_clip_transform": "clip.transform",
+    "delete_clip": "clip.delete",
     "add_marker": "marker.create",
     "prepare_render_job": "render.configure",
     "start_render_job": "render.start",
@@ -249,6 +253,7 @@ def collect_bridge_state(
         "clip.range_insert": "unknown",
         "clip.enable": "unknown",
         "clip.transform": "unknown",
+        "clip.delete": "unknown",
         "marker.create": "unknown",
         "render.configure": "unknown",
         "render.discovery": "unknown",
@@ -328,8 +333,11 @@ def validate_command(command: Any) -> dict[str, Any]:
         raise ValueError("safety must be a JSON object.")
     if set(command["safety"]) != {"allow_destructive", "create_backup"}:
         raise ValueError("safety fields do not match the protocol contract.")
-    if command["safety"].get("allow_destructive") is not False:
-        raise ValueError("Commands must set allow_destructive to false.")
+    expected_destructive = command["action"] in DESTRUCTIVE_ACTIONS
+    if command["safety"].get("allow_destructive") is not expected_destructive:
+        raise ValueError(
+            "safety.allow_destructive does not match the action policy."
+        )
     if not isinstance(command["safety"].get("create_backup"), bool):
         raise ValueError("safety.create_backup must be a boolean.")
     if command["action"] in WRITE_ACTIONS:
@@ -502,6 +510,26 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
                     f"{field} must be a finite number from "
                     f"{minimum} to {maximum}."
                 )
+        return
+    if action == "delete_clip":
+        if set(arguments) != {
+            "timeline_id",
+            "timeline_item_id",
+            "confirm_delete",
+        }:
+            raise ValueError("delete_clip fields do not match the contract.")
+        for field in ("timeline_id", "timeline_item_id"):
+            value = arguments[field]
+            if (
+                not isinstance(value, str)
+                or not value
+                or len(value) > 128
+            ):
+                raise ValueError(
+                    f"{field} must contain 1 to 128 characters."
+                )
+        if arguments["confirm_delete"] is not True:
+            raise ValueError("confirm_delete must be true.")
         return
     if action == "add_marker":
         expected = {
@@ -1068,6 +1096,16 @@ def _find_timeline_item(timeline: Any, timeline_item_id: str) -> Any:
     )
 
 
+def _timeline_item_exists(timeline: Any, timeline_item_id: str) -> bool:
+    try:
+        _find_timeline_item(timeline, timeline_item_id)
+    except BridgeOperationError as error:
+        if error.code == "TIMELINE_ITEM_NOT_FOUND":
+            return False
+        raise
+    return True
+
+
 def _find_media_item(folder: Any, asset_id: str) -> Any:
     for item in folder.GetClipList() or []:
         if str(item.GetMediaId()) == asset_id:
@@ -1355,6 +1393,7 @@ def _execute_write_command(
         "insert_clip",
         "set_clip_enabled",
         "set_clip_transform",
+        "delete_clip",
         "add_marker",
     }:
         timeline = _find_timeline(project, arguments["timeline_id"])
@@ -1594,6 +1633,65 @@ def _execute_write_command(
             previous_properties = {
                 key: item.GetProperty(key)
                 for key in resolve_properties
+            }
+        elif action == "delete_clip":
+            item = _find_timeline_item(
+                timeline,
+                arguments["timeline_item_id"],
+            )
+            delete_item_methods = (
+                "GetUniqueId",
+                "GetName",
+                "GetStart",
+                "GetEnd",
+                "GetTrackTypeAndIndex",
+            )
+            missing = [
+                name
+                for name in delete_item_methods
+                if not callable(getattr(item, name, None))
+            ]
+            delete_clips = getattr(timeline, "DeleteClips", None)
+            get_locked = getattr(timeline, "GetIsTrackLocked", None)
+            if not callable(delete_clips):
+                missing.append("DeleteClips")
+            if not callable(get_locked):
+                missing.append("GetIsTrackLocked")
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot safely delete one item.",
+                    details={"missing_methods": missing},
+                )
+            actual_track = item.GetTrackTypeAndIndex()
+            if (
+                not isinstance(actual_track, (list, tuple))
+                or len(actual_track) != 2
+                or actual_track[0] not in {"video", "audio"}
+                or not isinstance(actual_track[1], int)
+                or isinstance(actual_track[1], bool)
+            ):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "TimelineItem track readback is invalid.",
+                )
+            get_locked_call = cast(Callable[..., Any], get_locked)
+            if get_locked_call(actual_track[0], actual_track[1]) is True:
+                raise BridgeOperationError(
+                    "TIMELINE_TRACK_LOCKED",
+                    "The timeline item track is locked.",
+                    details={
+                        "track_type": actual_track[0],
+                        "track_index": actual_track[1],
+                    },
+                )
+            deleted_item = {
+                "timeline_item_id": str(item.GetUniqueId()),
+                "name": str(item.GetName()),
+                "timeline_start_frame": int(item.GetStart(False)),
+                "timeline_end_frame": int(item.GetEnd(False)),
+                "track_type": str(actual_track[0]),
+                "track_index": int(actual_track[1]),
             }
     elif action == "start_render_job":
         job_id = _validate_render_job_arguments(action, arguments)
@@ -1884,6 +1982,36 @@ def _execute_write_command(
                 "track_index": int(actual_track[1]),
                 "previous_properties": _json_safe(previous_properties),
                 "properties": _json_safe(actual_properties),
+                "backup_path": backup_path,
+            }
+        elif action == "delete_clip":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested timeline.",
+                    retryable=True,
+                )
+            delete_clips_call = cast(Callable[..., Any], delete_clips)
+            if delete_clips_call([item], False) is not True:
+                raise BridgeOperationError(
+                    "CLIP_DELETE_FAILED",
+                    "Resolve did not delete the requested timeline item.",
+                    retryable=True,
+                )
+            if _timeline_item_exists(
+                timeline,
+                arguments["timeline_item_id"],
+            ):
+                raise BridgeOperationError(
+                    "CLIP_DELETE_READBACK_FAILED",
+                    "Resolve still reports the deleted timeline item.",
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "timeline_item_id": arguments["timeline_item_id"],
+                "deleted": True,
+                "ripple": False,
+                "item": deleted_item,
                 "backup_path": backup_path,
             }
         elif action == "add_marker":

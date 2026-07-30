@@ -248,6 +248,31 @@ class ResolveProviderClient:
         )
         return self._object_value("set_clip_transform", result)
 
+    def delete_clip(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        confirm_delete: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Delete exactly one timeline item without ripple after a backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="delete_clip",
+            arguments={
+                "timeline_id": timeline_id,
+                "timeline_item_id": timeline_item_id,
+                "confirm_delete": confirm_delete,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+            allow_destructive=True,
+        )
+        return self._object_value("delete_clip", result)
+
     def add_marker(
         self,
         timeline_id: str,

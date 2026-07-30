@@ -355,6 +355,29 @@ the identical result and backup. A separate command then restored opacity
 from 90 to 100 with its own backup. Capability `clip.transform` is persisted
 as `true` after the successful call.
 
+## M15 confirmed non-ripple clip deletion
+
+```text
+MCP resolve_delete_clip(timeline_id, timeline_item_id, confirm_delete=true)
+ └─ destructive MCP annotation + application confirmation
+     └─ command safety allow_destructive=true + create_backup=true
+         └─ resolve one unlocked video/audio TimelineItem by ID
+             └─ backup project
+                 └─ Timeline.DeleteClips([item], False)
+                     └─ verify item ID is absent + idempotency receipt
+```
+
+The public contract cannot express ripple deletion, multiple item IDs, or
+linked-item expansion. All non-delete commands remain constrained to
+`allow_destructive=false`.
+
+Resolve 21 Free 21.0.3.7 live validation inserted a dedicated 24-frame video
+item after the existing M10 content, deleted exactly that item with
+`ripple=false`, and confirmed its ID was absent. Same-key replay returned the
+identical result and backup. Final read-only preflight returned to one video
+item and one audio item, proving the original M10 pair remained. Capability
+`clip.delete` is persisted as `true`.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

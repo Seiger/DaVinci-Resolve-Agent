@@ -24,6 +24,12 @@ WRITE_TOOL = ToolAnnotations(
     idempotent_hint=True,
     open_world_hint=False,
 )
+DESTRUCTIVE_WRITE_TOOL = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=True,
+    idempotent_hint=True,
+    open_world_hint=False,
+)
 
 
 def create_server(application: AgentApplication | None = None) -> MCPServer:
@@ -214,6 +220,24 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             zoom=zoom,
             rotation_degrees=rotation_degrees,
             opacity_percent=opacity_percent,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=DESTRUCTIVE_WRITE_TOOL)
+    async def resolve_delete_clip(
+        timeline_id: str,
+        timeline_item_id: str,
+        confirm_delete: bool = False,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Delete exactly one timeline item without ripple after confirmation."""
+        return await asyncio.to_thread(
+            service.resolve_delete_clip,
+            timeline_id,
+            timeline_item_id,
+            confirm_delete=confirm_delete,
             timeout_seconds=timeout_seconds,
             idempotency_key=idempotency_key,
         )

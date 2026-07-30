@@ -128,6 +128,17 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Apply one bounded provider-neutral video clip transform."""
 
+    def delete_clip(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        confirm_delete: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Delete exactly one timeline item without ripple."""
+
     def add_marker(
         self,
         timeline_id: str,
@@ -509,6 +520,34 @@ class AgentApplication:
             zoom=zoom,
             rotation_degrees=rotation_degrees,
             opacity_percent=opacity_percent,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_delete_clip(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        confirm_delete: bool = False,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Delete one timeline item only after explicit confirmation."""
+        for field_name, value in (
+            ("timeline_id", timeline_id),
+            ("timeline_item_id", timeline_item_id),
+        ):
+            if not value or len(value) > 128:
+                raise ValueError(
+                    f"{field_name} must contain 1 to 128 characters."
+                )
+        if confirm_delete is not True:
+            raise ValueError("confirm_delete must be true.")
+        return self._resolve.delete_clip(
+            timeline_id,
+            timeline_item_id,
+            confirm_delete=True,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

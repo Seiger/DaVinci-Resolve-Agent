@@ -153,6 +153,17 @@ class FakeTimeline:
             if item.GetTrackTypeAndIndex() == [track_type, track_index]
         ]
 
+    def DeleteClips(
+        self,
+        timeline_items: list[FakeTimelineItem],
+        ripple: bool,
+    ) -> bool:
+        assert ripple is False
+        if len(timeline_items) != 1 or timeline_items[0] not in self.items:
+            return False
+        self.items.remove(timeline_items[0])
+        return True
+
     def AddMarker(
         self,
         frame: int,
@@ -401,6 +412,7 @@ def _command(
     arguments: dict[str, Any],
     *,
     idempotency_key: str | None = None,
+    allow_destructive: bool = False,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     return {
@@ -413,7 +425,7 @@ def _command(
         "action": action,
         "arguments": arguments,
         "safety": {
-            "allow_destructive": False,
+            "allow_destructive": allow_destructive,
             "create_backup": True,
         },
     }
@@ -747,6 +759,63 @@ def test_clip_transform_is_bounded_backed_up_and_replay_safe(
         "Returned the stored idempotent result."
     ]
     assert state["capabilities"]["clip.transform"] is True
+
+
+def test_clip_delete_requires_destructive_flag_backup_and_replays_safely(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M15 Delete")
+    resolve.project.SetCurrentTimeline(timeline)
+    item = FakeTimelineItem(
+        "item-1",
+        "disposable.mkv",
+        timeline_start=86400,
+        timeline_end=86640,
+    )
+    timeline.items.append(item)
+    state = collect_bridge_state(resolve)
+    arguments = {
+        "timeline_id": timeline.GetUniqueId(),
+        "timeline_item_id": item.GetUniqueId(),
+        "confirm_delete": True,
+    }
+    first = _command(
+        "delete-first",
+        "delete_clip",
+        arguments,
+        idempotency_key="stable-delete",
+        allow_destructive=True,
+    )
+    replay = _command(
+        "delete-replay",
+        "delete_clip",
+        arguments,
+        idempotency_key="stable-delete",
+        allow_destructive=True,
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert first_response["result"]["deleted"] is True
+    assert first_response["result"]["ripple"] is False
+    assert first_response["result"]["item"] == {
+        "timeline_item_id": "item-1",
+        "name": "disposable.mkv",
+        "timeline_start_frame": 86400,
+        "timeline_end_frame": 86640,
+        "track_type": "video",
+        "track_index": 1,
+    }
+    assert timeline.items == []
+    assert resolve.project_manager.export_count == 1
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
+    assert state["capabilities"]["clip.delete"] is True
 
 
 def test_import_outside_bridge_policy_is_rejected_before_backup(

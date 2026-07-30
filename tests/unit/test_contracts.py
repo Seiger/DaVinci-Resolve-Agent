@@ -199,6 +199,40 @@ def test_set_clip_transform_requires_allowlisted_bounded_values() -> None:
         validate_contract("command", command)
 
 
+def test_delete_clip_requires_confirmation_destructive_flag_and_backup() -> None:
+    command = _valid_command()
+    command["action"] = "delete_clip"
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "timeline_item_id": "item-1",
+        "confirm_delete": True,
+    }
+    command["safety"] = {
+        "allow_destructive": True,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    with pytest.raises(ContractValidationError, match="allow_destructive"):
+        validate_contract("command", command)
+
+    command["safety"] = {
+        "allow_destructive": True,
+        "create_backup": True,
+    }
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "timeline_item_id": "item-1",
+        "confirm_delete": False,
+    }
+    with pytest.raises(ContractValidationError, match="confirm_delete"):
+        validate_contract("command", command)
+
+
 def test_success_response_cannot_contain_an_error() -> None:
     response = {
         "protocol_version": "1.0",

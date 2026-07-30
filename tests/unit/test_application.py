@@ -154,6 +154,24 @@ class StubResolveReader:
             },
         }
 
+    def delete_clip(
+        self,
+        timeline_id: str,
+        timeline_item_id: str,
+        *,
+        confirm_delete: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        assert confirm_delete is True
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "timeline_item_id": timeline_item_id,
+            "deleted": True,
+            "ripple": False,
+        }
+
     def add_marker(
         self,
         timeline_id: str,
@@ -389,6 +407,12 @@ def test_application_exposes_validated_write_methods() -> None:
         zoom=0.5,
         timeout_seconds=38,
     )
+    deleted = application.resolve_delete_clip(
+        "timeline-1",
+        "item-1",
+        confirm_delete=True,
+        timeout_seconds=39,
+    )
     marker = application.resolve_add_marker(
         "timeline-1",
         0,
@@ -420,6 +444,8 @@ def test_application_exposes_validated_write_methods() -> None:
     assert disabled["enabled"] is False
     assert transformed["transform"]["position_x"] == 320.0
     assert transformed["transform"]["zoom"] == 0.5
+    assert deleted["deleted"] is True
+    assert deleted["ripple"] is False
     assert marker["color"] == "Green"
     assert render_job["started"] is False
     assert render_job["custom_name"] == "M7 Test"
@@ -434,11 +460,23 @@ def test_application_exposes_validated_write_methods() -> None:
         35,
         37,
         38,
+        39,
         40,
         50,
         60,
         70,
     ]
+
+
+def test_application_requires_explicit_delete_confirmation() -> None:
+    application = AgentApplication(resolve=StubResolveReader())
+
+    with pytest.raises(ValueError, match="confirm_delete must be true"):
+        application.resolve_delete_clip(
+            "timeline-1",
+            "item-1",
+            confirm_delete=False,
+        )
 
 
 def test_application_verifies_completed_render_output(

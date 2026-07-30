@@ -68,6 +68,7 @@ class CommandClient(Protocol):
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
         create_backup: bool = False,
+        allow_destructive: bool = False,
     ) -> Any:
         """Submit a provider command and return its result."""
         ...
@@ -98,6 +99,7 @@ class FilesystemCommandClient:
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
         create_backup: bool = False,
+        allow_destructive: bool = False,
     ) -> Any:
         """Submit one allowlisted command and return its validated result."""
         if timeout_seconds <= 0:
@@ -120,7 +122,7 @@ class FilesystemCommandClient:
             "action": action,
             "arguments": {} if arguments is None else arguments,
             "safety": {
-                "allow_destructive": False,
+                "allow_destructive": allow_destructive,
                 "create_backup": create_backup,
             },
         }

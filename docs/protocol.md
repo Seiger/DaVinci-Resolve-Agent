@@ -41,14 +41,16 @@ The allowlist additionally contains:
 - `insert_clip` with IDs, source bounds, timeline-relative position, and track;
 - `set_clip_enabled` with timeline ID, item ID, and boolean enabled state;
 - `set_clip_transform` with timeline/item IDs and a bounded transform subset;
+- `delete_clip` with one timeline item ID and explicit confirmation;
 - `add_marker` with timeline marker fields.
 - `prepare_render_job` with `custom_name` and optional allowlisted `profile`.
 - `start_render_job` with `job_id`.
 
-Every write envelope must set `allow_destructive` to `false` and
-`create_backup` to `true`. Write actions use `state/receipts` to make a stable
-`idempotency_key` replay-safe. The bridge validates media paths independently
-against `state/media-policy.json` before calling Resolve.
+Every write envelope must set `create_backup` to `true`. Non-destructive writes
+must set `allow_destructive` to `false`; only `delete_clip` must set it to
+`true` and also pass `confirm_delete=true`. Write actions use `state/receipts`
+to make a stable `idempotency_key` replay-safe. The bridge validates media
+paths independently against `state/media-policy.json` before calling Resolve.
 
 `set_current_timeline` resolves the requested ID against the current project,
 creates a backup, calls documented `Project.SetCurrentTimeline`, and verifies
@@ -91,6 +93,12 @@ zoom, rotation, and opacity fields to a fixed Resolve property dictionary.
 It creates a project backup and confirms every written property through
 `GetProperty`. Arbitrary Resolve property keys, expressions, keyframes, and
 code are not representable.
+
+`delete_clip` locates exactly one video/audio TimelineItem, rejects a locked
+track, creates a project backup, and calls documented
+`Timeline.DeleteClips([item], False)`. It then enumerates the timeline again to
+verify the item ID is absent. Ripple deletion, multiple IDs, and implicit
+linked-item expansion are not representable.
 
 ## M1 action allowlist
 

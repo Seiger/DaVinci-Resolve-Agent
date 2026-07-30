@@ -95,3 +95,30 @@ def test_client_timeout_is_structured_and_leaves_auditable_command(
 
     assert error_info.value.command_id
     assert list((tmp_path / "commands").glob("*.json"))
+
+
+def test_client_serializes_explicit_destructive_safety_flag(
+    tmp_path: Path,
+) -> None:
+    client = FilesystemCommandClient(tmp_path, poll_interval_seconds=0.005)
+
+    with pytest.raises(CommandTimeoutError):
+        client.request(
+            provider="resolve",
+            action="delete_clip",
+            arguments={
+                "timeline_id": "timeline-1",
+                "timeline_item_id": "item-1",
+                "confirm_delete": True,
+            },
+            timeout_seconds=0.03,
+            create_backup=True,
+            allow_destructive=True,
+        )
+
+    layout = FilesystemLayout(tmp_path)
+    command = read_json_object(next(layout.commands.glob("*.json")))
+    assert command["safety"] == {
+        "allow_destructive": True,
+        "create_backup": True,
+    }
