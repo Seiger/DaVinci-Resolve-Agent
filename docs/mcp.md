@@ -17,6 +17,7 @@ Write-інструменти M4:
 
 - `resolve_import_media`;
 - `resolve_create_timeline`;
+- `resolve_set_current_timeline`;
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
 - `resolve_set_clip_enabled`;
@@ -113,6 +114,13 @@ delete, move, transform або код. Перед вставкою створю�
 video/audio tracks через документований `GetItemListInTrack`, відхиляє
 locked track, створює backup і перевіряє результат через `GetClipEnabled`.
 Tool не приймає track index, довільну властивість або Resolve expression.
+
+`resolve_set_current_timeline` приймає один `timeline_id`, створює backup,
+вибирає вже наявний timeline через документований `SetCurrentTimeline` і
+перевіряє результат через `GetCurrentTimeline`. Відповідь містить попередній
+та новий timeline. Tool не приймає назву або index і не створює timeline.
+`resolve_list_timelines` і `resolve_get_timeline` повертають потрібні
+канонічні IDs разом із назвами.
 
 ## Безпечне редагування
 

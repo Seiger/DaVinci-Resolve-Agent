@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M12: reversible clip enable state**. Він установлює
+Проєкт перебуває на етапі **Milestone M13: safe current timeline selection**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -42,6 +42,13 @@ M12 додає backup-backed увімкнення або вимкнення од
 викликає документований `SetClipEnabled(Bool)` і читає результат через
 `GetClipEnabled()`. Вимкнення, replay без другого backup і відновлення
 початкового стану перевірено у Resolve 21 Free 21.0.3.7.
+M13 додає вибір наявного timeline за ID через документований
+`Project.SetCurrentTimeline`. Bridge створює backup, повертає попередній і
+фактичний поточний timeline та підтримує replay без повторного backup.
+Read-only список і current timeline тепер повертають канонічний `timeline_id`,
+тому вибір не залежить від старих receipts, назви або index.
+ID discovery, перемикання M10 → M7, replay без другого backup і повернення
+M7 → M10 перевірено у Resolve 21 Free 21.0.3.7.
 
 ## Вимоги
 
@@ -126,6 +133,7 @@ Read-only інструменти:
 
 - `resolve_import_media`;
 - `resolve_create_timeline`;
+- `resolve_set_current_timeline`;
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
 - `resolve_set_clip_enabled`;
@@ -184,6 +192,11 @@ timeline-relative `position_frames`, `track_type` (`video` або `audio`) і
 boolean `enabled`. Перед зміною bridge перевіряє існування item і lock-state
 й створює `.drp` backup. Tool не переміщує, не обрізає, не розділяє і не
 видаляє кліп.
+
+`resolve_set_current_timeline` приймає лише ID наявного timeline. Bridge
+перевіряє його існування, створює `.drp` backup, викликає
+`SetCurrentTimeline` і звіряє фактичний current timeline. Tool не створює,
+не перейменовує і не видаляє timelines.
 
 ## Розробка
 

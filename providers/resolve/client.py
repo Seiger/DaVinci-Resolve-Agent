@@ -115,6 +115,24 @@ class ResolveProviderClient:
         )
         return self._object_value("create_timeline", result)
 
+    def set_current_timeline(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Select one existing timeline after a project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="set_current_timeline",
+            arguments={"timeline_id": timeline_id},
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("set_current_timeline", result)
+
     def append_clip(
         self,
         timeline_id: str,

@@ -51,6 +51,20 @@ class StubResolveReader:
     ) -> dict[str, Any]:
         return {"timeline": {"timeline_id": "timeline-1", "name": name}}
 
+    def set_current_timeline(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline": {
+                "timeline_id": timeline_id,
+                "name": "Selected",
+            }
+        }
+
     def append_clip(
         self,
         timeline_id: str,
@@ -237,6 +251,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             start_annotations = annotations["resolve_start_render_job"]
             verify_annotations = annotations["resolve_verify_render_output"]
             enabled_annotations = annotations["resolve_set_clip_enabled"]
+            select_annotations = annotations["resolve_set_current_timeline"]
             assert status_annotations is not None
             assert import_annotations is not None
             assert rough_cut_annotations is not None
@@ -247,6 +262,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert start_annotations is not None
             assert verify_annotations is not None
             assert enabled_annotations is not None
+            assert select_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
@@ -257,6 +273,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert start_annotations.read_only_hint is False
             assert verify_annotations.read_only_hint is True
             assert enabled_annotations.read_only_hint is False
+            assert select_annotations.read_only_hint is False
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
@@ -280,6 +297,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                 "created": await client.call_tool(
                     "resolve_create_timeline",
                     {"name": "M4 Timeline"},
+                ),
+                "selected": await client.call_tool(
+                    "resolve_set_current_timeline",
+                    {"timeline_id": "timeline-1"},
                 ),
                 "appended": await client.call_tool(
                     "resolve_append_clip",
@@ -356,6 +377,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_get_render_options",
         "resolve_import_media",
         "resolve_create_timeline",
+        "resolve_set_current_timeline",
         "resolve_append_clip",
         "resolve_insert_clip",
         "resolve_set_clip_enabled",
@@ -382,6 +404,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "asset-1"
     )
     assert results["created"].structured_content["timeline"]["timeline_id"] == (
+        "timeline-1"
+    )
+    assert results["selected"].structured_content["timeline"]["timeline_id"] == (
         "timeline-1"
     )
     assert results["appended"].structured_content["asset_id"] == "asset-1"

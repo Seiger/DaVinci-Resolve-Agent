@@ -303,6 +303,33 @@ Resolve 21 Free 21.0.3.7 live validation disabled the M10 V1 item, read back
 then restored the original `enabled=true` state with a separate backup.
 Capability `clip.enable` is persisted as `true` only after a successful call.
 
+## M13 safe current timeline selection
+
+```text
+MCP resolve_set_current_timeline(timeline_id)
+ └─ resolve one existing timeline by documented unique ID
+     └─ backup project
+         └─ Project.SetCurrentTimeline(timeline)
+             └─ GetCurrentTimeline ID readback + idempotency receipt
+```
+
+The action cannot accept a timeline name or index, create or delete timelines,
+or change timeline settings. Its response contains both the previous timeline
+summary and the selected timeline summary. Capability `timeline.select`
+is persisted as `true` only after live validation succeeds.
+M13 also adds documented unique IDs to read-only timeline discovery; this
+closes the selection loop for pre-existing timelines without consulting old
+write receipts.
+
+Resolve 21 Free 21.0.3.7 live validation discovered all three timeline IDs,
+selected M7 from M10, replayed the same result and backup without another
+selection, and restored M10 with a separate backup.
+After every successful write, the bridge refreshes its complete live state
+before publishing the final heartbeat. This prevents cached project or
+timeline metadata from describing the pre-write state.
+The control M10 → M7 → M10 round trip confirmed that each cached heartbeat
+immediately matched the completed selection without another bridge run.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

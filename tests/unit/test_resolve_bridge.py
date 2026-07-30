@@ -19,6 +19,9 @@ class FakeTimeline:
     def __init__(self, name: str) -> None:
         self._name = name
 
+    def GetUniqueId(self) -> str:
+        return f"id-{self._name.casefold()}"
+
     def GetName(self) -> str:
         return self._name
 
@@ -135,10 +138,11 @@ def test_collect_bridge_state_uses_read_only_documented_api() -> None:
     assert state["product_name"] == "DaVinci Resolve"
     assert state["resolve_version"] == "21.0.3.7"
     assert state["project_name"] == "M1 Test Project"
+    assert state["current_timeline_id"] == "id-main"
     assert state["current_timeline_name"] == "Main"
     assert state["timelines"] == [
-        {"index": 1, "name": "Main"},
-        {"index": 2, "name": "B-roll"},
+        {"timeline_id": "id-main", "index": 1, "name": "Main"},
+        {"timeline_id": "id-b-roll", "index": 2, "name": "B-roll"},
     ]
     assert state["capabilities"]["project.read"] is True
     assert state["capabilities"]["timeline.read"] is True
@@ -150,6 +154,7 @@ def test_collect_bridge_state_handles_no_open_project() -> None:
 
     assert state["project_open"] is False
     assert state["project_name"] is None
+    assert state["current_timeline_id"] is None
     assert state["current_timeline_name"] is None
     assert state["capabilities"]["timeline.read"] == "unknown"
 

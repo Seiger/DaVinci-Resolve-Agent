@@ -50,6 +50,21 @@ def test_write_command_requires_backup_and_action_arguments() -> None:
         validate_contract("command", command)
 
 
+def test_set_current_timeline_requires_one_bounded_id_and_backup() -> None:
+    command = _valid_command()
+    command["action"] = "set_current_timeline"
+    command["arguments"] = {"timeline_id": "timeline-1"}
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"] = {"timeline_id": ""}
+    with pytest.raises(ContractValidationError, match="timeline_id"):
+        validate_contract("command", command)
+
+
 def test_unknown_action_violates_command_contract() -> None:
     command = _valid_command()
     command["action"] = "execute_python"

@@ -119,6 +119,20 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def resolve_set_current_timeline(
+        timeline_id: str,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Select one existing timeline after exporting a project backup."""
+        return await asyncio.to_thread(
+            service.resolve_set_current_timeline,
+            timeline_id,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def resolve_append_clip(
         timeline_id: str,
         asset_id: str,

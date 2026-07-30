@@ -18,6 +18,9 @@ from bridges.resolve.ResolveBridge import (
 
 
 class FakeTimeline:
+    def GetUniqueId(self) -> str:
+        return "timeline-main"
+
     def GetName(self) -> str:
         return "Main"
 

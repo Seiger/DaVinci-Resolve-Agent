@@ -59,6 +59,21 @@ class StubResolveReader:
         self.timeouts.append(timeout_seconds)
         return {"timeline": {"timeline_id": "timeline-1", "name": name}}
 
+    def set_current_timeline(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline": {
+                "timeline_id": timeline_id,
+                "name": "Selected",
+            }
+        }
+
     def append_clip(
         self,
         timeline_id: str,
@@ -316,6 +331,10 @@ def test_application_exposes_validated_write_methods() -> None:
         "M4 Timeline",
         timeout_seconds=20,
     )
+    selected = application.resolve_set_current_timeline(
+        "timeline-1",
+        timeout_seconds=25,
+    )
     appended = application.resolve_append_clip(
         "timeline-1",
         "asset-1",
@@ -360,6 +379,7 @@ def test_application_exposes_validated_write_methods() -> None:
     assert media_policy.paths == ["sample.wav"]
     assert imported["items"][0]["name"] == "normalized:sample.wav"
     assert created["timeline"]["name"] == "M4 Timeline"
+    assert selected["timeline"]["timeline_id"] == "timeline-1"
     assert appended["asset_id"] == "asset-1"
     assert inserted["item"]["source_end_frame"] == 240
     assert inserted["item"]["track_type"] == "video"
@@ -371,7 +391,7 @@ def test_application_exposes_validated_write_methods() -> None:
     assert render_job["preset"] == "youtube-2160p-h264-v1"
     assert render_status["status"]["JobStatus"] == "Ready"
     assert render_start["started"] is True
-    assert resolve.timeouts == [10, 20, 30, 35, 37, 40, 50, 60, 70]
+    assert resolve.timeouts == [10, 20, 25, 30, 35, 37, 40, 50, 60, 70]
 
 
 def test_application_verifies_completed_render_output(

@@ -36,6 +36,7 @@ The allowlist additionally contains:
 
 - `import_media` with `paths`;
 - `create_timeline` with `name`;
+- `set_current_timeline` with one existing `timeline_id`;
 - `append_clip` with `timeline_id` and `asset_id`;
 - `insert_clip` with IDs, source bounds, timeline-relative position, and track;
 - `set_clip_enabled` with timeline ID, item ID, and boolean enabled state;
@@ -47,6 +48,13 @@ Every write envelope must set `allow_destructive` to `false` and
 `create_backup` to `true`. Write actions use `state/receipts` to make a stable
 `idempotency_key` replay-safe. The bridge validates media paths independently
 against `state/media-policy.json` before calling Resolve.
+
+`set_current_timeline` resolves the requested ID against the current project,
+creates a backup, calls documented `Project.SetCurrentTimeline`, and verifies
+the selected object through `GetCurrentTimeline`. It returns both previous and
+current timeline summaries. The read-only `list_timelines` and
+`get_current_timeline` results expose documented unique IDs so selection never
+depends on a name or ordinal index.
 
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed

@@ -73,3 +73,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   protection, documented state readback, and idempotent replay.
 - Resolve 21 Free 21.0.3.7 live verification of clip disable, duplicate-free
   replay, and restoration of the original enabled state.
+- M13 backup-backed current timeline selection by ID with previous/current
+  readback and idempotent replay.
+- Canonical timeline IDs in read-only timeline list and current-timeline
+  responses.
+- Resolve 21 Free 21.0.3.7 live verification of timeline ID discovery,
+  selection, duplicate-free replay, and restoration of the original timeline.
+- Post-write live bridge-state refresh so cached timeline metadata matches the
+  completed Resolve operation.
+- Live confirmation that selection heartbeats immediately track an M10 to M7
+  to M10 round trip without an extra bridge invocation.

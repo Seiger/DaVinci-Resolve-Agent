@@ -39,6 +39,7 @@ ALLOWED_ACTIONS = {
     "get_render_job_status",
     "import_media",
     "create_timeline",
+    "set_current_timeline",
     "append_clip",
     "insert_clip",
     "set_clip_enabled",
@@ -49,6 +50,7 @@ ALLOWED_ACTIONS = {
 WRITE_ACTIONS = {
     "import_media",
     "create_timeline",
+    "set_current_timeline",
     "append_clip",
     "insert_clip",
     "set_clip_enabled",
@@ -59,6 +61,7 @@ WRITE_ACTIONS = {
 CAPABILITY_BY_ACTION = {
     "import_media": "media.import",
     "create_timeline": "timeline.create",
+    "set_current_timeline": "timeline.select",
     "append_clip": "clip.insert",
     "insert_clip": "clip.range_insert",
     "set_clip_enabled": "clip.enable",
@@ -207,6 +210,7 @@ def collect_bridge_state(
 
     project = project_manager.GetCurrentProject()
     project_name: str | None = None
+    current_timeline_id: str | None = None
     current_timeline_name: str | None = None
     timelines: list[dict[str, Any]] = []
     timeline_read_capability: bool | str = "unknown"
@@ -217,9 +221,16 @@ def collect_bridge_state(
         for index in range(1, timeline_count + 1):
             timeline = project.GetTimelineByIndex(index)
             if timeline is not None:
-                timelines.append({"index": index, "name": timeline.GetName()})
+                timelines.append(
+                    {
+                        "timeline_id": str(timeline.GetUniqueId()),
+                        "index": index,
+                        "name": timeline.GetName(),
+                    }
+                )
         current_timeline = project.GetCurrentTimeline()
         if current_timeline is not None:
+            current_timeline_id = str(current_timeline.GetUniqueId())
             current_timeline_name = current_timeline.GetName()
         timeline_read_capability = True
 
@@ -228,6 +239,7 @@ def collect_bridge_state(
         "project.read": True,
         "timeline.read": timeline_read_capability,
         "timeline.create": "unknown",
+        "timeline.select": "unknown",
         "media.import": "unknown",
         "clip.insert": "unknown",
         "clip.range_insert": "unknown",
@@ -249,6 +261,7 @@ def collect_bridge_state(
         "edition": "unknown",
         "project_open": project is not None,
         "project_name": project_name,
+        "current_timeline_id": current_timeline_id,
         "current_timeline_name": current_timeline_name,
         "timelines": timelines,
         "capabilities": capabilities,
@@ -350,6 +363,21 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
         name = arguments["name"]
         if not isinstance(name, str) or not name.strip() or len(name) > 128:
             raise ValueError("Timeline name must contain 1 to 128 characters.")
+        return
+    if action == "set_current_timeline":
+        if set(arguments) != {"timeline_id"}:
+            raise ValueError(
+                "set_current_timeline requires only timeline_id."
+            )
+        timeline_id = arguments["timeline_id"]
+        if (
+            not isinstance(timeline_id, str)
+            or not timeline_id
+            or len(timeline_id) > 128
+        ):
+            raise ValueError(
+                "timeline_id must contain 1 to 128 characters."
+            )
         return
     if action == "append_clip":
         if set(arguments) != {"timeline_id", "asset_id"}:
@@ -560,8 +588,13 @@ def command_result(
     if action == "list_timelines":
         return state["timelines"]
     if action == "get_current_timeline":
+        timeline_id = state["current_timeline_id"]
         name = state["current_timeline_name"]
-        return None if name is None else {"name": name}
+        return (
+            None
+            if name is None or timeline_id is None
+            else {"timeline_id": timeline_id, "name": name}
+        )
     if action == "get_render_environment":
         if resolve is None:
             raise BridgeOperationError(
@@ -1244,6 +1277,24 @@ def _execute_write_command(
                 directories["state"],
             )
         }
+    elif action == "set_current_timeline":
+        timeline = _find_timeline(project, arguments["timeline_id"])
+        required_project_methods = (
+            "GetCurrentTimeline",
+            "SetCurrentTimeline",
+        )
+        missing = [
+            name
+            for name in required_project_methods
+            if not callable(getattr(project, name, None))
+        ]
+        if missing:
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "The current project cannot select a timeline.",
+                details={"missing_methods": missing},
+            )
+        previous_timeline = project.GetCurrentTimeline()
     elif action in {
         "append_clip",
         "insert_clip",
@@ -1443,6 +1494,39 @@ def _execute_write_command(
                     "timeline_id": str(timeline.GetUniqueId()),
                     "name": str(timeline.GetName()),
                 },
+                "backup_path": backup_path,
+            }
+        elif action == "set_current_timeline":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested timeline.",
+                    retryable=True,
+                )
+            current_timeline = project.GetCurrentTimeline()
+            if (
+                current_timeline is None
+                or str(current_timeline.GetUniqueId())
+                != arguments["timeline_id"]
+            ):
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_READBACK_FAILED",
+                    "Resolve did not report the requested current timeline.",
+                    details={"timeline_id": arguments["timeline_id"]},
+                )
+            result = {
+                "timeline": {
+                    "timeline_id": str(current_timeline.GetUniqueId()),
+                    "name": str(current_timeline.GetName()),
+                },
+                "previous_timeline": (
+                    None
+                    if previous_timeline is None
+                    else {
+                        "timeline_id": str(previous_timeline.GetUniqueId()),
+                        "name": str(previous_timeline.GetName()),
+                    }
+                ),
                 "backup_path": backup_path,
             }
         elif action == "append_clip":
@@ -1822,6 +1906,13 @@ def process_command_file(
             capability = CAPABILITY_BY_ACTION[command["action"]]
             state["capabilities"][capability] = True
             _record_verified_capability(directories["state"], capability)
+            refreshed_state = collect_bridge_state(resolve)
+            _apply_verified_capabilities(
+                refreshed_state,
+                directories["state"],
+            )
+            state.clear()
+            state.update(refreshed_state)
         else:
             result = command_result(
                 command["action"],
@@ -1927,6 +2018,7 @@ def error_state(error: Exception) -> dict[str, Any]:
         "edition": "unknown",
         "project_open": False,
         "project_name": None,
+        "current_timeline_id": None,
         "current_timeline_name": None,
         "timelines": [],
         "capabilities": {

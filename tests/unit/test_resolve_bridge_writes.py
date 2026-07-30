@@ -526,6 +526,50 @@ def test_write_command_replays_receipt_without_duplicate_edit(
     assert resolve.project_manager.export_count == 1
 
 
+def test_current_timeline_selection_is_backed_up_and_replay_safe(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    first_timeline = resolve.project.media_pool.CreateEmptyTimeline("First")
+    second_timeline = resolve.project.media_pool.CreateEmptyTimeline("Second")
+    resolve.project.SetCurrentTimeline(first_timeline)
+    state = collect_bridge_state(resolve)
+    first = _command(
+        "select-first",
+        "set_current_timeline",
+        {"timeline_id": second_timeline.GetUniqueId()},
+        idempotency_key="stable-select",
+    )
+    replay = _command(
+        "select-replay",
+        "set_current_timeline",
+        first["arguments"],
+        idempotency_key="stable-select",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert first_response["result"]["previous_timeline"] == {
+        "timeline_id": first_timeline.GetUniqueId(),
+        "name": "First",
+    }
+    assert first_response["result"]["timeline"] == {
+        "timeline_id": second_timeline.GetUniqueId(),
+        "name": "Second",
+    }
+    assert resolve.project.GetCurrentTimeline() is second_timeline
+    assert state["current_timeline_id"] == second_timeline.GetUniqueId()
+    assert state["current_timeline_name"] == "Second"
+    assert resolve.project_manager.export_count == 1
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
+    assert state["capabilities"]["timeline.select"] is True
+
+
 def test_ranged_clip_insert_is_backed_up_and_replay_safe(
     tmp_path: Path,
 ) -> None:
