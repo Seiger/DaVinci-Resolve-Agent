@@ -13,7 +13,12 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.media import MediaPolicy
-from agent.rendering import validate_render_job_id, validate_render_name
+from agent.rendering import (
+    DEFAULT_RENDER_PROFILE,
+    validate_render_job_id,
+    validate_render_name,
+    validate_render_profile,
+)
 from agent.rough_cut import RoughCutPlanner
 from providers.resolve import ResolveProviderClient
 
@@ -87,6 +92,7 @@ class ResolveReader(Protocol):
         self,
         custom_name: str,
         *,
+        profile: str = DEFAULT_RENDER_PROFILE,
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -307,13 +313,16 @@ class AgentApplication:
         self,
         custom_name: str,
         *,
+        profile: str = DEFAULT_RENDER_PROFILE,
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Prepare one fixed render job without starting rendering."""
         normalized_name = validate_render_name(custom_name)
+        normalized_profile = validate_render_profile(profile)
         return self._resolve.prepare_render_job(
             normalized_name,
+            profile=normalized_profile.name,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

@@ -10,6 +10,7 @@ from mcp.types import ToolAnnotations
 
 from agent import __version__
 from agent.application import AgentApplication
+from agent.rendering import DEFAULT_RENDER_PROFILE
 
 READ_ONLY_TOOL = ToolAnnotations(
     read_only_hint=True,
@@ -160,6 +161,7 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
     @server.tool(annotations=WRITE_TOOL)
     async def resolve_prepare_render_job(
         custom_name: str,
+        profile: str = DEFAULT_RENDER_PROFILE,
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -167,6 +169,7 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         return await asyncio.to_thread(
             service.resolve_prepare_render_job,
             custom_name,
+            profile=profile,
             timeout_seconds=timeout_seconds,
             idempotency_key=idempotency_key,
         )

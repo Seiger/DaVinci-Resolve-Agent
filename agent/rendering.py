@@ -4,11 +4,35 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from dataclasses import dataclass
 
-RENDER_PRESET_NAME = "youtube-1080p-h264-v1"
+DEFAULT_RENDER_PROFILE = "youtube-1080p-h264-v1"
 MAX_RENDER_NAME_LENGTH = 128
 FORBIDDEN_FILENAME_CHARACTERS = frozenset('<>:"/\\|?*')
 RENDER_JOB_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+
+
+@dataclass(frozen=True, slots=True)
+class RenderProfile:
+    """One fixed, provider-neutral export profile."""
+
+    name: str
+    width: int
+    height: int
+
+
+RENDER_PROFILES = {
+    "youtube-1080p-h264-v1": RenderProfile(
+        name="youtube-1080p-h264-v1",
+        width=1920,
+        height=1080,
+    ),
+    "youtube-2160p-h264-v1": RenderProfile(
+        name="youtube-2160p-h264-v1",
+        width=3840,
+        height=2160,
+    ),
+}
 
 
 class RenderPreparationError(ValueError):
@@ -46,3 +70,14 @@ def validate_render_job_id(job_id: str) -> str:
             "job_id must contain 1 to 128 safe identifier characters."
         )
     return job_id
+
+
+def validate_render_profile(profile: str) -> RenderProfile:
+    """Return one allowlisted render profile."""
+    try:
+        return RENDER_PROFILES[profile]
+    except (KeyError, TypeError) as error:
+        supported = ", ".join(sorted(RENDER_PROFILES))
+        raise RenderPreparationError(
+            f"Unsupported render profile. Expected one of: {supported}."
+        ) from error

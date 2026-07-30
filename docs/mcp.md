@@ -83,9 +83,11 @@ Resolve-інструменти ставлять команду в локальн
 queue. Він не конфігурує й не запускає render.
 
 `resolve_prepare_render_job` приймає лише безпечний filename stem у
-`custom_name`. Він створює `.drp` backup, застосовує фіксований
-`youtube-1080p-h264-v1`, додає MP4/H264 job у queue та повертає
-`started=false`. Output directory не задається через MCP.
+`custom_name` та необов'язковий `profile`. Він створює `.drp` backup,
+застосовує фіксований `youtube-1080p-h264-v1` або
+`youtube-2160p-h264-v1`, додає MP4/H264 job у queue та повертає
+`started=false`. Default — 1080p. Output directory, raw dimensions, codec і
+Resolve preset не задаються через MCP.
 
 `resolve_get_render_job_status` читає документований status одного `job_id`.
 `resolve_start_render_job` стартує лише job, який був створений

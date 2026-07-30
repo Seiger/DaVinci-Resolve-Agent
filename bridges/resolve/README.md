@@ -22,5 +22,10 @@ codec, output name and output root, creates a project backup, and writes a
 durable per-job start record. It cannot start arbitrary or all queued jobs,
 stop rendering, delete jobs, change settings, or upload anything.
 
+M9 discovers MP4/H.264 resolutions through documented
+`GetRenderResolutions` and permits only fixed 1920x1080 or 3840x2160 YouTube
+profiles. Before adding a job, it verifies both the built-in preset and exact
+resolution, then applies documented `FormatWidth` and `FormatHeight` settings.
+
 The one-shot lifecycle is intentional: persistent polling is not enabled until
 live testing proves that it does not block the Resolve UI.

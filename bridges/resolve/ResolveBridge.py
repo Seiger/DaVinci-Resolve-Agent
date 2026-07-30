@@ -15,6 +15,19 @@ from typing import Any, cast
 BRIDGE_VERSION = "0.1.0"
 PROTOCOL_VERSION = "1.0"
 APPLICATION_DIRECTORY_NAME = "DaVinciResolveAgent"
+DEFAULT_RENDER_PROFILE = "youtube-1080p-h264-v1"
+RENDER_PROFILES = {
+    "youtube-1080p-h264-v1": {
+        "resolve_preset": "YouTube - 1080p",
+        "width": 1920,
+        "height": 1080,
+    },
+    "youtube-2160p-h264-v1": {
+        "resolve_preset": "YouTube - 2160p",
+        "width": 3840,
+        "height": 2160,
+    },
+}
 ALLOWED_ACTIONS = {
     "ping",
     "get_bridge_info",
@@ -370,9 +383,17 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
             raise ValueError("duration must be a positive integer.")
         return
     if action == "prepare_render_job":
-        if set(arguments) != {"custom_name"}:
-            raise ValueError("prepare_render_job requires only custom_name.")
+        if set(arguments) not in (
+            {"custom_name"},
+            {"custom_name", "profile"},
+        ):
+            raise ValueError(
+                "prepare_render_job requires custom_name and optional profile."
+            )
         _validate_render_name(arguments["custom_name"])
+        _validate_render_profile(
+            arguments.get("profile", DEFAULT_RENDER_PROFILE)
+        )
         return
     if action == "start_render_job":
         _validate_render_job_arguments(action, arguments)
@@ -411,6 +432,16 @@ def _validate_render_job_arguments(
             "job_id must contain 1 to 128 safe identifier characters."
         )
     return job_id
+
+
+def _validate_render_profile(value: Any) -> dict[str, Any]:
+    if not isinstance(value, str) or value not in RENDER_PROFILES:
+        raise ValueError(
+            "profile must be one of: "
+            + ", ".join(sorted(RENDER_PROFILES))
+            + "."
+        )
+    return RENDER_PROFILES[value]
 
 
 def _render_output_directory() -> Path:
@@ -500,6 +531,7 @@ def _render_environment(resolve: Any) -> dict[str, Any]:
     required_methods = (
         "GetRenderFormats",
         "GetRenderCodecs",
+        "GetRenderResolutions",
         "GetCurrentRenderFormatAndCodec",
         "GetRenderPresetList",
         "GetRenderJobList",
@@ -564,6 +596,28 @@ def _render_environment(resolve: Any) -> dict[str, Any]:
             "INVALID_RESOLVE_RESPONSE",
             "Resolve returned an invalid render preset or job list.",
         )
+    raw_resolutions = project.GetRenderResolutions("MP4", "H264")
+    if not isinstance(raw_resolutions, list) or not all(
+        isinstance(item, Mapping)
+        and isinstance(item.get("Width"), int)
+        and isinstance(item.get("Height"), int)
+        for item in raw_resolutions
+    ):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "Resolve.GetRenderResolutions() returned an invalid value.",
+            details={"format": "MP4", "codec": "H264"},
+        )
+    mp4_h264_resolutions = sorted(
+        [
+            {
+                "width": int(item["Width"]),
+                "height": int(item["Height"]),
+            }
+            for item in raw_resolutions
+        ],
+        key=lambda item: (item["width"], item["height"]),
+    )
     timeline = project.GetCurrentTimeline()
     timeline_summary: dict[str, Any] | None = None
     if timeline is not None:
@@ -603,6 +657,7 @@ def _render_environment(resolve: Any) -> dict[str, Any]:
         },
         "presets": _json_safe(presets),
         "jobs": _json_safe(jobs),
+        "mp4_h264_resolutions": mp4_h264_resolutions,
         "timeline": timeline_summary,
     }
 
@@ -947,21 +1002,29 @@ def _verify_agent_prepared_render_job(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     prepared = _find_prepared_render_result(state_directory, job_id)
     job = _find_render_job(project, job_id)
+    profile_name = prepared.get("preset")
+    profile = (
+        RENDER_PROFILES.get(profile_name)
+        if isinstance(profile_name, str)
+        else None
+    )
     expected_directory = _render_output_directory()
     expected_name = f"{prepared.get('custom_name', '')}.mp4"
     prepared_directory = Path(str(prepared.get("target_directory", ""))).resolve()
     live_directory = Path(str(job.get("TargetDir", ""))).resolve()
     valid = (
-        prepared.get("preset") == "youtube-1080p-h264-v1"
-        and prepared.get("resolve_preset") == "YouTube - 1080p"
+        profile is not None
+        and prepared.get("resolve_preset") == profile["resolve_preset"]
         and prepared.get("format") == "MP4"
         and prepared.get("codec") == "H264"
         and prepared.get("started") is False
         and prepared_directory == expected_directory
         and live_directory == expected_directory
-        and job.get("PresetName") == "YouTube - 1080p"
+        and job.get("PresetName") == profile["resolve_preset"]
         and job.get("VideoFormat") == "MP4"
         and job.get("VideoCodec") in {"H.264", "H264"}
+        and job.get("FormatWidth") == profile["width"]
+        and job.get("FormatHeight") == profile["height"]
         and job.get("OutputFilename") == expected_name
     )
     if not valid:
@@ -1209,7 +1272,12 @@ def _execute_write_command(
             }
         elif action == "prepare_render_job":
             custom_name = _validate_render_name(arguments["custom_name"])
-            preset_name = "YouTube - 1080p"
+            profile_name = arguments.get(
+                "profile",
+                DEFAULT_RENDER_PROFILE,
+            )
+            profile = _validate_render_profile(profile_name)
+            preset_name = profile["resolve_preset"]
             if not callable(getattr(resolve, "OpenPage", None)) or not callable(
                 getattr(resolve, "GetCurrentPage", None)
             ):
@@ -1223,6 +1291,7 @@ def _execute_write_command(
             prepare_required_methods = (
                 "GetCurrentTimeline",
                 "GetRenderPresetList",
+                "GetRenderResolutions",
                 "LoadRenderPreset",
                 "SetCurrentRenderFormatAndCodec",
                 "SetCurrentRenderMode",
@@ -1260,6 +1329,24 @@ def _execute_write_command(
                         "RENDER_PRESET_UNAVAILABLE",
                         f"Resolve render preset is unavailable: {preset_name}",
                     )
+                resolutions = project.GetRenderResolutions("MP4", "H264")
+                expected_resolution = {
+                    "Width": profile["width"],
+                    "Height": profile["height"],
+                }
+                if (
+                    not isinstance(resolutions, list)
+                    or expected_resolution not in resolutions
+                ):
+                    raise BridgeOperationError(
+                        "RENDER_RESOLUTION_UNAVAILABLE",
+                        "Resolve does not expose the fixed profile resolution.",
+                        details={
+                            "profile": profile_name,
+                            "width": profile["width"],
+                            "height": profile["height"],
+                        },
+                    )
                 if project.LoadRenderPreset(preset_name) is not True:
                     raise BridgeOperationError(
                         "RENDER_PRESET_LOAD_FAILED",
@@ -1288,6 +1375,8 @@ def _execute_write_command(
                     "CustomName": custom_name,
                     "ExportVideo": True,
                     "ExportAudio": True,
+                    "FormatWidth": profile["width"],
+                    "FormatHeight": profile["height"],
                 }
                 if project.SetRenderSettings(settings) is not True:
                     raise BridgeOperationError(
@@ -1311,10 +1400,12 @@ def _execute_write_command(
                     resolve.OpenPage(previous_page)
             result = {
                 "job_id": job_id,
-                "preset": "youtube-1080p-h264-v1",
+                "preset": profile_name,
                 "resolve_preset": preset_name,
                 "format": "MP4",
                 "codec": "H264",
+                "width": profile["width"],
+                "height": profile["height"],
                 "target_directory": str(target_directory),
                 "custom_name": custom_name,
                 "started": False,

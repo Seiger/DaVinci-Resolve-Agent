@@ -71,6 +71,18 @@ class FakeProject:
     def GetRenderJobList(self) -> list[dict[str, str]]:
         return [{"JobId": "job-1", "JobStatus": "Ready"}]
 
+    def GetRenderResolutions(
+        self,
+        render_format: str,
+        codec: str,
+    ) -> list[dict[str, int]]:
+        assert render_format == "MP4"
+        assert codec == "H264"
+        return [
+            {"Width": 3840, "Height": 2160},
+            {"Width": 1920, "Height": 1080},
+        ]
+
 
 class FakeProjectManager:
     def __init__(self, project: FakeProject | None) -> None:
@@ -168,6 +180,10 @@ def test_render_environment_uses_documented_read_only_api() -> None:
         "current": {"format": "mp4", "codec": "H264"},
         "presets": [{"Name": "H.264 Master"}],
         "jobs": [{"JobId": "job-1", "JobStatus": "Ready"}],
+        "mp4_h264_resolutions": [
+            {"width": 1920, "height": 1080},
+            {"width": 3840, "height": 2160},
+        ],
         "timeline": {
             "name": "Main",
             "video_track_count": 1,

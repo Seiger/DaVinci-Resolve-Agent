@@ -69,6 +69,19 @@ def test_prepare_render_job_requires_backup_and_safe_arguments() -> None:
 
     validate_contract("command", command)
 
+    command["arguments"] = {
+        "custom_name": "M9 4K Test",
+        "profile": "youtube-2160p-h264-v1",
+    }
+    validate_contract("command", command)
+
+    command["arguments"] = {
+        "custom_name": "M9 Test",
+        "profile": "custom-8k",
+    }
+    with pytest.raises(ContractValidationError, match="profile"):
+        validate_contract("command", command)
+
     command["arguments"] = {"custom_name": ""}
     with pytest.raises(ContractValidationError, match="custom_name"):
         validate_contract("command", command)

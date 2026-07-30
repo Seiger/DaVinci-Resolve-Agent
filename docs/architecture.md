@@ -217,6 +217,30 @@ Until that live test succeeds, the capability remains `unknown`.
 Read-only status was live-validated on Resolve 21 Free 21.0.3.7 for the M7
 1920x1080 MP4/H.264 job in `Ready` state with zero completion.
 
+## M9 verified export profiles
+
+M9 keeps render configuration finite:
+
+```text
+resolve_get_render_options
+ └─ GetRenderResolutions("MP4", "H264")
+
+resolve_prepare_render_job(custom_name, profile)
+ ├─ youtube-1080p-h264-v1 -> YouTube - 1080p -> 1920x1080
+ └─ youtube-2160p-h264-v1 -> YouTube - 2160p -> 3840x2160
+```
+
+The bridge verifies the built-in preset and exact resolution before
+`AddRenderJob`, explicitly applies documented dimensions, and stores the
+selected profile in the preparation receipt. M8 start policy derives its
+expected preset and dimensions from that receipt. Arbitrary dimensions,
+presets, codecs, paths, and upload targets are not representable.
+
+Resolve 21 Free 21.0.3.7 live discovery returned 3840x2160 for MP4/H.264 and
+the `YouTube - 2160p` preset. Live write validation then added one matching
+3840x2160 job after backup; replay returned the same job and backup without
+adding a duplicate or starting rendering.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

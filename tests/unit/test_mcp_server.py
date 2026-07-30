@@ -79,10 +79,16 @@ class StubResolveReader:
         self,
         custom_name: str,
         *,
+        profile: str = "youtube-1080p-h264-v1",
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        return {"job_id": "job-1", "custom_name": custom_name, "started": False}
+        return {
+            "job_id": "job-1",
+            "custom_name": custom_name,
+            "preset": profile,
+            "started": False,
+        }
 
     def render_job_status(
         self,
@@ -242,7 +248,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                 ),
                 "prepared": await client.call_tool(
                     "resolve_prepare_render_job",
-                    {"custom_name": "M7 Test"},
+                    {
+                        "custom_name": "M9 Test",
+                        "profile": "youtube-2160p-h264-v1",
+                    },
                 ),
                 "render_status": await client.call_tool(
                     "resolve_get_render_job_status",
@@ -308,6 +317,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["appended"].structured_content["asset_id"] == "asset-1"
     assert results["marker"].structured_content["color"] == "Green"
     assert results["prepared"].structured_content["started"] is False
+    assert results["prepared"].structured_content["preset"] == (
+        "youtube-2160p-h264-v1"
+    )
     assert results["render_status"].structured_content["status"][
         "JobStatus"
     ] == "Ready"

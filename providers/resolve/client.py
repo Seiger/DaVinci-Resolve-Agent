@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from agent.client import BridgeProtocolError, CommandClient, FilesystemCommandClient
 from agent.contracts import ContractValidationError, validate_contract
+from agent.rendering import DEFAULT_RENDER_PROFILE
 
 
 class ResolveProviderClient:
@@ -71,6 +72,7 @@ class ResolveProviderClient:
             or not isinstance(result.get("current"), dict)
             or not isinstance(result.get("presets"), list)
             or not isinstance(result.get("jobs"), list)
+            or not isinstance(result.get("mp4_h264_resolutions"), list)
         ):
             raise BridgeProtocolError(
                 "Resolve get_render_environment response is invalid."
@@ -169,6 +171,7 @@ class ResolveProviderClient:
         self,
         custom_name: str,
         *,
+        profile: str = DEFAULT_RENDER_PROFILE,
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -176,7 +179,7 @@ class ResolveProviderClient:
         result = self._client.request(
             provider="resolve",
             action="prepare_render_job",
-            arguments={"custom_name": custom_name},
+            arguments={"custom_name": custom_name, "profile": profile},
             timeout_seconds=timeout_seconds,
             idempotency_key=idempotency_key,
             create_backup=True,

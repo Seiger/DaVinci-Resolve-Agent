@@ -22,6 +22,11 @@ opaque `job_id`. Start requires backup and can target only a fixed-policy job
 proven by an M7 preparation receipt. Arbitrary render settings, deletion,
 stopping, upload, and mass-start commands remain outside the contract.
 
+M9 extends `prepare_render_job` with an optional allowlisted `profile`.
+Omitting it preserves the 1080p default. The only accepted values are
+`youtube-1080p-h264-v1` and `youtube-2160p-h264-v1`; raw width, height, preset,
+codec, quality, and output path remain outside the command contract.
+
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.

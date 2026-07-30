@@ -61,6 +61,9 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 "current": {"format": "mp4", "codec": "H264"},
                 "presets": [],
                 "jobs": [],
+                "mp4_h264_resolutions": [
+                    {"width": 1920, "height": 1080}
+                ],
             },
             "import_media": {
                 "items": [{"asset_id": "asset-1", "name": "sample.wav"}]
@@ -82,7 +85,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
             },
             "prepare_render_job": {
                 "job_id": "job-1",
-                "preset": "youtube-1080p-h264-v1",
+                "preset": "youtube-2160p-h264-v1",
                 "started": False,
             },
             "get_render_job_status": {
@@ -127,6 +130,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     )["frame"] == 0
     assert client.prepare_render_job(
         "M7 Test",
+        profile="youtube-2160p-h264-v1",
         idempotency_key="stable-key",
     )["started"] is False
     assert client.render_job_status("job-1")["status"]["JobStatus"] == "Ready"

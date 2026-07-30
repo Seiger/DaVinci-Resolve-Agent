@@ -38,7 +38,7 @@ The allowlist additionally contains:
 - `create_timeline` with `name`;
 - `append_clip` with `timeline_id` and `asset_id`;
 - `add_marker` with timeline marker fields.
-- `prepare_render_job` with `custom_name`.
+- `prepare_render_job` with `custom_name` and optional allowlisted `profile`.
 - `start_render_job` with `job_id`.
 
 Every write envelope must set `allow_destructive` to `false` and
@@ -48,8 +48,10 @@ against `state/media-policy.json` before calling Resolve.
 
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
-YouTube 1080p preset, selects MP4/H264, and adds one job. Its response reports
-`started=false`.
+YouTube 1080p or 2160p preset, verifies the matching documented MP4/H264
+resolution, sets exact `FormatWidth` and `FormatHeight`, and adds one job. Its
+response reports `started=false`. Missing `profile` means 1080p for protocol
+compatibility; no raw render setting is accepted.
 The bridge temporarily opens the documented `deliver` page required by the
 official Blackmagic example and then restores the previously active page.
 
@@ -78,9 +80,10 @@ expressions.
 
 `get_render_environment` is the read-only M7 discovery action. It returns only
 documented formats, codecs, presets, the current format/codec, and existing
-queue metadata. It also reports current timeline audio/video track and item
-counts as a render preflight. It does not change render settings, add a job,
-start rendering, delete a job, or upload media.
+queue metadata. M9 adds documented MP4/H264 resolutions. It also reports
+current timeline audio/video track and item counts as a render preflight. It
+does not change render settings, add a job, start rendering, delete a job, or
+upload media.
 
 ## One-shot lifecycle
 

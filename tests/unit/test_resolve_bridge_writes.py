@@ -152,11 +152,23 @@ class FakeProject:
         return True
 
     def GetRenderPresetList(self) -> list[str]:
-        return ["YouTube - 1080p"]
+        return ["YouTube - 1080p", "YouTube - 2160p"]
 
     def LoadRenderPreset(self, preset_name: str) -> bool:
         self.render_preset = preset_name
-        return preset_name == "YouTube - 1080p"
+        return preset_name in {"YouTube - 1080p", "YouTube - 2160p"}
+
+    def GetRenderResolutions(
+        self,
+        render_format: str,
+        codec: str,
+    ) -> list[dict[str, int]]:
+        assert render_format == "MP4"
+        assert codec == "H264"
+        return [
+            {"Width": 1920, "Height": 1080},
+            {"Width": 3840, "Height": 2160},
+        ]
 
     def SetCurrentRenderFormatAndCodec(
         self,
@@ -187,6 +199,8 @@ class FakeProject:
                 "PresetName": self.render_preset,
                 "VideoFormat": self.render_format,
                 "VideoCodec": "H.264",
+                "FormatWidth": self.render_settings["FormatWidth"],
+                "FormatHeight": self.render_settings["FormatHeight"],
             }
         )
         self.render_statuses[job_id] = {
@@ -492,6 +506,8 @@ def test_prepare_render_job_is_backed_up_and_replay_safe(
     assert first_response["result"]["started"] is False
     assert first_response["result"]["format"] == "MP4"
     assert first_response["result"]["codec"] == "H264"
+    assert first_response["result"]["width"] == 1920
+    assert first_response["result"]["height"] == 1080
     assert Path(first_response["result"]["target_directory"]) == (
         tmp_path
         / "profile"
@@ -503,6 +519,39 @@ def test_prepare_render_job_is_backed_up_and_replay_safe(
     assert resolve.project_manager.export_count == 1
     assert state["capabilities"]["render.configure"] is True
     assert resolve.current_page == "edit"
+
+
+def test_prepare_render_job_supports_verified_fixed_4k_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("4K Timeline")
+    resolve.project.SetCurrentTimeline(timeline)
+    state = collect_bridge_state(resolve)
+
+    response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "render-4k",
+            "prepare_render_job",
+            {
+                "custom_name": "M9 4K Test",
+                "profile": "youtube-2160p-h264-v1",
+            },
+        ),
+    )
+
+    assert response["status"] == "success"
+    assert response["result"]["preset"] == "youtube-2160p-h264-v1"
+    assert response["result"]["resolve_preset"] == "YouTube - 2160p"
+    assert response["result"]["width"] == 3840
+    assert response["result"]["height"] == 2160
+    assert resolve.project.render_jobs[0]["FormatWidth"] == 3840
+    assert resolve.project.render_jobs[0]["FormatHeight"] == 2160
 
 
 def test_agent_prepared_render_job_starts_once_and_reports_status(

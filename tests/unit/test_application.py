@@ -88,11 +88,17 @@ class StubResolveReader:
         self,
         custom_name: str,
         *,
+        profile: str = "youtube-1080p-h264-v1",
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         self.timeouts.append(timeout_seconds)
-        return {"job_id": "job-1", "custom_name": custom_name, "started": False}
+        return {
+            "job_id": "job-1",
+            "custom_name": custom_name,
+            "preset": profile,
+            "started": False,
+        }
 
     def render_job_status(
         self,
@@ -242,6 +248,7 @@ def test_application_exposes_validated_write_methods() -> None:
     )
     render_job = application.resolve_prepare_render_job(
         "M7 Test",
+        profile="youtube-2160p-h264-v1",
         timeout_seconds=50,
     )
     render_status = application.resolve_get_render_job_status(
@@ -260,6 +267,7 @@ def test_application_exposes_validated_write_methods() -> None:
     assert marker["color"] == "Green"
     assert render_job["started"] is False
     assert render_job["custom_name"] == "M7 Test"
+    assert render_job["preset"] == "youtube-2160p-h264-v1"
     assert render_status["status"]["JobStatus"] == "Ready"
     assert render_start["started"] is True
     assert resolve.timeouts == [10, 20, 30, 40, 50, 60, 70]

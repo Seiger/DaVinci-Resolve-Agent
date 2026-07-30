@@ -53,3 +53,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   and replay protection before documented Resolve rendering calls.
 - Resolve 21 Free 21.0.3.7 live verification of read-only `Ready` job status
   without starting or changing the render queue.
+- M9 documented MP4/H.264 resolution discovery and fixed 1080p/2160p YouTube
+  export profile allowlist.
+- Resolve 21 Free 21.0.3.7 live confirmation of 3840x2160 MP4/H.264 and the
+  built-in `YouTube - 2160p` preset without changing the render queue.
+- Resolve 21 Free 21.0.3.7 live verification of backup-backed 4K job
+  preparation and idempotent replay without duplicate jobs or rendering.

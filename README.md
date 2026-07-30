@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M8: safe render execution**. Він установлює
+Проєкт перебуває на етапі **Milestone M9: verified export profiles**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -22,6 +22,10 @@ M8 додає read-only статус і контрольований запус�
 agent-підготовленого job. Повторний запуск блокується receipt і окремим
 durable start-record. Read-only статус перевірено у Resolve 21 Free 21.0.3.7;
 live-start ще не пройшов перевірку на короткому timeline.
+M9 додає офіційне resolution discovery та другий фіксований профіль
+`youtube-2160p-h264-v1`. Наявність MP4/H.264 3840×2160 і preset
+`YouTube - 2160p`, а також backup-backed ідемпотентну підготовку 4K job
+підтверджено у Resolve 21 Free 21.0.3.7.
 
 ## Вимоги
 
@@ -135,10 +139,12 @@ WAV. Preset виконує детерміноване RMS leveling із peak gua
 оригінал і створює derived WAV. RMS dBFS не заявляється як LUFS. Деталі:
 [audio workflow](docs/audio-workflow.md).
 
-`resolve_prepare_render_job` використовує лише preset
-`youtube-1080p-h264-v1`, створює `.drp` backup, пише output у
+`resolve_prepare_render_job` використовує лише allowlisted профілі
+`youtube-1080p-h264-v1` і `youtube-2160p-h264-v1`, створює `.drp` backup,
+пише output у
 `%USERPROFILE%\Videos\DaVinciResolveAgent\renders` і додає job у queue.
-Rendering залишається незапущеним.
+1080p залишається default. Довільні dimensions, preset, codec і path не
+приймаються. Rendering залишається незапущеним.
 
 `resolve_start_render_job` приймає лише `job_id`, який має відповідати receipt
 від `resolve_prepare_render_job` і незміненому job у live queue. Перед стартом
