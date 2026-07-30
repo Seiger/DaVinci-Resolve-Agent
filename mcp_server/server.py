@@ -135,6 +135,32 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def resolve_insert_clip(
+        timeline_id: str,
+        asset_id: str,
+        source_start_frame: int,
+        source_end_frame: int,
+        position_frames: int,
+        track_type: str,
+        track_index: int,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one bounded source range after exporting a project backup."""
+        return await asyncio.to_thread(
+            service.resolve_insert_clip,
+            timeline_id,
+            asset_id,
+            source_start_frame,
+            source_end_frame,
+            position_frames,
+            track_type,
+            track_index,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def resolve_add_marker(
         timeline_id: str,
         frame: int,

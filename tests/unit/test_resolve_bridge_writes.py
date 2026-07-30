@@ -30,15 +30,49 @@ class FakeMediaItem:
 
 
 class FakeTimelineItem:
-    def __init__(self, item_id: str, name: str) -> None:
+    def __init__(
+        self,
+        item_id: str,
+        name: str,
+        *,
+        timeline_start: int = 0,
+        timeline_end: int = 0,
+        source_start: int = 0,
+        source_end: int = 0,
+        track_type: str = "video",
+        track_index: int = 1,
+    ) -> None:
         self._item_id = item_id
         self._name = name
+        self._timeline_start = timeline_start
+        self._timeline_end = timeline_end
+        self._source_start = source_start
+        self._source_end = source_end
+        self._track_type = track_type
+        self._track_index = track_index
 
     def GetUniqueId(self) -> str:
         return self._item_id
 
     def GetName(self) -> str:
         return self._name
+
+    def GetStart(self, subframe_precision: bool) -> int:
+        assert subframe_precision is False
+        return self._timeline_start
+
+    def GetEnd(self, subframe_precision: bool) -> int:
+        assert subframe_precision is False
+        return self._timeline_end
+
+    def GetSourceStartFrame(self) -> int:
+        return self._source_start
+
+    def GetSourceEndFrame(self) -> int:
+        return self._source_end
+
+    def GetTrackTypeAndIndex(self) -> list[str | int]:
+        return [self._track_type, self._track_index]
 
 
 class FakeFolder:
@@ -63,6 +97,18 @@ class FakeTimeline:
 
     def GetName(self) -> str:
         return self._name
+
+    def GetStartFrame(self) -> int:
+        return 86400
+
+    def GetTrackCount(self, track_type: str) -> int:
+        assert track_type in {"video", "audio"}
+        return 1
+
+    def GetIsTrackLocked(self, track_type: str, track_index: int) -> bool:
+        assert track_type in {"video", "audio"}
+        assert track_index == 1
+        return False
 
     def AddMarker(
         self,
@@ -105,13 +151,32 @@ class FakeMediaPool:
         self._project.timelines.append(timeline)
         return timeline
 
-    def AppendToTimeline(
-        self,
-        items: list[FakeMediaItem],
-    ) -> list[FakeTimelineItem]:
-        self.appended.extend(items)
+    def AppendToTimeline(self, items: list[Any]) -> list[FakeTimelineItem]:
+        if isinstance(items[0], dict):
+            clip_info = items[0]
+            media_item = cast(FakeMediaItem, clip_info["mediaPoolItem"])
+            self.appended.append(media_item)
+            track_type = "video" if clip_info["mediaType"] == 1 else "audio"
+            duration = clip_info["endFrame"] - clip_info["startFrame"]
+            return [
+                FakeTimelineItem(
+                    f"item-{len(self.appended)}",
+                    media_item.GetName(),
+                    timeline_start=clip_info["recordFrame"],
+                    timeline_end=clip_info["recordFrame"] + duration,
+                    source_start=clip_info["startFrame"],
+                    source_end=clip_info["endFrame"],
+                    track_type=track_type,
+                    track_index=clip_info["trackIndex"],
+                )
+            ]
+        media_items = cast(list[FakeMediaItem], items)
+        self.appended.extend(media_items)
         return [
-            FakeTimelineItem(f"item-{len(self.appended)}", items[0].GetName())
+            FakeTimelineItem(
+                f"item-{len(self.appended)}",
+                media_items[0].GetName(),
+            )
         ]
 
 
@@ -437,6 +502,59 @@ def test_write_command_replays_receipt_without_duplicate_edit(
     ]
     assert len(resolve.project.timelines) == 1
     assert resolve.project_manager.export_count == 1
+
+
+def test_ranged_clip_insert_is_backed_up_and_replay_safe(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M10 Short")
+    resolve.project.SetCurrentTimeline(timeline)
+    media_item = FakeMediaItem("asset-1", "source.mkv")
+    resolve.project.media_pool.root.clips.append(media_item)
+    state = collect_bridge_state(resolve)
+    first = _command(
+        "insert-first",
+        "insert_clip",
+        {
+            "timeline_id": timeline.GetUniqueId(),
+            "asset_id": media_item.GetMediaId(),
+            "source_start_frame": 0,
+            "source_end_frame": 240,
+            "position_frames": 0,
+            "track_type": "video",
+            "track_index": 1,
+        },
+        idempotency_key="stable-insert",
+    )
+    replay = _command(
+        "insert-replay",
+        "insert_clip",
+        first["arguments"],
+        idempotency_key="stable-insert",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
+    assert first_response["result"]["item"] == {
+        "timeline_item_id": "item-1",
+        "name": "source.mkv",
+        "timeline_start_frame": 86400,
+        "timeline_end_frame": 86640,
+        "source_start_frame": 0,
+        "source_end_frame": 240,
+        "track_type": "video",
+        "track_index": 1,
+    }
+    assert len(resolve.project.media_pool.appended) == 1
+    assert resolve.project_manager.export_count == 1
+    assert state["capabilities"]["clip.range_insert"] is True
 
 
 def test_import_outside_bridge_policy_is_rejected_before_backup(

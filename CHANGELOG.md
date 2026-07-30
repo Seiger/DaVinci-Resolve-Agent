@@ -59,3 +59,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   built-in `YouTube - 2160p` preset without changing the render queue.
 - Resolve 21 Free 21.0.3.7 live verification of backup-backed 4K job
   preparation and idempotent replay without duplicate jobs or rendering.
+- M10 safe ranged clip insertion with timeline-relative positioning, explicit
+  video/audio track selection, project backup, and idempotent replay.
+- Documented TimelineItem readback for actual source bounds, timeline bounds,
+  and track placement after insertion.
+- Resolve 21 Free 21.0.3.7 live verification of synchronized video/audio ranged
+  insertion, 60-to-24 fps frame conversion, backups, and duplicate-free replay.

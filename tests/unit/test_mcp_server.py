@@ -61,6 +61,31 @@ class StubResolveReader:
     ) -> dict[str, Any]:
         return {"timeline_id": timeline_id, "asset_id": asset_id}
 
+    def insert_clip(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        source_start_frame: int,
+        source_end_frame: int,
+        position_frames: int,
+        track_type: str,
+        track_index: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline_id": timeline_id,
+            "asset_id": asset_id,
+            "item": {
+                "source_start_frame": source_start_frame,
+                "source_end_frame": source_end_frame,
+                "timeline_start_frame": position_frames,
+                "track_type": track_type,
+                "track_index": track_index,
+            },
+        }
+
     def add_marker(
         self,
         timeline_id: str,
@@ -238,6 +263,18 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                     "resolve_append_clip",
                     {"timeline_id": "timeline-1", "asset_id": "asset-1"},
                 ),
+                "inserted": await client.call_tool(
+                    "resolve_insert_clip",
+                    {
+                        "timeline_id": "timeline-1",
+                        "asset_id": "asset-1",
+                        "source_start_frame": 0,
+                        "source_end_frame": 240,
+                        "position_frames": 0,
+                        "track_type": "video",
+                        "track_index": 1,
+                    },
+                ),
                 "marker": await client.call_tool(
                     "resolve_add_marker",
                     {
@@ -290,6 +327,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_import_media",
         "resolve_create_timeline",
         "resolve_append_clip",
+        "resolve_insert_clip",
         "resolve_add_marker",
         "resolve_prepare_render_job",
         "resolve_get_render_job_status",
@@ -315,6 +353,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "timeline-1"
     )
     assert results["appended"].structured_content["asset_id"] == "asset-1"
+    assert results["inserted"].structured_content["item"][
+        "source_end_frame"
+    ] == 240
     assert results["marker"].structured_content["color"] == "Green"
     assert results["prepared"].structured_content["started"] is False
     assert results["prepared"].structured_content["preset"] == (

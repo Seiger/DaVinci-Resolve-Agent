@@ -52,6 +52,7 @@
         "import_media",
         "create_timeline",
         "append_clip",
+        "insert_clip",
         "add_marker",
         "prepare_render_job",
         "start_render_job"
@@ -78,6 +79,67 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "insert_clip"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id",
+              "asset_id",
+              "source_start_frame",
+              "source_end_frame",
+              "position_frames",
+              "track_type",
+              "track_index"
+            ],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "asset_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_start_frame": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2147483647
+              },
+              "source_end_frame": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              "position_frames": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2147483647
+              },
+              "track_type": {
+                "enum": [
+                  "video",
+                  "audio"
+                ]
+              },
+              "track_index": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 128
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {
@@ -310,6 +372,7 @@
               "import_media",
               "create_timeline",
               "append_clip",
+              "insert_clip",
               "add_marker",
               "prepare_render_job",
               "start_render_job"

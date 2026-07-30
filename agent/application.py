@@ -23,6 +23,8 @@ from agent.rough_cut import RoughCutPlanner
 from providers.resolve import ResolveProviderClient
 
 MAX_COMMAND_TIMEOUT_SECONDS = 300.0
+MAX_FRAME_VALUE = 2_147_483_647
+MAX_TRACK_INDEX = 128
 
 
 class ResolveReader(Protocol):
@@ -73,6 +75,21 @@ class ResolveReader(Protocol):
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Append an asset to a timeline."""
+
+    def insert_clip(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        source_start_frame: int,
+        source_end_frame: int,
+        position_frames: int,
+        track_type: str,
+        track_index: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert a bounded source range on one timeline track."""
 
     def add_marker(
         self,
@@ -277,6 +294,46 @@ class AgentApplication:
         return self._resolve.append_clip(
             timeline_id,
             asset_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_insert_clip(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        source_start_frame: int,
+        source_end_frame: int,
+        position_frames: int,
+        track_type: str,
+        track_index: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one bounded media range into a Resolve timeline."""
+        if not timeline_id or not asset_id:
+            raise ValueError("timeline_id and asset_id must not be empty.")
+        if (
+            not 0 <= source_start_frame < source_end_frame <= MAX_FRAME_VALUE
+        ):
+            raise ValueError(
+                "source frames must be ordered within the supported range."
+            )
+        if not 0 <= position_frames <= MAX_FRAME_VALUE:
+            raise ValueError("position_frames must be a non-negative integer.")
+        if track_type not in {"video", "audio"}:
+            raise ValueError("track_type must be 'video' or 'audio'.")
+        if not 1 <= track_index <= MAX_TRACK_INDEX:
+            raise ValueError("track_index must be between 1 and 128.")
+        return self._resolve.insert_clip(
+            timeline_id,
+            asset_id,
+            source_start_frame,
+            source_end_frame,
+            position_frames,
+            track_type,
+            track_index,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

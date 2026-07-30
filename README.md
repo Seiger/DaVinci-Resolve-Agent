@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M9: verified export profiles**. Він установлює
+Проєкт перебуває на етапі **Milestone M10: safe ranged clip insertion**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -26,6 +26,11 @@ M9 додає офіційне resolution discovery та другий фіксо
 `youtube-2160p-h264-v1`. Наявність MP4/H.264 3840×2160 і preset
 `YouTube - 2160p`, а також backup-backed ідемпотентну підготовку 4K job
 підтверджено у Resolve 21 Free 21.0.3.7.
+M10 додає backup-backed вставку обмеженого source range на конкретний
+video/audio track. Позиція задається як offset від початку timeline; наявні
+items не пересуваються, не обрізаються й не видаляються. Video/audio вставку,
+frame-rate conversion і replay без дублів перевірено у Resolve 21 Free
+21.0.3.7.
 
 ## Вимоги
 
@@ -110,6 +115,7 @@ Read-only інструменти:
 - `resolve_import_media`;
 - `resolve_create_timeline`;
 - `resolve_append_clip`;
+- `resolve_insert_clip`;
 - `resolve_add_marker`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
@@ -150,6 +156,11 @@ WAV. Preset виконує детерміноване RMS leveling із peak gua
 від `resolve_prepare_render_job` і незміненому job у live queue. Перед стартом
 створюється `.drp` backup. Один job не можна повторно запустити іншим
 `idempotency_key`; довільний або вручну створений job bridge відхиляє.
+
+`resolve_insert_clip` приймає asset/timeline IDs, source frame bounds,
+timeline-relative `position_frames`, `track_type` (`video` або `audio`) і
+`track_index`. Bridge перевіряє track та lock-state, створює backup і повертає
+фактичні bounds із TimelineItem.
 
 ## Розробка
 

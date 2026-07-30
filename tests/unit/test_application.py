@@ -69,6 +69,32 @@ class StubResolveReader:
         self.timeouts.append(timeout_seconds)
         return {"timeline_id": timeline_id, "asset_id": asset_id}
 
+    def insert_clip(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        source_start_frame: int,
+        source_end_frame: int,
+        position_frames: int,
+        track_type: str,
+        track_index: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "asset_id": asset_id,
+            "item": {
+                "source_start_frame": source_start_frame,
+                "source_end_frame": source_end_frame,
+                "timeline_start_frame": position_frames,
+                "track_type": track_type,
+                "track_index": track_index,
+            },
+        }
+
     def add_marker(
         self,
         timeline_id: str,
@@ -240,6 +266,16 @@ def test_application_exposes_validated_write_methods() -> None:
         "asset-1",
         timeout_seconds=30,
     )
+    inserted = application.resolve_insert_clip(
+        "timeline-1",
+        "asset-1",
+        0,
+        240,
+        0,
+        "video",
+        1,
+        timeout_seconds=35,
+    )
     marker = application.resolve_add_marker(
         "timeline-1",
         0,
@@ -264,13 +300,15 @@ def test_application_exposes_validated_write_methods() -> None:
     assert imported["items"][0]["name"] == "normalized:sample.wav"
     assert created["timeline"]["name"] == "M4 Timeline"
     assert appended["asset_id"] == "asset-1"
+    assert inserted["item"]["source_end_frame"] == 240
+    assert inserted["item"]["track_type"] == "video"
     assert marker["color"] == "Green"
     assert render_job["started"] is False
     assert render_job["custom_name"] == "M7 Test"
     assert render_job["preset"] == "youtube-2160p-h264-v1"
     assert render_status["status"]["JobStatus"] == "Ready"
     assert render_start["started"] is True
-    assert resolve.timeouts == [10, 20, 30, 40, 50, 60, 70]
+    assert resolve.timeouts == [10, 20, 30, 35, 40, 50, 60, 70]
 
 
 def test_application_creates_review_only_plan_without_resolve_call() -> None:

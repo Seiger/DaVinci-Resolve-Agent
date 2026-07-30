@@ -241,6 +241,29 @@ the `YouTube - 2160p` preset. Live write validation then added one matching
 3840x2160 job after backup; replay returned the same job and backup without
 adding a duplicate or starting rendering.
 
+## M10 safe ranged clip insertion
+
+```text
+MCP resolve_insert_clip
+ └─ validate IDs, ordered source frames, position, and track
+     └─ resolve timeline + media asset
+         └─ verify track exists and is unlocked
+             └─ backup project
+                 └─ AppendToTimeline([{fixed clipInfo}])
+                     └─ TimelineItem bounds and track readback
+```
+
+The application contract is provider-neutral: `position_frames` is relative
+to the timeline start. Only one video-only or audio-only range can be inserted
+per command. Existing items are not moved, trimmed, split, disabled,
+transformed, or deleted. Stable receipts prevent replay duplicates.
+
+Live validation on Resolve 21 Free 21.0.3.7 inserted source frames 0..240
+separately on V1 and A1 at the same position. TimelineItem readback reported
+86400..86496 for both, confirming Resolve's 60 fps source to 24 fps timeline
+conversion. Replays returned the original item IDs and backups; preflight
+remained exactly one video item and one audio item.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

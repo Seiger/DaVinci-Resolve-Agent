@@ -27,5 +27,11 @@ M9 discovers MP4/H.264 resolutions through documented
 profiles. Before adding a job, it verifies both the built-in preset and exact
 resolution, then applies documented `FormatWidth` and `FormatHeight` settings.
 
+M10 uses the documented `AppendToTimeline([{clipInfo}])` overload for one
+bounded video-only or audio-only source range. It verifies the target track
+exists and is unlocked, derives absolute `recordFrame` from the timeline start,
+creates a backup, and reads actual placement back from documented TimelineItem
+methods.
+
 The one-shot lifecycle is intentional: persistent polling is not enabled until
 live testing proves that it does not block the Resolve UI.

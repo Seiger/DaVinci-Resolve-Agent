@@ -17,6 +17,7 @@ Write-інструменти M4:
 - `resolve_import_media`;
 - `resolve_create_timeline`;
 - `resolve_append_clip`;
+- `resolve_insert_clip`;
 - `resolve_add_marker`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
@@ -94,6 +95,11 @@ Resolve preset не задаються через MCP.
 `resolve_prepare_render_job`, досі відповідає фіксованому 1080p MP4/H264
 контракту й не має попереднього start-record. Tool не приймає output path,
 codec, preset, список job або upload target. Перед стартом створюється backup.
+
+`resolve_insert_clip` вставляє один bounded source range на вказаний
+`video|audio` track. `position_frames` є offset від початку timeline, а не
+абсолютним Resolve frame. Tool не приймає довільний `clipInfo`, ripple,
+delete, move, transform або код. Перед вставкою створюється `.drp` backup.
 
 ## Безпечне редагування
 

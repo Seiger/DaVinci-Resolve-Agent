@@ -137,6 +137,38 @@ class ResolveProviderClient:
         )
         return self._object_value("append_clip", result)
 
+    def insert_clip(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        source_start_frame: int,
+        source_end_frame: int,
+        position_frames: int,
+        track_type: str,
+        track_index: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one bounded source range with a mandatory project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="insert_clip",
+            arguments={
+                "timeline_id": timeline_id,
+                "asset_id": asset_id,
+                "source_start_frame": source_start_frame,
+                "source_end_frame": source_end_frame,
+                "position_frames": position_frames,
+                "track_type": track_type,
+                "track_index": track_index,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("insert_clip", result)
+
     def add_marker(
         self,
         timeline_id: str,

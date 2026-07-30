@@ -37,6 +37,7 @@ The allowlist additionally contains:
 - `import_media` with `paths`;
 - `create_timeline` with `name`;
 - `append_clip` with `timeline_id` and `asset_id`;
+- `insert_clip` with IDs, source bounds, timeline-relative position, and track;
 - `add_marker` with timeline marker fields.
 - `prepare_render_job` with `custom_name` and optional allowlisted `profile`.
 - `start_render_job` with `job_id`.
@@ -61,6 +62,13 @@ receipt and matching live queue metadata, rejects any existing render process,
 creates a project backup, and atomically reserves the job under
 `state/render-starts`. The command receipt handles same-key replay; the
 per-job record blocks a second start under a different key.
+
+`insert_clip` maps its finite argument object to one documented
+`AppendToTimeline([{clipInfo}])` call. The bridge converts `track_type` to
+Resolve `mediaType`, derives `recordFrame` as
+`Timeline.GetStartFrame() + position_frames`, checks the track exists and is
+unlocked, and returns documented TimelineItem source/timeline bounds and track
+readback. It does not mutate existing items.
 
 ## M1 action allowlist
 

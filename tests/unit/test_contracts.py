@@ -105,6 +105,37 @@ def test_render_start_and_status_require_safe_job_id() -> None:
         validate_contract("command", command)
 
 
+def test_insert_clip_requires_bounded_track_and_frame_arguments() -> None:
+    command = _valid_command()
+    command["action"] = "insert_clip"
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "asset_id": "asset-1",
+        "source_start_frame": 0,
+        "source_end_frame": 240,
+        "position_frames": 0,
+        "track_type": "video",
+        "track_index": 1,
+    }
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "asset_id": "asset-1",
+        "source_start_frame": 0,
+        "source_end_frame": 240,
+        "position_frames": 0,
+        "track_type": "subtitle",
+        "track_index": 1,
+    }
+    with pytest.raises(ContractValidationError, match="track_type"):
+        validate_contract("command", command)
+
+
 def test_success_response_cannot_contain_an_error() -> None:
     response = {
         "protocol_version": "1.0",

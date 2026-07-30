@@ -27,6 +27,11 @@ Omitting it preserves the 1080p default. The only accepted values are
 `youtube-1080p-h264-v1` and `youtube-2160p-h264-v1`; raw width, height, preset,
 codec, quality, and output path remain outside the command contract.
 
+M10 adds `insert_clip` with strict timeline/asset IDs, ordered source-frame
+bounds, a non-negative timeline-relative position, `video|audio` track type,
+and bounded track index. It requires backup. The contract does not expose
+move, trim, split, delete, ripple, transform, or arbitrary clipInfo fields.
+
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.

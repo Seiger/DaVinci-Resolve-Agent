@@ -40,6 +40,7 @@ ALLOWED_ACTIONS = {
     "import_media",
     "create_timeline",
     "append_clip",
+    "insert_clip",
     "add_marker",
     "prepare_render_job",
     "start_render_job",
@@ -48,6 +49,7 @@ WRITE_ACTIONS = {
     "import_media",
     "create_timeline",
     "append_clip",
+    "insert_clip",
     "add_marker",
     "prepare_render_job",
     "start_render_job",
@@ -56,6 +58,7 @@ CAPABILITY_BY_ACTION = {
     "import_media": "media.import",
     "create_timeline": "timeline.create",
     "append_clip": "clip.insert",
+    "insert_clip": "clip.range_insert",
     "add_marker": "marker.create",
     "prepare_render_job": "render.configure",
     "start_render_job": "render.start",
@@ -224,6 +227,7 @@ def collect_bridge_state(
         "timeline.create": "unknown",
         "media.import": "unknown",
         "clip.insert": "unknown",
+        "clip.range_insert": "unknown",
         "marker.create": "unknown",
         "render.configure": "unknown",
         "render.discovery": "unknown",
@@ -349,6 +353,50 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
         for field in ("timeline_id", "asset_id"):
             if not isinstance(arguments[field], str) or not arguments[field]:
                 raise ValueError(f"{field} must be a non-empty string.")
+        return
+    if action == "insert_clip":
+        expected = {
+            "timeline_id",
+            "asset_id",
+            "source_start_frame",
+            "source_end_frame",
+            "position_frames",
+            "track_type",
+            "track_index",
+        }
+        if set(arguments) != expected:
+            raise ValueError("insert_clip fields do not match the contract.")
+        for field in ("timeline_id", "asset_id"):
+            if not isinstance(arguments[field], str) or not arguments[field]:
+                raise ValueError(f"{field} must be a non-empty string.")
+        source_start = arguments["source_start_frame"]
+        source_end = arguments["source_end_frame"]
+        position = arguments["position_frames"]
+        track_index = arguments["track_index"]
+        if (
+            not isinstance(source_start, int)
+            or isinstance(source_start, bool)
+            or not isinstance(source_end, int)
+            or isinstance(source_end, bool)
+            or not 0 <= source_start < source_end <= 2_147_483_647
+        ):
+            raise ValueError(
+                "source frames must be ordered within the supported range."
+            )
+        if (
+            not isinstance(position, int)
+            or isinstance(position, bool)
+            or not 0 <= position <= 2_147_483_647
+        ):
+            raise ValueError("position_frames must be a non-negative integer.")
+        if arguments["track_type"] not in {"video", "audio"}:
+            raise ValueError("track_type must be video or audio.")
+        if (
+            not isinstance(track_index, int)
+            or isinstance(track_index, bool)
+            or not 1 <= track_index <= 128
+        ):
+            raise ValueError("track_index must be between 1 and 128.")
         return
     if action == "add_marker":
         expected = {
@@ -1130,9 +1178,9 @@ def _execute_write_command(
                 directories["state"],
             )
         }
-    elif action in {"append_clip", "add_marker"}:
+    elif action in {"append_clip", "insert_clip", "add_marker"}:
         timeline = _find_timeline(project, arguments["timeline_id"])
-        if action == "append_clip":
+        if action in {"append_clip", "insert_clip"}:
             root_folder = media_pool.GetRootFolder()
             if root_folder is None:
                 raise BridgeOperationError(
@@ -1141,6 +1189,56 @@ def _execute_write_command(
                     retryable=True,
                 )
             media_item = _find_media_item(root_folder, arguments["asset_id"])
+        if action == "insert_clip":
+            required_timeline_methods = (
+                "GetStartFrame",
+                "GetTrackCount",
+                "GetIsTrackLocked",
+            )
+            missing = [
+                name
+                for name in required_timeline_methods
+                if not callable(getattr(timeline, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot validate ranged clip insertion.",
+                    details={"missing_methods": missing},
+                )
+            track_type = arguments["track_type"]
+            track_index = arguments["track_index"]
+            track_count = timeline.GetTrackCount(track_type)
+            if not isinstance(track_count, int) or track_index > track_count:
+                raise BridgeOperationError(
+                    "TIMELINE_TRACK_NOT_FOUND",
+                    "The requested timeline track does not exist.",
+                    details={
+                        "track_type": track_type,
+                        "track_index": track_index,
+                    },
+                )
+            if timeline.GetIsTrackLocked(track_type, track_index) is True:
+                raise BridgeOperationError(
+                    "TIMELINE_TRACK_LOCKED",
+                    "The requested timeline track is locked.",
+                    details={
+                        "track_type": track_type,
+                        "track_index": track_index,
+                    },
+                )
+            timeline_start = timeline.GetStartFrame()
+            if not isinstance(timeline_start, int):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Timeline.GetStartFrame() returned an invalid value.",
+                )
+            record_frame = timeline_start + arguments["position_frames"]
+            if record_frame > 2_147_483_647:
+                raise BridgeOperationError(
+                    "FRAME_RANGE_INVALID",
+                    "The requested timeline position exceeds the supported range.",
+                )
     elif action == "start_render_job":
         job_id = _validate_render_job_arguments(action, arguments)
         required_methods = (
@@ -1244,6 +1342,73 @@ def _execute_write_command(
                     }
                     for item in appended
                 ],
+                "backup_path": backup_path,
+            }
+        elif action == "insert_clip":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested timeline.",
+                    retryable=True,
+                )
+            clip_info = {
+                "mediaPoolItem": media_item,
+                "startFrame": arguments["source_start_frame"],
+                "endFrame": arguments["source_end_frame"],
+                "mediaType": 1 if arguments["track_type"] == "video" else 2,
+                "trackIndex": arguments["track_index"],
+                "recordFrame": record_frame,
+            }
+            inserted = media_pool.AppendToTimeline([clip_info])
+            if not inserted or len(inserted) != 1:
+                raise BridgeOperationError(
+                    "CLIP_INSERT_FAILED",
+                    "Resolve did not insert the requested source range.",
+                    retryable=True,
+                )
+            item = inserted[0]
+            required_item_methods = (
+                "GetUniqueId",
+                "GetName",
+                "GetStart",
+                "GetEnd",
+                "GetSourceStartFrame",
+                "GetSourceEndFrame",
+                "GetTrackTypeAndIndex",
+            )
+            missing = [
+                name
+                for name in required_item_methods
+                if not callable(getattr(item, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "The inserted TimelineItem lacks documented readback methods.",
+                    details={"missing_methods": missing},
+                )
+            actual_track = item.GetTrackTypeAndIndex()
+            if (
+                not isinstance(actual_track, (list, tuple))
+                or len(actual_track) != 2
+            ):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "TimelineItem track readback is invalid.",
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "asset_id": arguments["asset_id"],
+                "item": {
+                    "timeline_item_id": str(item.GetUniqueId()),
+                    "name": str(item.GetName()),
+                    "timeline_start_frame": int(item.GetStart(False)),
+                    "timeline_end_frame": int(item.GetEnd(False)),
+                    "source_start_frame": int(item.GetSourceStartFrame()),
+                    "source_end_frame": int(item.GetSourceEndFrame()),
+                    "track_type": str(actual_track[0]),
+                    "track_index": int(actual_track[1]),
+                },
                 "backup_path": backup_path,
             }
         elif action == "add_marker":
