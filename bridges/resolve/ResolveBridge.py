@@ -47,6 +47,7 @@ ALLOWED_ACTIONS = {
     "get_render_job_status",
     "import_media",
     "create_timeline",
+    "ensure_timeline_tracks",
     "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
@@ -62,6 +63,7 @@ ALLOWED_ACTIONS = {
 WRITE_ACTIONS = {
     "import_media",
     "create_timeline",
+    "ensure_timeline_tracks",
     "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
@@ -81,6 +83,7 @@ CAPABILITY_BY_ACTION = {
     "get_editing_metadata": "media.metadata.read",
     "import_media": "media.import",
     "create_timeline": "timeline.create",
+    "ensure_timeline_tracks": "timeline.track.create",
     "duplicate_timeline": "timeline.duplicate",
     "set_current_timeline": "timeline.select",
     "append_clip": "clip.insert",
@@ -263,6 +266,7 @@ def collect_bridge_state(
         "project.read": True,
         "timeline.read": timeline_read_capability,
         "timeline.create": "unknown",
+        "timeline.track.create": "unknown",
         "timeline.duplicate": "unknown",
         "timeline.select": "unknown",
         "media.import": "unknown",
@@ -450,6 +454,30 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
         name = arguments["name"]
         if not isinstance(name, str) or not name.strip() or len(name) > 128:
             raise ValueError("Timeline name must contain 1 to 128 characters.")
+        return
+    if action == "ensure_timeline_tracks":
+        expected = {"timeline_id", "video_track_count", "audio_track_count"}
+        if set(arguments) != expected:
+            raise ValueError(
+                "ensure_timeline_tracks requires timeline_id and target counts."
+            )
+        timeline_id = arguments["timeline_id"]
+        if (
+            not isinstance(timeline_id, str)
+            or not timeline_id
+            or len(timeline_id) > 128
+        ):
+            raise ValueError(
+                "timeline_id must contain 1 to 128 characters."
+            )
+        for field in ("video_track_count", "audio_track_count"):
+            value = arguments[field]
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or not 1 <= value <= 8
+            ):
+                raise ValueError(f"{field} must be between 1 and 8.")
         return
     if action == "duplicate_timeline":
         if set(arguments) != {"timeline_id", "name"}:
@@ -2072,6 +2100,7 @@ def _execute_write_command(
             )
         previous_timeline = project.GetCurrentTimeline()
     elif action in {
+        "ensure_timeline_tracks",
         "append_clip",
         "insert_clip",
         "set_clip_enabled",
@@ -2081,6 +2110,31 @@ def _execute_write_command(
         "add_marker",
     }:
         timeline = _find_timeline(project, arguments["timeline_id"])
+        if action == "ensure_timeline_tracks":
+            required_track_methods = ("GetTrackCount", "AddTrack")
+            missing = [
+                name
+                for name in required_track_methods
+                if not callable(getattr(timeline, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot safely add tracks.",
+                    details={"missing_methods": missing},
+                )
+            for track_type in ("video", "audio"):
+                count = timeline.GetTrackCount(track_type)
+                if (
+                    not isinstance(count, int)
+                    or isinstance(count, bool)
+                    or count < 0
+                ):
+                    raise BridgeOperationError(
+                        "INVALID_RESOLVE_RESPONSE",
+                        "Timeline.GetTrackCount() returned an invalid value.",
+                        details={"track_type": track_type},
+                    )
         if action in {"append_clip", "insert_clip"}:
             root_folder = media_pool.GetRootFolder()
             if root_folder is None:
@@ -2521,6 +2575,66 @@ def _execute_write_command(
                 "timeline": {
                     "timeline_id": str(timeline.GetUniqueId()),
                     "name": str(timeline.GetName()),
+                },
+                "backup_path": backup_path,
+            }
+        elif action == "ensure_timeline_tracks":
+            before = {
+                track_type: int(timeline.GetTrackCount(track_type))
+                for track_type in ("video", "audio")
+            }
+            added = {"video": 0, "audio": 0}
+            for track_type, field in (
+                ("video", "video_track_count"),
+                ("audio", "audio_track_count"),
+            ):
+                target = arguments[field]
+                current = before[track_type]
+                while current < target:
+                    if track_type == "audio":
+                        created = timeline.AddTrack("audio", "stereo")
+                    else:
+                        created = timeline.AddTrack("video")
+                    if created is not True:
+                        raise BridgeOperationError(
+                            "TIMELINE_TRACK_CREATE_FAILED",
+                            "Resolve did not add the requested timeline track.",
+                            retryable=True,
+                            details={"track_type": track_type},
+                        )
+                    readback = timeline.GetTrackCount(track_type)
+                    if (
+                        not isinstance(readback, int)
+                        or isinstance(readback, bool)
+                        or readback != current + 1
+                    ):
+                        raise BridgeOperationError(
+                            "TIMELINE_TRACK_READBACK_FAILED",
+                            "Resolve returned an unexpected track count.",
+                            details={"track_type": track_type},
+                        )
+                    current = readback
+                    added[track_type] += 1
+            after = {
+                track_type: int(timeline.GetTrackCount(track_type))
+                for track_type in ("video", "audio")
+            }
+            result = {
+                "timeline": {
+                    "timeline_id": str(timeline.GetUniqueId()),
+                    "name": str(timeline.GetName()),
+                },
+                "before": {
+                    "video_track_count": before["video"],
+                    "audio_track_count": before["audio"],
+                },
+                "after": {
+                    "video_track_count": after["video"],
+                    "audio_track_count": after["audio"],
+                },
+                "added": {
+                    "video_track_count": added["video"],
+                    "audio_track_count": added["audio"],
                 },
                 "backup_path": backup_path,
             }

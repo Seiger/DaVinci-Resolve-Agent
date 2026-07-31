@@ -108,6 +108,23 @@ class StubResolveReader:
     ) -> dict[str, Any]:
         return {"timeline": {"timeline_id": "timeline-1", "name": name}}
 
+    def ensure_timeline_tracks(
+        self,
+        timeline_id: str,
+        video_track_count: int,
+        audio_track_count: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline": {"timeline_id": timeline_id},
+            "after": {
+                "video_track_count": video_track_count,
+                "audio_track_count": audio_track_count,
+            },
+        }
+
     def duplicate_timeline(
         self,
         timeline_id: str,
@@ -527,6 +544,14 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                     "resolve_create_timeline",
                     {"name": "M4 Timeline"},
                 ),
+                "tracks": await client.call_tool(
+                    "resolve_ensure_timeline_tracks",
+                    {
+                        "timeline_id": "timeline-1",
+                        "video_track_count": 2,
+                        "audio_track_count": 1,
+                    },
+                ),
                 "duplicated": await client.call_tool(
                     "resolve_duplicate_timeline",
                     {
@@ -666,6 +691,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_get_render_options",
         "resolve_import_media",
         "resolve_create_timeline",
+        "resolve_ensure_timeline_tracks",
         "resolve_duplicate_timeline",
         "resolve_set_current_timeline",
         "resolve_append_clip",
@@ -719,6 +745,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["created"].structured_content["timeline"]["timeline_id"] == (
         "timeline-1"
     )
+    assert results["tracks"].structured_content["after"] == {
+        "video_track_count": 2,
+        "audio_track_count": 1,
+    }
     assert results["duplicated"].structured_content["timeline"]["timeline_id"] == (
         "timeline-2"
     )

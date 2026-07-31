@@ -68,6 +68,7 @@ The allowlist additionally contains:
 
 - `import_media` with `paths`;
 - `create_timeline` with `name`;
+- `ensure_timeline_tracks` with timeline ID and bounded target counts;
 - `duplicate_timeline` with source `timeline_id` and a new unique `name`;
 - `set_current_timeline` with one existing `timeline_id`;
 - `append_clip` with `timeline_id` and `asset_id`;
@@ -100,6 +101,13 @@ the exact requested name, and discovery of the returned timeline in the
 project list. The action does not select the duplicate or mutate the source.
 If Resolve changes the current timeline as a side effect, the bridge restores
 the previously selected timeline and verifies it before reporting success.
+
+`ensure_timeline_tracks` resolves one timeline by canonical ID and accepts
+only integer video/audio targets from 1 through 8. It creates a project backup,
+reads both existing counts, adds only missing tracks, and requires an exact
+increment readback after every documented `Timeline.AddTrack` call. Added
+audio tracks use the fixed `stereo` subtype. The action cannot remove tracks,
+change existing track types, or accept raw Resolve options.
 
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed

@@ -14,6 +14,7 @@ EXAMPLES_ROOT = REPOSITORY_ROOT / "contracts" / "examples"
 WRITE_ACTIONS = {
     "import_media",
     "create_timeline",
+    "ensure_timeline_tracks",
     "duplicate_timeline",
     "set_current_timeline",
     "append_clip",

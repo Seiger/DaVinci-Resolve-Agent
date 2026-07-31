@@ -121,6 +121,24 @@ class StubResolveReader:
         self.timeouts.append(timeout_seconds)
         return {"timeline": {"timeline_id": "timeline-1", "name": name}}
 
+    def ensure_timeline_tracks(
+        self,
+        timeline_id: str,
+        video_track_count: int,
+        audio_track_count: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline": {"timeline_id": timeline_id},
+            "after": {
+                "video_track_count": video_track_count,
+                "audio_track_count": audio_track_count,
+            },
+        }
+
     def duplicate_timeline(
         self,
         timeline_id: str,
@@ -542,6 +560,12 @@ def test_application_exposes_validated_write_methods() -> None:
         "M4 Timeline",
         timeout_seconds=20,
     )
+    tracks = application.resolve_ensure_timeline_tracks(
+        "timeline-1",
+        2,
+        1,
+        timeout_seconds=21,
+    )
     duplicated = application.resolve_duplicate_timeline(
         "timeline-1",
         "Agent Draft",
@@ -614,6 +638,10 @@ def test_application_exposes_validated_write_methods() -> None:
     assert media_policy.paths == ["sample.wav"]
     assert imported["items"][0]["name"] == "normalized:sample.wav"
     assert created["timeline"]["name"] == "M4 Timeline"
+    assert tracks["after"] == {
+        "video_track_count": 2,
+        "audio_track_count": 1,
+    }
     assert duplicated["timeline"]["name"] == "Agent Draft"
     assert selected["timeline"]["timeline_id"] == "timeline-1"
     assert appended["asset_id"] == "asset-1"
@@ -635,6 +663,7 @@ def test_application_exposes_validated_write_methods() -> None:
     assert resolve.timeouts == [
         10,
         20,
+        21,
         22,
         25,
         30,

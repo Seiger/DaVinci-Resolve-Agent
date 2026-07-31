@@ -109,6 +109,17 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Create an empty timeline."""
 
+    def ensure_timeline_tracks(
+        self,
+        timeline_id: str,
+        video_track_count: int,
+        audio_track_count: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Ensure bounded minimum timeline track counts."""
+
     def duplicate_timeline(
         self,
         timeline_id: str,
@@ -548,6 +559,36 @@ class AgentApplication:
         return self._resolve.append_clip(
             timeline_id,
             asset_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_ensure_timeline_tracks(
+        self,
+        timeline_id: str,
+        video_track_count: int,
+        audio_track_count: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Ensure the timeline has bounded minimum video/audio tracks."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        for field, value in (
+            ("video_track_count", video_track_count),
+            ("audio_track_count", audio_track_count),
+        ):
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or not 1 <= value <= 8
+            ):
+                raise ValueError(f"{field} must be between 1 and 8.")
+        return self._resolve.ensure_timeline_tracks(
+            timeline_id,
+            video_track_count,
+            audio_track_count,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

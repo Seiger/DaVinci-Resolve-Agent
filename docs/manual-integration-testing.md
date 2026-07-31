@@ -150,3 +150,21 @@ ResolveBridge ручний сценарій має зафіксувати:
   lifecycle state became `stopped`;
 - result: `verified` on this exact environment; other Resolve versions and
   editions remain pending.
+
+### M36 bounded timeline track preparation evidence
+
+- UTC execution: `2026-07-31T18:44:06Z` through `2026-07-31T18:44:07Z`;
+- platform: Windows 10 build 19045, Python 3.12.10;
+- Resolve: DaVinci Resolve 21.0.3.7 Free, edition operator-confirmed;
+- target: disposable `M36 Track Preparation Probe`, canonical timeline ID
+  `454dd6ad-0114-425f-ab51-53364fcc0c32`;
+- initial readback: one video and one audio track;
+- operation: `ensure_timeline_tracks(video=2, audio=1)` added exactly one video
+  track after exporting a separate `.drp` backup;
+- result readback and independent `get_editing_metadata`: two video and one
+  audio track;
+- replay: the same idempotency key returned the same result and backup path,
+  without another added track or backup;
+- durable capability: `timeline.track.create=true` after verified execution;
+- result: `verified` on this exact environment; other Resolve versions and
+  editions remain pending.

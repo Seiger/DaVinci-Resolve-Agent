@@ -183,6 +183,24 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def resolve_ensure_timeline_tracks(
+        timeline_id: str,
+        video_track_count: int,
+        audio_track_count: int,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Ensure 1-8 video/audio tracks after exporting a backup."""
+        return await asyncio.to_thread(
+            service.resolve_ensure_timeline_tracks,
+            timeline_id,
+            video_track_count,
+            audio_track_count,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def resolve_duplicate_timeline(
         timeline_id: str,
         name: str,

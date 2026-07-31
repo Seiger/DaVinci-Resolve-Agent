@@ -156,6 +156,8 @@ class FakeTimeline:
         self._project: FakeProject | None = None
         self.markers: dict[int, dict[str, Any]] = {}
         self.items: list[FakeTimelineItem] = []
+        self.track_counts = {"video": 1, "audio": 1}
+        self.added_tracks: list[tuple[str, str | None]] = []
 
     def GetUniqueId(self) -> str:
         return self._timeline_id
@@ -188,7 +190,21 @@ class FakeTimeline:
 
     def GetTrackCount(self, track_type: str) -> int:
         assert track_type in {"video", "audio"}
-        return 1
+        return self.track_counts[track_type]
+
+    def AddTrack(
+        self,
+        track_type: str,
+        sub_track_type: str | None = None,
+    ) -> bool:
+        assert track_type in {"video", "audio"}
+        if track_type == "audio":
+            assert sub_track_type == "stereo"
+        else:
+            assert sub_track_type is None
+        self.track_counts[track_type] += 1
+        self.added_tracks.append((track_type, sub_track_type))
+        return True
 
     def GetIsTrackLocked(self, track_type: str, track_index: int) -> bool:
         assert track_type in {"video", "audio"}
@@ -691,6 +707,55 @@ def test_timeline_duplication_is_backed_up_and_replay_safe(
         "Returned the stored idempotent result."
     ]
     assert state["capabilities"]["timeline.duplicate"] is True
+
+
+def test_timeline_tracks_are_added_with_readback_and_replay_safety(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Track Probe")
+    state = collect_bridge_state(resolve)
+    arguments = {
+        "timeline_id": timeline.GetUniqueId(),
+        "video_track_count": 2,
+        "audio_track_count": 1,
+    }
+    first = _command(
+        "tracks-first",
+        "ensure_timeline_tracks",
+        arguments,
+        idempotency_key="stable-tracks",
+    )
+    replay = _command(
+        "tracks-replay",
+        "ensure_timeline_tracks",
+        arguments,
+        idempotency_key="stable-tracks",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"]["before"] == {
+        "video_track_count": 1,
+        "audio_track_count": 1,
+    }
+    assert first_response["result"]["after"] == {
+        "video_track_count": 2,
+        "audio_track_count": 1,
+    }
+    assert first_response["result"]["added"] == {
+        "video_track_count": 1,
+        "audio_track_count": 0,
+    }
+    assert timeline.added_tracks == [("video", None)]
+    assert first_response["result"] == replay_response["result"]
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
+    assert resolve.project_manager.export_count == 1
+    assert state["capabilities"]["timeline.track.create"] is True
 
 
 def test_current_timeline_selection_is_backed_up_and_replay_safe(

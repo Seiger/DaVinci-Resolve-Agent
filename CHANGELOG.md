@@ -9,6 +9,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M36 bounded, backup-backed timeline track preparation through documented
+  `GetTrackCount` and `AddTrack`, with 1–8 targets and stereo audio additions.
+- Exact per-track readback, durable capability evidence, and idempotent replay
+  without duplicate tracks or a second backup.
+- Resolve 21 Free 21.0.3.7 live verification of a disposable timeline changing
+  from 1V/1A to 2V/1A, independent metadata readback, and replay safety.
 - M35 manually launched persistent Resolve bridge with bounded polling,
   heartbeat refresh, one allowlisted command per iteration, and clean stop.
 - Read-only editing metadata discovery limited to requested asset IDs,

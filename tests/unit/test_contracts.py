@@ -98,6 +98,41 @@ def test_duplicate_timeline_requires_source_id_name_and_backup() -> None:
         validate_contract("command", command)
 
 
+def test_ensure_timeline_tracks_requires_bounded_counts_and_backup() -> None:
+    command = _valid_command()
+    command["action"] = "ensure_timeline_tracks"
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "video_track_count": 2,
+        "audio_track_count": 1,
+    }
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "video_track_count": 9,
+        "audio_track_count": 1,
+    }
+    with pytest.raises(ContractValidationError, match="video_track_count"):
+        validate_contract("command", command)
+
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "video_track_count": 2,
+        "audio_track_count": 1,
+    }
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": False,
+    }
+    with pytest.raises(ContractValidationError, match="create_backup"):
+        validate_contract("command", command)
+
+
 def test_list_timeline_items_requires_one_timeline_id() -> None:
     command = _valid_command()
     command["action"] = "list_timeline_items"

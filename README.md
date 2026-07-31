@@ -4,13 +4,19 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M35: interactive editing session**. Він
+Проєкт перебуває на етапі **Milestone M36: bounded track preparation**. Він
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
 чернетки rough cut із синхронізацією та аналізом пауз. M34 додає preview та
 контрольоване застосування лише повністю підтриманого approved plan до копії
 timeline; поточні `remove_pauses` плани чесно блокуються як unsupported.
+Milestone M35: interactive editing session переводить вручну запущений bridge
+у постійну інтерактивну сесію, а M36
+додає backup-backed підготовку 1–8 video/audio доріжок перед точним placement.
+Нові audio tracks створюються лише як `stereo`; видалення або зміна типу
+наявних доріжок не підтримуються. Створення V2, точний readback 2V/1A і replay
+без другої зміни перевірено у Resolve 21 Free 21.0.3.7.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -249,6 +255,7 @@ Read-only інструменти:
 - `resolve_stop_bridge`;
 - `resolve_import_media`;
 - `resolve_create_timeline`;
+- `resolve_ensure_timeline_tracks`;
 - `resolve_duplicate_timeline`;
 - `resolve_set_current_timeline`;
 - `resolve_append_clip`;
@@ -351,6 +358,11 @@ item, lock-state його video/audio track, створює `.drp` backup і з�
 після нього звіряє нові ID/назву і наявність копії у проєкті. Оригінальний і
 current timeline залишаються незмінними; якщо Resolve тимчасово перемкнув
 current timeline, bridge відновлює попередній і перевіряє результат.
+
+`resolve_ensure_timeline_tracks` приймає ID timeline та цільові кількості
+video/audio доріжок від 1 до 8. Bridge лише додає відсутні доріжки через
+документований `AddTrack`, створює нові audio tracks як `stereo`, після кожної
+операції звіряє `GetTrackCount` і ніколи не видаляє наявні доріжки.
 
 `resolve_set_clip_transform` приймає `timeline_id`, `timeline_item_id` та
 щонайменше одне з полів `position_x`, `position_y`, `zoom`,

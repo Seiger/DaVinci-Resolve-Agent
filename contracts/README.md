@@ -43,6 +43,11 @@ bounds, a non-negative timeline-relative position, `video|audio` track type,
 and bounded track index. It requires backup. The contract does not expose
 move, trim, split, delete, ripple, transform, or arbitrary clipInfo fields.
 
+M36 adds `ensure_timeline_tracks` with one timeline ID and integer video/audio
+targets from 1 through 8. It requires backup and exposes no deletion, track
+renaming, arbitrary subtype, or raw `AddTrack` options; new audio tracks use
+the fixed `stereo` subtype.
+
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.

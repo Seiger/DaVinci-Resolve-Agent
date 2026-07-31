@@ -706,6 +706,25 @@ The package job is verification-only. It has read-only workflow permissions,
 does not upload or publish the wheel, and runs independently from live Resolve.
 The checker uses only the standard library plus the local package version.
 
+## M35-M36 interactive track preparation
+
+```text
+manually launched ResolveBridge
+ └─ bounded persistent polling
+     └─ MCP resolve_ensure_timeline_tracks(timeline_id, video, audio)
+         ├─ validate targets 1..8
+         ├─ export project backup
+         ├─ add only missing tracks
+         └─ verify every count increment
+```
+
+The persistent bridge remains a single-command allowlisted dispatcher inside
+Resolve; it does not expose a generic batch or code execution surface. M36
+adds only the provider-neutral ability to ensure minimum video/audio track
+counts. Resolve-specific `AddTrack` calls stay in the bridge, and new audio
+tracks use the fixed `stereo` subtype. Existing tracks are never removed or
+retyped, while stable receipts prevent duplicate work on replay.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

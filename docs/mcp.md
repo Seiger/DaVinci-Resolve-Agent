@@ -20,6 +20,7 @@ Write-інструменти M4:
 
 - `resolve_import_media`;
 - `resolve_create_timeline`;
+- `resolve_ensure_timeline_tracks`;
 - `resolve_duplicate_timeline`;
 - `resolve_set_current_timeline`;
 - `resolve_append_clip`;
@@ -260,6 +261,13 @@ TimelineItem IDs та `linked=true|false`. Інструмент працює л�
 `DuplicateTimeline`, перевіряє окремий canonical ID та project membership.
 Поточний timeline не перемикається; replay із тим самим `idempotency_key` не
 створює додаткової копії.
+
+`resolve_ensure_timeline_tracks` приймає `timeline_id` та цільові
+`video_track_count`/`audio_track_count` у межах 1–8. Він створює backup, додає
+лише відсутні tracks через `Timeline.AddTrack` і перевіряє кожен increment
+через `GetTrackCount`. Нові audio tracks мають фіксований subtype `stereo`;
+наявні tracks не видаляються й не перетворюються. Replay з тим самим
+`idempotency_key` повертає receipt без повторної зміни.
 
 ## Безпечне редагування
 

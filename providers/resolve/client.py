@@ -223,6 +223,30 @@ class ResolveProviderClient:
         )
         return self._object_value("duplicate_timeline", result)
 
+    def ensure_timeline_tracks(
+        self,
+        timeline_id: str,
+        video_track_count: int,
+        audio_track_count: int,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Ensure bounded minimum video/audio track counts after a backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="ensure_timeline_tracks",
+            arguments={
+                "timeline_id": timeline_id,
+                "video_track_count": video_track_count,
+                "audio_track_count": audio_track_count,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("ensure_timeline_tracks", result)
+
     def set_current_timeline(
         self,
         timeline_id: str,
