@@ -465,6 +465,23 @@ split methods. Those specification surfaces remain intentionally unimplemented
 instead of being simulated through delete-and-reinsert operations that could
 change linking, transitions, effects, or source timing.
 
+## M20 safe timeline duplication
+
+```text
+MCP resolve_duplicate_timeline(source_id, new_name)
+ └─ resolve source by canonical timeline ID
+     └─ reject an existing target name
+         └─ export project backup
+             └─ Timeline.DuplicateTimeline(new_name)
+                 └─ verify distinct ID, exact name, and project membership
+```
+
+M20 provides an isolated editing target for future reviewed workflows. It
+does not select the duplicate, rename or mutate the source, or infer a name.
+Stable idempotency receipts prevent repeated calls from creating additional
+copies or backups. The bridge records the current timeline before duplication
+and restores it through documented project APIs if Resolve changes selection.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

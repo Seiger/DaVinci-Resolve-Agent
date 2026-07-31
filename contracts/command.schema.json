@@ -54,6 +54,7 @@
         "get_render_job_status",
         "import_media",
         "create_timeline",
+        "duplicate_timeline",
         "set_current_timeline",
         "append_clip",
         "insert_clip",
@@ -558,6 +559,38 @@
       "if": {
         "properties": {
           "action": {
+            "const": "duplicate_timeline"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id",
+              "name"
+            ],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
             "const": "set_current_timeline"
           }
         }
@@ -668,6 +701,7 @@
             "enum": [
               "import_media",
               "create_timeline",
+              "duplicate_timeline",
               "set_current_timeline",
               "append_clip",
               "insert_clip",

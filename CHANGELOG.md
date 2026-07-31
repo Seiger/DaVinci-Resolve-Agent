@@ -115,3 +115,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   items through documented Resolve link APIs.
 - Per-item track-lock validation, link-state readback, and idempotent replay
   without exposing undocumented move, trim, or split operations.
+- M20 backup-backed duplication of one explicitly addressed timeline through
+  documented `Timeline.DuplicateTimeline`.
+- Timeline-name conflict protection, canonical duplicate readback, project
+  list verification, and idempotent replay without changing the current timeline.

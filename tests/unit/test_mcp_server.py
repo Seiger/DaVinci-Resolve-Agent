@@ -81,6 +81,19 @@ class StubResolveReader:
     ) -> dict[str, Any]:
         return {"timeline": {"timeline_id": "timeline-1", "name": name}}
 
+    def duplicate_timeline(
+        self,
+        timeline_id: str,
+        name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "source_timeline": {"timeline_id": timeline_id},
+            "timeline": {"timeline_id": "timeline-2", "name": name},
+        }
+
     def set_current_timeline(
         self,
         timeline_id: str,
@@ -405,6 +418,13 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                     "resolve_create_timeline",
                     {"name": "M4 Timeline"},
                 ),
+                "duplicated": await client.call_tool(
+                    "resolve_duplicate_timeline",
+                    {
+                        "timeline_id": "timeline-1",
+                        "name": "Agent Draft",
+                    },
+                ),
                 "selected": await client.call_tool(
                     "resolve_set_current_timeline",
                     {"timeline_id": "timeline-1"},
@@ -512,6 +532,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_get_render_options",
         "resolve_import_media",
         "resolve_create_timeline",
+        "resolve_duplicate_timeline",
         "resolve_set_current_timeline",
         "resolve_append_clip",
         "resolve_insert_clip",
@@ -552,6 +573,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     )
     assert results["created"].structured_content["timeline"]["timeline_id"] == (
         "timeline-1"
+    )
+    assert results["duplicated"].structured_content["timeline"]["timeline_id"] == (
+        "timeline-2"
     )
     assert results["selected"].structured_content["timeline"]["timeline_id"] == (
         "timeline-1"

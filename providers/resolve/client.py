@@ -174,6 +174,25 @@ class ResolveProviderClient:
         )
         return self._object_value("create_timeline", result)
 
+    def duplicate_timeline(
+        self,
+        timeline_id: str,
+        name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Duplicate one timeline with a mandatory project backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="duplicate_timeline",
+            arguments={"timeline_id": timeline_id, "name": name},
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("duplicate_timeline", result)
+
     def set_current_timeline(
         self,
         timeline_id: str,

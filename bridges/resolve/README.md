@@ -47,3 +47,8 @@ M19 uses documented `Timeline.SetClipsLinked` and
 video/audio items. Every selected track must be unlocked, the project is
 backed up before mutation, and the requested pairwise link state is read back
 before success is reported.
+
+M20 duplicates one explicitly addressed timeline through documented
+`Timeline.DuplicateTimeline`. It rejects name conflicts, exports a project
+backup, verifies a distinct ID and project membership, and leaves the current
+timeline unchanged.

@@ -135,6 +135,7 @@ class FakeTimeline:
     def __init__(self, timeline_id: str, name: str) -> None:
         self._timeline_id = timeline_id
         self._name = name
+        self._project: FakeProject | None = None
         self.markers: dict[int, dict[str, Any]] = {}
         self.items: list[FakeTimelineItem] = []
 
@@ -143,6 +144,19 @@ class FakeTimeline:
 
     def GetName(self) -> str:
         return self._name
+
+    def DuplicateTimeline(self, name: str) -> FakeTimeline | None:
+        if self._project is None:
+            return None
+        duplicate = FakeTimeline(
+            f"timeline-{len(self._project.timelines) + 1}",
+            name,
+        )
+        duplicate._project = self._project
+        duplicate.items = list(self.items)
+        self._project.timelines.append(duplicate)
+        self._project.current_timeline = duplicate
+        return duplicate
 
     def GetStartFrame(self) -> int:
         return 86400
@@ -242,6 +256,7 @@ class FakeMediaPool:
 
     def CreateEmptyTimeline(self, name: str) -> FakeTimeline:
         timeline = FakeTimeline(f"timeline-{len(self._project.timelines) + 1}", name)
+        timeline._project = self._project
         self._project.timelines.append(timeline)
         return timeline
 
@@ -609,6 +624,55 @@ def test_write_command_replays_receipt_without_duplicate_edit(
     ]
     assert len(resolve.project.timelines) == 1
     assert resolve.project_manager.export_count == 1
+
+
+def test_timeline_duplication_is_backed_up_and_replay_safe(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    source = resolve.project.media_pool.CreateEmptyTimeline("Source")
+    resolve.project.SetCurrentTimeline(source)
+    state = collect_bridge_state(resolve)
+    arguments = {
+        "timeline_id": source.GetUniqueId(),
+        "name": "Source - Agent Draft",
+    }
+    first = _command(
+        "duplicate-first",
+        "duplicate_timeline",
+        arguments,
+        idempotency_key="stable-duplicate",
+    )
+    replay = _command(
+        "duplicate-replay",
+        "duplicate_timeline",
+        arguments,
+        idempotency_key="stable-duplicate",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert first_response["result"]["source_timeline"] == {
+        "timeline_id": source.GetUniqueId(),
+        "name": "Source",
+    }
+    duplicate = first_response["result"]["timeline"]
+    assert duplicate["timeline_id"] != source.GetUniqueId()
+    assert duplicate["name"] == "Source - Agent Draft"
+    assert first_response["result"]["current_timeline"] == {
+        "timeline_id": source.GetUniqueId(),
+        "name": "Source",
+    }
+    assert resolve.project.GetTimelineCount() == 2
+    assert resolve.project.GetCurrentTimeline() is source
+    assert resolve.project_manager.export_count == 1
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
+    assert state["capabilities"]["timeline.duplicate"] is True
 
 
 def test_current_timeline_selection_is_backed_up_and_replay_safe(

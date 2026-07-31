@@ -28,6 +28,7 @@ class StubCommandClient:
         if action in {
             "import_media",
             "create_timeline",
+            "duplicate_timeline",
             "set_current_timeline",
             "append_clip",
             "insert_clip",
@@ -119,6 +120,16 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                     "timeline_id": "timeline-1",
                     "name": "M4 Timeline",
                 }
+            },
+            "duplicate_timeline": {
+                "source_timeline": {
+                    "timeline_id": "timeline-1",
+                    "name": "M4 Timeline",
+                },
+                "timeline": {
+                    "timeline_id": "timeline-2",
+                    "name": "Agent Draft",
+                },
             },
             "set_current_timeline": {
                 "timeline": {
@@ -212,6 +223,11 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "M4 Timeline",
         idempotency_key="stable-key",
     )["timeline"]["timeline_id"] == "timeline-1"
+    assert client.duplicate_timeline(
+        "timeline-1",
+        "Agent Draft",
+        idempotency_key="stable-key",
+    )["timeline"]["timeline_id"] == "timeline-2"
     assert client.set_current_timeline(
         "timeline-1",
         idempotency_key="stable-key",
@@ -287,6 +303,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "get_render_environment",
         "import_media",
         "create_timeline",
+        "duplicate_timeline",
         "set_current_timeline",
         "append_clip",
         "insert_clip",

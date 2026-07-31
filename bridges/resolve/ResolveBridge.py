@@ -43,6 +43,7 @@ ALLOWED_ACTIONS = {
     "get_render_job_status",
     "import_media",
     "create_timeline",
+    "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
     "insert_clip",
@@ -57,6 +58,7 @@ ALLOWED_ACTIONS = {
 WRITE_ACTIONS = {
     "import_media",
     "create_timeline",
+    "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
     "insert_clip",
@@ -74,6 +76,7 @@ CAPABILITY_BY_ACTION = {
     "list_media_pool_items": "media.read",
     "import_media": "media.import",
     "create_timeline": "timeline.create",
+    "duplicate_timeline": "timeline.duplicate",
     "set_current_timeline": "timeline.select",
     "append_clip": "clip.insert",
     "insert_clip": "clip.range_insert",
@@ -255,6 +258,7 @@ def collect_bridge_state(
         "project.read": True,
         "timeline.read": timeline_read_capability,
         "timeline.create": "unknown",
+        "timeline.duplicate": "unknown",
         "timeline.select": "unknown",
         "media.import": "unknown",
         "media.read": "unknown",
@@ -402,6 +406,24 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
         if set(arguments) != {"name"}:
             raise ValueError("create_timeline requires only name.")
         name = arguments["name"]
+        if not isinstance(name, str) or not name.strip() or len(name) > 128:
+            raise ValueError("Timeline name must contain 1 to 128 characters.")
+        return
+    if action == "duplicate_timeline":
+        if set(arguments) != {"timeline_id", "name"}:
+            raise ValueError(
+                "duplicate_timeline requires timeline_id and name."
+            )
+        timeline_id = arguments["timeline_id"]
+        name = arguments["name"]
+        if (
+            not isinstance(timeline_id, str)
+            or not timeline_id
+            or len(timeline_id) > 128
+        ):
+            raise ValueError(
+                "timeline_id must contain 1 to 128 characters."
+            )
         if not isinstance(name, str) or not name.strip() or len(name) > 128:
             raise ValueError("Timeline name must contain 1 to 128 characters.")
         return
@@ -1755,6 +1777,56 @@ def _execute_write_command(
                 directories["state"],
             )
         }
+    elif action == "duplicate_timeline":
+        timeline = _find_timeline(project, arguments["timeline_id"])
+        duplicate_timeline = getattr(timeline, "DuplicateTimeline", None)
+        get_current_timeline = getattr(project, "GetCurrentTimeline", None)
+        set_current_timeline = getattr(project, "SetCurrentTimeline", None)
+        missing_methods = [
+            name
+            for name, method in (
+                ("DuplicateTimeline", duplicate_timeline),
+                ("GetCurrentTimeline", get_current_timeline),
+                ("SetCurrentTimeline", set_current_timeline),
+            )
+            if not callable(method)
+        ]
+        if missing_methods:
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "The timeline cannot be safely duplicated.",
+                details={"missing_methods": missing_methods},
+            )
+        get_current_timeline_call = cast(Callable[[], Any], get_current_timeline)
+        previous_timeline = get_current_timeline_call()
+        if previous_timeline is None:
+            raise BridgeOperationError(
+                "CURRENT_TIMELINE_REQUIRED",
+                "Select a current timeline before duplicating a timeline.",
+                retryable=True,
+            )
+        timeline_count = project.GetTimelineCount()
+        if not isinstance(timeline_count, int):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Project.GetTimelineCount() returned an invalid value.",
+            )
+        for index in range(1, timeline_count + 1):
+            candidate = project.GetTimelineByIndex(index)
+            if (
+                candidate is not None
+                and str(candidate.GetName()).casefold()
+                == arguments["name"].casefold()
+            ):
+                raise BridgeOperationError(
+                    "TIMELINE_NAME_CONFLICT",
+                    "A timeline with the requested name already exists.",
+                    details={"name": arguments["name"]},
+                )
+        source_timeline = {
+            "timeline_id": str(timeline.GetUniqueId()),
+            "name": str(timeline.GetName()),
+        }
     elif action == "set_current_timeline":
         timeline = _find_timeline(project, arguments["timeline_id"])
         required_project_methods = (
@@ -2223,6 +2295,80 @@ def _execute_write_command(
                 "timeline": {
                     "timeline_id": str(timeline.GetUniqueId()),
                     "name": str(timeline.GetName()),
+                },
+                "backup_path": backup_path,
+            }
+        elif action == "duplicate_timeline":
+            duplicate_timeline_call = cast(
+                Callable[..., Any],
+                duplicate_timeline,
+            )
+            duplicated = duplicate_timeline_call(arguments["name"])
+            if duplicated is None:
+                raise BridgeOperationError(
+                    "TIMELINE_DUPLICATE_FAILED",
+                    "Resolve did not duplicate the requested timeline.",
+                    retryable=True,
+                )
+            duplicated_id = str(duplicated.GetUniqueId())
+            duplicated_name = str(duplicated.GetName())
+            if (
+                not duplicated_id
+                or duplicated_id == arguments["timeline_id"]
+                or duplicated_name != arguments["name"]
+            ):
+                raise BridgeOperationError(
+                    "TIMELINE_DUPLICATE_READBACK_FAILED",
+                    "Resolve returned invalid duplicated timeline metadata.",
+                    details={
+                        "timeline_id": duplicated_id,
+                        "name": duplicated_name,
+                    },
+                )
+            discovered = _find_timeline(project, duplicated_id)
+            if str(discovered.GetName()) != arguments["name"]:
+                raise BridgeOperationError(
+                    "TIMELINE_DUPLICATE_READBACK_FAILED",
+                    "The duplicated timeline is absent from the project list.",
+                    details={"timeline_id": duplicated_id},
+                )
+            current_timeline = project.GetCurrentTimeline()
+            if (
+                current_timeline is None
+                or str(current_timeline.GetUniqueId())
+                != str(previous_timeline.GetUniqueId())
+            ):
+                set_current_timeline_call = cast(
+                    Callable[[Any], Any],
+                    set_current_timeline,
+                )
+                if set_current_timeline_call(previous_timeline) is not True:
+                    raise BridgeOperationError(
+                        "TIMELINE_RESTORE_FAILED",
+                        "Resolve could not restore the previous current timeline.",
+                        retryable=True,
+                        details={"duplicated_timeline_id": duplicated_id},
+                    )
+                current_timeline = project.GetCurrentTimeline()
+            if (
+                current_timeline is None
+                or str(current_timeline.GetUniqueId())
+                != str(previous_timeline.GetUniqueId())
+            ):
+                raise BridgeOperationError(
+                    "TIMELINE_RESTORE_READBACK_FAILED",
+                    "Resolve did not report the previous current timeline.",
+                    details={"duplicated_timeline_id": duplicated_id},
+                )
+            result = {
+                "source_timeline": source_timeline,
+                "timeline": {
+                    "timeline_id": duplicated_id,
+                    "name": duplicated_name,
+                },
+                "current_timeline": {
+                    "timeline_id": str(current_timeline.GetUniqueId()),
+                    "name": str(current_timeline.GetName()),
                 },
                 "backup_path": backup_path,
             }

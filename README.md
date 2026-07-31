@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M19: bounded clip linking**. Він установлює
+Проєкт перебуває на етапі **Milestone M20: safe timeline duplication**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -83,6 +83,11 @@ M19 додає backup-backed link/unlink для групи з 2–16 TimelineIte
 канонічні IDs, перевіряє lock-state кожної доріжки, фактичний link-state та
 idempotent replay. Переміщення, trim і split не реалізовані, бо відповідних
 документованих TimelineItem API у локальній документації Resolve 21 немає.
+M20 додає backup-backed дублювання одного timeline за ID через документований
+`Timeline.DuplicateTimeline(name)`. Bridge відхиляє конфлікт імен, перевіряє
+новий ID і появу копії у project timeline list, не перемикає current timeline
+та не змінює оригінал. Це створює безпечну основу для майбутнього застосування
+reviewed rough-cut до окремої копії.
 
 ## Вимоги
 
@@ -171,6 +176,7 @@ Read-only інструменти:
 
 - `resolve_import_media`;
 - `resolve_create_timeline`;
+- `resolve_duplicate_timeline`;
 - `resolve_set_current_timeline`;
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
@@ -244,6 +250,12 @@ item, lock-state його video/audio track, створює `.drp` backup і з�
 перевіряє його існування, створює `.drp` backup, викликає
 `SetCurrentTimeline` і звіряє фактичний current timeline. Tool не створює,
 не перейменовує і не видаляє timelines.
+
+`resolve_duplicate_timeline` приймає ID наявного timeline та унікальну нову
+назву. Перед викликом `DuplicateTimeline` bridge створює `.drp` backup, а
+після нього звіряє нові ID/назву і наявність копії у проєкті. Оригінальний і
+current timeline залишаються незмінними; якщо Resolve тимчасово перемкнув
+current timeline, bridge відновлює попередній і перевіряє результат.
 
 `resolve_set_clip_transform` приймає `timeline_id`, `timeline_item_id` та
 щонайменше одне з полів `position_x`, `position_y`, `zoom`,

@@ -65,6 +65,24 @@ def test_set_current_timeline_requires_one_bounded_id_and_backup() -> None:
         validate_contract("command", command)
 
 
+def test_duplicate_timeline_requires_source_id_name_and_backup() -> None:
+    command = _valid_command()
+    command["action"] = "duplicate_timeline"
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "name": "Agent Draft",
+    }
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"] = {"timeline_id": "timeline-1"}
+    with pytest.raises(ContractValidationError, match="arguments"):
+        validate_contract("command", command)
+
+
 def test_list_timeline_items_requires_one_timeline_id() -> None:
     command = _valid_command()
     command["action"] = "list_timeline_items"

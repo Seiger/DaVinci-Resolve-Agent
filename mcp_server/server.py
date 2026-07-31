@@ -157,6 +157,22 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def resolve_duplicate_timeline(
+        timeline_id: str,
+        name: str,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Duplicate one timeline after exporting a project backup."""
+        return await asyncio.to_thread(
+            service.resolve_duplicate_timeline,
+            timeline_id,
+            name,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def resolve_set_current_timeline(
         timeline_id: str,
         timeout_seconds: float = 30,

@@ -20,6 +20,7 @@ Write-інструменти M4:
 
 - `resolve_import_media`;
 - `resolve_create_timeline`;
+- `resolve_duplicate_timeline`;
 - `resolve_set_current_timeline`;
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
@@ -176,6 +177,12 @@ TimelineItem IDs та `linked=true|false`. Інструмент працює л�
 адресованими video/audio items, відхиляє locked tracks, створює backup і
 перевіряє link-state кожного item. Replay з тим самим `idempotency_key` не
 створює повторного backup.
+
+`resolve_duplicate_timeline` приймає `timeline_id` джерела та нову унікальну
+назву. Tool створює `.drp` backup, викликає документований
+`DuplicateTimeline`, перевіряє окремий canonical ID та project membership.
+Поточний timeline не перемикається; replay із тим самим `idempotency_key` не
+створює додаткової копії.
 
 ## Безпечне редагування
 

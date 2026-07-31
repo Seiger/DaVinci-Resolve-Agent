@@ -42,6 +42,7 @@ The allowlist additionally contains:
 
 - `import_media` with `paths`;
 - `create_timeline` with `name`;
+- `duplicate_timeline` with source `timeline_id` and a new unique `name`;
 - `set_current_timeline` with one existing `timeline_id`;
 - `append_clip` with `timeline_id` and `asset_id`;
 - `insert_clip` with IDs, source bounds, timeline-relative position, and track;
@@ -65,6 +66,14 @@ the selected object through `GetCurrentTimeline`. It returns both previous and
 current timeline summaries. The read-only `list_timelines` and
 `get_current_timeline` results expose documented unique IDs so selection never
 depends on a name or ordinal index.
+
+`duplicate_timeline` resolves one source timeline by canonical ID, rejects an
+existing target name, creates a backup, and calls documented
+`Timeline.DuplicateTimeline(name)`. Success requires a distinct non-empty ID,
+the exact requested name, and discovery of the returned timeline in the
+project list. The action does not select the duplicate or mutate the source.
+If Resolve changes the current timeline as a side effect, the bridge restores
+the previously selected timeline and verifies it before reporting success.
 
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed

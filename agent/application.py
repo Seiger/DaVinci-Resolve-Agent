@@ -88,6 +88,16 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Create an empty timeline."""
 
+    def duplicate_timeline(
+        self,
+        timeline_id: str,
+        name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Duplicate one existing timeline."""
+
     def set_current_timeline(
         self,
         timeline_id: str,
@@ -404,6 +414,30 @@ class AgentApplication:
         return self._resolve.append_clip(
             timeline_id,
             asset_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_duplicate_timeline(
+        self,
+        timeline_id: str,
+        name: str,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Duplicate one Resolve timeline after a project backup."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError(
+                "timeline_id must contain 1 to 128 characters."
+            )
+        if not name.strip() or len(name) > 128:
+            raise ValueError(
+                "Timeline name must contain 1 to 128 characters."
+            )
+        return self._resolve.duplicate_timeline(
+            timeline_id,
+            name,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )
