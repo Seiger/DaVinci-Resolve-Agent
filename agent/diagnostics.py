@@ -214,6 +214,7 @@ class DiagnosticsBundleBuilder:
             log_root,
             suffixes=LOG_SUFFIXES,
             limit=MAX_LOG_FILES,
+            include_one_level=True,
         )
         excerpts: list[dict[str, Any]] = []
         for path in paths:
@@ -225,7 +226,7 @@ class DiagnosticsBundleBuilder:
                 continue
             excerpts.append(
                 {
-                    "file_name": path.name,
+                    "file_name": path.relative_to(log_root).as_posix(),
                     "modified_at": _timestamp(stat.st_mtime),
                     "size_bytes": stat.st_size,
                     "truncated": (
@@ -273,12 +274,21 @@ def _recent_files(
     *,
     suffixes: set[str],
     limit: int,
+    include_one_level: bool = False,
 ) -> list[Path]:
     if not root.is_dir() or root.is_symlink():
         return []
+    directories = [root]
+    if include_one_level:
+        directories.extend(
+            path
+            for path in root.iterdir()
+            if path.is_dir() and not path.is_symlink()
+        )
     candidates = [
         path
-        for path in root.iterdir()
+        for directory in directories
+        for path in directory.iterdir()
         if (
             path.is_file()
             and not path.is_symlink()

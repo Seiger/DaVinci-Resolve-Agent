@@ -133,3 +133,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   capabilities, failed-command metadata, log excerpts, and version data.
 - Fixed managed diagnostics output with no media, backups, raw queue payloads,
   arbitrary output paths, or Resolve bridge invocation.
+- M25 canonical per-command filesystem transport audit records.
+- Atomic submitting, pending, success, error, and timeout states without
+  arguments, media paths, idempotency keys, response payloads, or messages.

@@ -30,6 +30,13 @@ response and are preserved under `failed/`.
 Response files are retained as local audit evidence. The external client checks
 that the response `command_id` matches the submitted command.
 
+M25 also creates one canonical transport audit record under
+`logs/audit/<command-id>.json` before publishing the command. The same file is
+atomically updated to `pending`, then `success`, `error`, or `timeout`.
+It contains only identity, action, safety, timestamps, duration and safe error
+classification. Arguments, paths, idempotency keys, responses and error
+messages are not representable in the audit schema.
+
 ## Additional read actions
 
 - read-only `list_timeline_items` with one existing `timeline_id`;

@@ -11,6 +11,13 @@ Collect bounded local diagnostics without launching ResolveBridge:
 Review the generated JSON before sharing it. The collected fields and
 redaction limits are documented in [diagnostics.md](diagnostics.md).
 
+## Command audit remains pending
+
+Transport audit records are stored under `runtime\logs\audit`. A `pending`
+record means the command was published but no valid terminal response was
+observed by that client process. Check the matching command/response evidence
+and cached bridge state; do not edit the audit JSON manually.
+
 ## ResolveBridge is absent from the Workspace menu
 
 Resolve scans menu scripts at startup. Confirm installation:

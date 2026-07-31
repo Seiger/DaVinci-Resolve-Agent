@@ -59,6 +59,10 @@ def test_bundle_redacts_config_paths_and_log_secrets(
         encoding="utf-8",
     )
     atomic_write_json(
+        runtime_root / "logs" / "audit" / "command-1.json",
+        {"event": "command_completed", "status": "success"},
+    )
+    atomic_write_json(
         runtime_root / "state" / "bridge.json",
         {
             "bridge_version": "0.1.0",
@@ -86,7 +90,9 @@ def test_bundle_redacts_config_paths_and_log_secrets(
     assert bundle["config"]["agent"]["api_token"] == "[REDACTED]"
     assert bundle["bridge"]["capabilities"] == {"project.read": True}
     assert "project_name" not in bundle["bridge"]
-    assert bundle["logs"][0]["lines"][0] == "token=[REDACTED]"
+    logs = {item["file_name"]: item for item in bundle["logs"]}
+    assert logs["agent.log"]["lines"][0] == "token=[REDACTED]"
+    assert "audit/command-1.json" in logs
 
 
 def test_bundle_collects_bounded_failed_metadata_without_arguments(

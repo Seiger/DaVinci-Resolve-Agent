@@ -9,7 +9,12 @@ from typing import Any
 
 import pytest
 
-from agent.client import CommandTimeoutError, FilesystemCommandClient
+from agent.client import (
+    BridgeCommandError,
+    BridgeProtocolError,
+    CommandTimeoutError,
+    FilesystemCommandClient,
+)
 from transports.filesystem import (
     FilesystemLayout,
     atomic_write_json,
@@ -17,15 +22,16 @@ from transports.filesystem import (
 )
 
 
-def _respond_to_first_command(layout: FilesystemLayout) -> None:
+def _respond_to_first_command(
+    layout: FilesystemLayout,
+    mode: str = "success",
+) -> None:
     deadline = time.monotonic() + 2
     while time.monotonic() < deadline:
         command_paths = list(layout.commands.glob("*.json"))
         if command_paths:
             command = read_json_object(command_paths[0])
-            atomic_write_json(
-                layout.responses / command_paths[0].name,
-                {
+            response: dict[str, Any] = {
                     "protocol_version": "1.0",
                     "command_id": command["command_id"],
                     "status": "success",
@@ -34,7 +40,25 @@ def _respond_to_first_command(layout: FilesystemLayout) -> None:
                     "result": {"message": "pong"},
                     "error": None,
                     "warnings": [],
-                },
+            }
+            if mode == "error":
+                response.update(
+                    {
+                        "status": "error",
+                        "result": None,
+                        "error": {
+                            "code": "UNSUPPORTED_CAPABILITY",
+                            "message": "Sensitive provider detail.",
+                            "details": {},
+                            "retryable": False,
+                        },
+                    }
+                )
+            elif mode == "wrong-command-id":
+                response["command_id"] = "different-command"
+            atomic_write_json(
+                layout.responses / command_paths[0].name,
+                response,
             )
             return
         time.sleep(0.01)
@@ -79,6 +103,13 @@ def test_client_submits_valid_command_and_reads_response(
     command = read_json_object(next(layout.commands.glob("*.json")))
     assert command["action"] == "ping"
     assert command["safety"]["allow_destructive"] is False
+    audit = read_json_object(
+        next((layout.logs / "audit").glob("*.json"))
+    )
+    assert audit["command_id"] == command["command_id"]
+    assert audit["status"] == "success"
+    assert audit["event"] == "command_completed"
+    assert "arguments" not in audit
 
 
 def test_client_timeout_is_structured_and_leaves_auditable_command(
@@ -95,6 +126,11 @@ def test_client_timeout_is_structured_and_leaves_auditable_command(
 
     assert error_info.value.command_id
     assert list((tmp_path / "commands").glob("*.json"))
+    audit = read_json_object(
+        next((tmp_path / "logs" / "audit").glob("*.json"))
+    )
+    assert audit["status"] == "timeout"
+    assert audit["error_code"] == "COMMAND_TIMEOUT"
 
 
 def test_client_serializes_explicit_destructive_safety_flag(
@@ -122,3 +158,68 @@ def test_client_serializes_explicit_destructive_safety_flag(
         "allow_destructive": True,
         "create_backup": True,
     }
+    audit = read_json_object(
+        next((layout.logs / "audit").glob("*.json"))
+    )
+    assert audit["safety"] == command["safety"]
+
+
+def test_client_audits_bridge_error_without_sensitive_message(
+    tmp_path: Path,
+) -> None:
+    layout = FilesystemLayout(tmp_path)
+    layout.ensure_directories()
+    worker = threading.Thread(
+        target=_respond_to_first_command,
+        args=(layout, "error"),
+    )
+    worker.start()
+    client = FilesystemCommandClient(
+        tmp_path,
+        poll_interval_seconds=0.01,
+    )
+
+    with pytest.raises(BridgeCommandError):
+        client.request(
+            provider="resolve",
+            action="ping",
+            timeout_seconds=2,
+        )
+    worker.join(timeout=2)
+
+    audit = read_json_object(
+        next((layout.logs / "audit").glob("*.json"))
+    )
+    assert audit["status"] == "error"
+    assert audit["error_code"] == "UNSUPPORTED_CAPABILITY"
+    assert "Sensitive provider detail." not in str(audit)
+
+
+def test_client_audits_invalid_response_as_protocol_error(
+    tmp_path: Path,
+) -> None:
+    layout = FilesystemLayout(tmp_path)
+    layout.ensure_directories()
+    worker = threading.Thread(
+        target=_respond_to_first_command,
+        args=(layout, "wrong-command-id"),
+    )
+    worker.start()
+    client = FilesystemCommandClient(
+        tmp_path,
+        poll_interval_seconds=0.01,
+    )
+
+    with pytest.raises(BridgeProtocolError):
+        client.request(
+            provider="resolve",
+            action="ping",
+            timeout_seconds=2,
+        )
+    worker.join(timeout=2)
+
+    audit = read_json_object(
+        next((layout.logs / "audit").glob("*.json"))
+    )
+    assert audit["status"] == "error"
+    assert audit["error_code"] == "BRIDGE_PROTOCOL_ERROR"

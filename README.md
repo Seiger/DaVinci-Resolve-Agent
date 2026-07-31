@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M24: local diagnostics bundle**. Він установлює
+Проєкт перебуває на етапі **Milestone M25: transport audit logging**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -160,6 +160,11 @@ Diagnostics bundle зберігається у фіксованій runtime-ди
 медіа, backups, raw commands/responses або відомих secret-полів. Перед
 передаванням третій стороні його слід переглянути вручну. Деталі:
 [локальна діагностика](docs/diagnostics.md).
+
+Кожна валідована Resolve-команда через filesystem transport створює окремий
+canonical audit record до enqueue та атомарно оновлює його після відповіді або
+timeout. Audit не містить arguments, media paths, idempotency keys, response
+payloads чи error messages. Деталі: [audit logging](docs/audit-logging.md).
 
 Коди завершення CLI:
 

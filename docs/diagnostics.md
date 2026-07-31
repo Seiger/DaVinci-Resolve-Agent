@@ -21,6 +21,9 @@ Bundle містить:
   idempotency keys;
 - максимум 50 останніх рядків із максимум 5 локальних log-файлів.
 
+Log discovery охоплює файли безпосередньо в `logs` і один керований рівень
+`logs\audit`. Довільна рекурсія та symlink-директорії не використовуються.
+
 Команда не запускає ResolveBridge, не звертається до Resolve, не включає
 медіа, render outputs, backups, raw commands або responses. Абсолютні
 APPDATA, LOCALAPPDATA та USERPROFILE у конфігурації й excerpts замінюються

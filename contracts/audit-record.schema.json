@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/audit-record.schema.json",
+  "title": "DaVinci Resolve Agent command audit record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "timestamp",
+    "level",
+    "component",
+    "event",
+    "command_id",
+    "provider",
+    "action",
+    "status",
+    "submitted_at",
+    "finished_at",
+    "duration_ms",
+    "error_code",
+    "retryable",
+    "safety"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "1.0"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "level": {
+      "enum": ["INFO", "WARNING", "ERROR"]
+    },
+    "component": {
+      "const": "transport.filesystem"
+    },
+    "event": {
+      "enum": [
+        "command_submission_started",
+        "command_submitted",
+        "command_completed",
+        "command_failed",
+        "command_timed_out"
+      ]
+    },
+    "command_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "enum": ["submitting", "pending", "success", "error", "timeout"]
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "duration_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "error_code": {
+      "type": ["string", "null"],
+      "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+    },
+    "retryable": {
+      "type": ["boolean", "null"]
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allow_destructive", "create_backup"],
+      "properties": {
+        "allow_destructive": {"type": "boolean"},
+        "create_backup": {"type": "boolean"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": ["success", "error", "timeout"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "finished_at": {"type": "string"},
+          "duration_ms": {"type": "integer"}
+        }
+      },
+      "else": {
+        "properties": {
+          "finished_at": {"type": "null"},
+          "duration_ms": {"type": "null"},
+          "error_code": {"type": "null"},
+          "retryable": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {"const": "success"}
+        }
+      },
+      "then": {
+        "properties": {
+          "error_code": {"type": "null"},
+          "retryable": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": ["error", "timeout"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error_code": {"type": "string"},
+          "retryable": {"type": "boolean"}
+        }
+      }
+    }
+  ]
+}

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
 
+from agent.audit import AuditLogError, CommandAuditLog
 from agent.contracts import ContractValidationError, validate_contract
 from agent.paths import runtime_directory
 from transports.filesystem import (
@@ -82,6 +84,7 @@ class FilesystemCommandClient:
         runtime_root: Path | None = None,
         *,
         poll_interval_seconds: float = 0.1,
+        audit_log: CommandAuditLog | None = None,
     ) -> None:
         if poll_interval_seconds <= 0:
             raise ValueError("poll_interval_seconds must be greater than zero.")
@@ -89,6 +92,11 @@ class FilesystemCommandClient:
         self._layout = FilesystemLayout(root)
         self._poll_interval_seconds = poll_interval_seconds
         self._layout.ensure_directories()
+        self._audit_log = (
+            CommandAuditLog(self._layout.logs)
+            if audit_log is None
+            else audit_log
+        )
 
     def request(
         self,
@@ -131,14 +139,69 @@ class FilesystemCommandClient:
         except ContractValidationError as error:
             raise BridgeProtocolError(str(error)) from error
 
+        try:
+            audit_record = self._audit_log.start(
+                command_id=command_id,
+                provider=provider,
+                action=action,
+                allow_destructive=allow_destructive,
+                create_backup=create_backup,
+            )
+        except AuditLogError as error:
+            raise AgentClientError(
+                "Command was not queued because its audit record "
+                "could not be created."
+            ) from error
+
         command_path = self._layout.commands / f"{command_id}.json"
         response_path = self._layout.responses / f"{command_id}.json"
-        atomic_write_json(command_path, command)
-        return self._await_response(
-            command_id=command_id,
-            response_path=response_path,
-            timeout_seconds=timeout_seconds,
-        )
+        try:
+            atomic_write_json(command_path, command)
+        except OSError as error:
+            with suppress(AuditLogError):
+                audit_record.mark_error(
+                    "COMMAND_ENQUEUE_FAILED",
+                    retryable=True,
+                )
+            raise AgentClientError(
+                "Command could not be published to the filesystem queue."
+            ) from error
+        with suppress(AuditLogError):
+            audit_record.mark_submitted()
+
+        try:
+            result = self._await_response(
+                command_id=command_id,
+                response_path=response_path,
+                timeout_seconds=timeout_seconds,
+            )
+        except CommandTimeoutError:
+            with suppress(AuditLogError):
+                audit_record.mark_timeout()
+            raise
+        except BridgeCommandError as error:
+            try:
+                audit_record.mark_error(
+                    error.code,
+                    retryable=error.retryable,
+                )
+            except AuditLogError:
+                with suppress(AuditLogError):
+                    audit_record.mark_error(
+                        "BRIDGE_COMMAND_ERROR",
+                        retryable=error.retryable,
+                    )
+            raise
+        except BridgeProtocolError:
+            with suppress(AuditLogError):
+                audit_record.mark_error(
+                    "BRIDGE_PROTOCOL_ERROR",
+                    retryable=False,
+                )
+            raise
+        with suppress(AuditLogError):
+            audit_record.mark_success()
+        return result
 
     def _await_response(
         self,

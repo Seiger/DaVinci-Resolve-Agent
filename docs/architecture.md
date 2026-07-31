@@ -555,6 +555,27 @@ backups, raw command arguments, responses, or idempotency keys. Symlinked
 runtime files are ignored. Automatic redaction is a safety layer rather than a
 guarantee, so documentation requires human review before sharing a bundle.
 
+## M25 filesystem transport audit
+
+```text
+FilesystemCommandClient.request(...)
+ └─ validate command contract
+     └─ atomically create logs/audit/<command_id>.json (submitting)
+         └─ atomically publish command envelope
+             └─ update audit state (pending)
+                 ├─ validated response → success + duration
+                 ├─ bridge error → safe error code + retryable
+                 ├─ protocol error → BRIDGE_PROTOCOL_ERROR
+                 └─ deadline → timeout + COMMAND_TIMEOUT
+```
+
+The initial record is mandatory and is written before queue publication. Later
+updates are atomic replacements of the same command-scoped record, avoiding
+shared JSONL append races between CLI and MCP processes. The record schema has
+no fields capable of storing arguments, results, idempotency keys, paths, or
+error messages. M25 covers Resolve filesystem transport commands only; local
+workflow audit remains a separate application-layer concern.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.
