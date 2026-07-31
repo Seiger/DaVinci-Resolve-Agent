@@ -11,6 +11,7 @@ from mcp.types import ToolAnnotations
 from agent import __version__
 from agent.application import AgentApplication
 from agent.rendering import DEFAULT_RENDER_PROFILE
+from agent.workflow_audit import WorkflowAuditLog
 
 READ_ONLY_TOOL = ToolAnnotations(
     read_only_hint=True,
@@ -34,7 +35,11 @@ DESTRUCTIVE_WRITE_TOOL = ToolAnnotations(
 
 def create_server(application: AgentApplication | None = None) -> MCPServer:
     """Create an MCP server bound to an application service."""
-    service = AgentApplication() if application is None else application
+    service = (
+        AgentApplication(workflow_audit=WorkflowAuditLog())
+        if application is None
+        else application
+    )
     server = MCPServer(
         name="davinci-resolve-agent",
         version=__version__,

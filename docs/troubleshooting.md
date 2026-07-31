@@ -18,6 +18,11 @@ record means the command was published but no valid terminal response was
 observed by that client process. Check the matching command/response evidence
 and cached bridge state; do not edit the audit JSON manually.
 
+Workflow records live separately under `runtime\logs\workflow`. A `running`
+record means the process did not persist a terminal workflow state, commonly
+because it was interrupted. Artifact contents and operation arguments cannot
+be recovered from this record by design.
+
 ## ResolveBridge is absent from the Workspace menu
 
 Resolve scans menu scripts at startup. Confirm installation:

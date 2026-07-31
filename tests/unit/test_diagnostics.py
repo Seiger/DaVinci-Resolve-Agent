@@ -63,6 +63,10 @@ def test_bundle_redacts_config_paths_and_log_secrets(
         {"event": "command_completed", "status": "success"},
     )
     atomic_write_json(
+        runtime_root / "logs" / "workflow" / "operation-1.json",
+        {"event": "workflow_completed", "status": "success"},
+    )
+    atomic_write_json(
         runtime_root / "state" / "bridge.json",
         {
             "bridge_version": "0.1.0",
@@ -93,6 +97,7 @@ def test_bundle_redacts_config_paths_and_log_secrets(
     logs = {item["file_name"]: item for item in bundle["logs"]}
     assert logs["agent.log"]["lines"][0] == "token=[REDACTED]"
     assert "audit/command-1.json" in logs
+    assert "workflow/operation-1.json" in logs
 
 
 def test_bundle_collects_bounded_failed_metadata_without_arguments(

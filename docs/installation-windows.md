@@ -60,6 +60,7 @@ For an M2 live request, start a command in PowerShell and invoke
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\state\receipts\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\logs\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\logs\audit\
+%LOCALAPPDATA%\DaVinciResolveAgent\runtime\logs\workflow\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\diagnostics\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\backups\
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\plans\

@@ -74,6 +74,11 @@ SHA-256-зв’язок між ними. Обидва tools read-only, прац�
 збережений report. Обидва tools read-only, не викликають bridge та не
 запускають повторну обробку аудіо.
 
+У default MCP composition усі сім локальних rough-cut/audio tools проходять
+через workflow audit. Records не містять tool arguments, plan/report IDs,
+paths, results або exception messages. Докладніше:
+[workflow-audit.md](workflow-audit.md).
+
 ## Конфігурація клієнта
 
 Спочатку виконай `installer\install.ps1`. У конфігурації MCP-клієнта вкажи

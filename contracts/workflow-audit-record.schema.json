@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/workflow-audit-record.schema.json",
+  "title": "DaVinci Resolve Agent local workflow audit record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "timestamp",
+    "level",
+    "component",
+    "event",
+    "operation_id",
+    "operation",
+    "category",
+    "status",
+    "started_at",
+    "finished_at",
+    "duration_ms",
+    "error_code",
+    "retryable"
+  ],
+  "properties": {
+    "audit_version": {"const": "1.0"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "level": {"enum": ["INFO", "ERROR"]},
+    "component": {"const": "workflow"},
+    "event": {
+      "enum": [
+        "workflow_started",
+        "workflow_completed",
+        "workflow_failed"
+      ]
+    },
+    "operation_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "operation": {
+      "enum": [
+        "create_rough_cut",
+        "approve_rough_cut",
+        "get_rough_cut_plan",
+        "list_rough_cut_plans",
+        "clean_dialogue_audio",
+        "get_audio_report",
+        "list_audio_reports"
+      ]
+    },
+    "category": {
+      "enum": ["rough_cut", "audio"]
+    },
+    "status": {
+      "enum": ["running", "success", "error"]
+    },
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "duration_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "error_code": {
+      "type": ["string", "null"],
+      "enum": [
+        null,
+        "FILESYSTEM_ERROR",
+        "VALIDATION_ERROR",
+        "WORKFLOW_ERROR"
+      ]
+    },
+    "retryable": {"type": ["boolean", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "enum": [
+              "create_rough_cut",
+              "approve_rough_cut",
+              "get_rough_cut_plan",
+              "list_rough_cut_plans"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {"category": {"const": "rough_cut"}}
+      },
+      "else": {
+        "properties": {"category": {"const": "audio"}}
+      }
+    },
+    {
+      "if": {
+        "properties": {"status": {"const": "running"}}
+      },
+      "then": {
+        "properties": {
+          "event": {"const": "workflow_started"},
+          "level": {"const": "INFO"},
+          "finished_at": {"type": "null"},
+          "duration_ms": {"type": "null"},
+          "error_code": {"type": "null"},
+          "retryable": {"type": "null"}
+        }
+      },
+      "else": {
+        "properties": {
+          "finished_at": {"type": "string"},
+          "duration_ms": {"type": "integer"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"status": {"const": "success"}}
+      },
+      "then": {
+        "properties": {
+          "event": {"const": "workflow_completed"},
+          "level": {"const": "INFO"},
+          "error_code": {"type": "null"},
+          "retryable": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"status": {"const": "error"}}
+      },
+      "then": {
+        "properties": {
+          "event": {"const": "workflow_failed"},
+          "level": {"const": "ERROR"},
+          "error_code": {"type": "string"},
+          "retryable": {"type": "boolean"}
+        }
+      }
+    }
+  ]
+}

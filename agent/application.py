@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
 
 from agent.audio_workflow import AudioReportInspector, DialogueAudioWorkflow
 from agent.bridge_state import (
@@ -31,6 +31,7 @@ from providers.resolve import ResolveProviderClient
 MAX_COMMAND_TIMEOUT_SECONDS = 300.0
 MAX_FRAME_VALUE = 2_147_483_647
 MAX_TRACK_INDEX = 128
+ApplicationResultT = TypeVar("ApplicationResultT")
 
 
 class ResolveReader(Protocol):
@@ -300,6 +301,17 @@ class AudioReportReader(Protocol):
         """Return bounded report summaries."""
 
 
+class WorkflowOperationAuditor(Protocol):
+    """Audit provider-neutral local operations without inspecting inputs."""
+
+    def run(
+        self,
+        operation: str,
+        callback: Callable[[], ApplicationResultT],
+    ) -> ApplicationResultT:
+        """Run one allowlisted local operation with lifecycle audit."""
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -313,6 +325,7 @@ class AgentApplication:
         rough_cut_inspector: RoughCutPlanInspector | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
+        workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
         self._state_loader = state_loader
@@ -322,6 +335,7 @@ class AgentApplication:
         self._rough_cut_inspector = rough_cut_inspector
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
+        self._workflow_audit = workflow_audit
 
     def status(
         self,
@@ -803,37 +817,40 @@ class AgentApplication:
         preserve_context_ms: int = 120,
     ) -> dict[str, Any]:
         """Validate sources and create an M5 draft without changing Resolve."""
-        policy = (
-            MediaPolicy.from_local_config()
-            if self._media_policy is None
-            else self._media_policy
-        )
-        normalized = policy.validate_files(
-            [
-                screen_file,
-                webcam_file,
-                screen_audio_file,
-                webcam_audio_file,
-                speech_audio_file,
-            ]
-        )
-        planner = (
-            RoughCutPlanner()
-            if self._rough_cut_planner is None
-            else self._rough_cut_planner
-        )
-        return planner.create_plan(
-            screen_file=normalized[0],
-            webcam_file=normalized[1],
-            screen_audio_file=normalized[2],
-            webcam_audio_file=normalized[3],
-            speech_audio_file=normalized[4],
-            timeline_name=timeline_name,
-            max_sync_offset_ms=max_sync_offset_ms,
-            pause_threshold_dbfs=pause_threshold_dbfs,
-            min_pause_duration_ms=min_pause_duration_ms,
-            preserve_context_ms=preserve_context_ms,
-        )
+        def execute() -> dict[str, Any]:
+            policy = (
+                MediaPolicy.from_local_config()
+                if self._media_policy is None
+                else self._media_policy
+            )
+            normalized = policy.validate_files(
+                [
+                    screen_file,
+                    webcam_file,
+                    screen_audio_file,
+                    webcam_audio_file,
+                    speech_audio_file,
+                ]
+            )
+            planner = (
+                RoughCutPlanner()
+                if self._rough_cut_planner is None
+                else self._rough_cut_planner
+            )
+            return planner.create_plan(
+                screen_file=normalized[0],
+                webcam_file=normalized[1],
+                screen_audio_file=normalized[2],
+                webcam_audio_file=normalized[3],
+                speech_audio_file=normalized[4],
+                timeline_name=timeline_name,
+                max_sync_offset_ms=max_sync_offset_ms,
+                pause_threshold_dbfs=pause_threshold_dbfs,
+                min_pause_duration_ms=min_pause_duration_ms,
+                preserve_context_ms=preserve_context_ms,
+            )
+
+        return self._run_local_workflow("create_rough_cut", execute)
 
     def approve_rough_cut(
         self,
@@ -842,33 +859,40 @@ class AgentApplication:
         confirm_review: bool,
     ) -> dict[str, Any]:
         """Record explicit review without applying the plan to Resolve."""
-        reviewer = (
-            RoughCutReviewer()
-            if self._rough_cut_reviewer is None
-            else self._rough_cut_reviewer
-        )
-        return reviewer.approve(
-            plan_id,
-            confirm_review=confirm_review,
-        )
+        def execute() -> dict[str, Any]:
+            reviewer = (
+                RoughCutReviewer()
+                if self._rough_cut_reviewer is None
+                else self._rough_cut_reviewer
+            )
+            return reviewer.approve(
+                plan_id,
+                confirm_review=confirm_review,
+            )
+
+        return self._run_local_workflow("approve_rough_cut", execute)
 
     def get_rough_cut_plan(self, plan_id: str) -> dict[str, Any]:
         """Return one validated draft and approval without changing either."""
-        inspector = (
-            RoughCutInspector()
-            if self._rough_cut_inspector is None
-            else self._rough_cut_inspector
+        return self._run_local_workflow(
+            "get_rough_cut_plan",
+            lambda: (
+                RoughCutInspector()
+                if self._rough_cut_inspector is None
+                else self._rough_cut_inspector
+            ).get_plan(plan_id),
         )
-        return inspector.get_plan(plan_id)
 
     def list_rough_cut_plans(self, limit: int = 100) -> dict[str, Any]:
         """Return bounded summaries for locally stored rough-cut plans."""
-        inspector = (
-            RoughCutInspector()
-            if self._rough_cut_inspector is None
-            else self._rough_cut_inspector
+        return self._run_local_workflow(
+            "list_rough_cut_plans",
+            lambda: (
+                RoughCutInspector()
+                if self._rough_cut_inspector is None
+                else self._rough_cut_inspector
+            ).list_plans(limit),
         )
-        return inspector.list_plans(limit)
 
     def clean_dialogue_audio(
         self,
@@ -877,36 +901,52 @@ class AgentApplication:
         preset: str = "pcm-dialogue-level-v1",
     ) -> dict[str, Any]:
         """Create a derived WAV and report without calling Resolve."""
-        policy = (
-            MediaPolicy.from_local_config()
-            if self._media_policy is None
-            else self._media_policy
-        )
-        normalized = policy.validate_files([source_file])
-        processor = (
-            DialogueAudioWorkflow()
-            if self._audio_processor is None
-            else self._audio_processor
-        )
-        return processor.process(normalized[0], preset=preset)
+        def execute() -> dict[str, Any]:
+            policy = (
+                MediaPolicy.from_local_config()
+                if self._media_policy is None
+                else self._media_policy
+            )
+            normalized = policy.validate_files([source_file])
+            processor = (
+                DialogueAudioWorkflow()
+                if self._audio_processor is None
+                else self._audio_processor
+            )
+            return processor.process(normalized[0], preset=preset)
+
+        return self._run_local_workflow("clean_dialogue_audio", execute)
 
     def get_audio_report(self, report_id: str) -> dict[str, Any]:
         """Return one validated report without processing media."""
-        inspector = (
-            AudioReportInspector()
-            if self._audio_report_inspector is None
-            else self._audio_report_inspector
+        return self._run_local_workflow(
+            "get_audio_report",
+            lambda: (
+                AudioReportInspector()
+                if self._audio_report_inspector is None
+                else self._audio_report_inspector
+            ).get_report(report_id),
         )
-        return inspector.get_report(report_id)
 
     def list_audio_reports(self, limit: int = 100) -> dict[str, Any]:
         """Return bounded summaries for locally stored audio reports."""
-        inspector = (
-            AudioReportInspector()
-            if self._audio_report_inspector is None
-            else self._audio_report_inspector
+        return self._run_local_workflow(
+            "list_audio_reports",
+            lambda: (
+                AudioReportInspector()
+                if self._audio_report_inspector is None
+                else self._audio_report_inspector
+            ).list_reports(limit),
         )
-        return inspector.list_reports(limit)
+
+    def _run_local_workflow(
+        self,
+        operation: str,
+        callback: Callable[[], ApplicationResultT],
+    ) -> ApplicationResultT:
+        if self._workflow_audit is None:
+            return callback()
+        return self._workflow_audit.run(operation, callback)
 
     @staticmethod
     def _validated_timeout(timeout_seconds: float) -> float:

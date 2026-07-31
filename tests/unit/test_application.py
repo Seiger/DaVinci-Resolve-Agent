@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -440,6 +441,19 @@ class StubAudioReportInspector:
         }
 
 
+class StubWorkflowAuditor:
+    def __init__(self) -> None:
+        self.operations: list[str] = []
+
+    def run(
+        self,
+        operation: str,
+        callback: Callable[[], Any],
+    ) -> Any:
+        self.operations.append(operation)
+        return callback()
+
+
 def _fresh_state() -> dict[str, Any]:
     return {
         "bridge_version": "0.1.0",
@@ -649,10 +663,12 @@ def test_application_creates_review_only_plan_without_resolve_call() -> None:
     resolve = StubResolveReader()
     media_policy = StubMediaPolicy()
     planner = StubRoughCutPlanner()
+    audit = StubWorkflowAuditor()
     application = AgentApplication(
         resolve=resolve,
         media_policy=media_policy,
         rough_cut_planner=planner,
+        workflow_audit=audit,
     )
 
     plan = application.create_rough_cut(
@@ -674,15 +690,18 @@ def test_application_creates_review_only_plan_without_resolve_call() -> None:
         "webcam.wav",
         "speech.wav",
     ]
+    assert audit.operations == ["create_rough_cut"]
     assert resolve.timeouts == []
 
 
 def test_application_approves_plan_without_resolve_call() -> None:
     resolve = StubResolveReader()
     reviewer = StubRoughCutReviewer()
+    audit = StubWorkflowAuditor()
     application = AgentApplication(
         resolve=resolve,
         rough_cut_reviewer=reviewer,
+        workflow_audit=audit,
     )
 
     approval = application.approve_rough_cut(
@@ -694,14 +713,17 @@ def test_application_approves_plan_without_resolve_call() -> None:
     assert approval["apply_supported"] is False
     assert reviewer.plan_id == "a" * 64
     assert reviewer.confirm_review is True
+    assert audit.operations == ["approve_rough_cut"]
     assert resolve.timeouts == []
 
 
 def test_application_inspects_plans_without_resolve_call() -> None:
     resolve = StubResolveReader()
+    audit = StubWorkflowAuditor()
     application = AgentApplication(
         resolve=resolve,
         rough_cut_inspector=StubRoughCutInspector(),
+        workflow_audit=audit,
     )
 
     detail = application.get_rough_cut_plan("a" * 64)
@@ -709,6 +731,10 @@ def test_application_inspects_plans_without_resolve_call() -> None:
 
     assert detail["effective_status"] == "pending_review"
     assert listing["count"] == 1
+    assert audit.operations == [
+        "get_rough_cut_plan",
+        "list_rough_cut_plans",
+    ]
     assert resolve.timeouts == []
 
 
@@ -716,10 +742,12 @@ def test_application_processes_audio_without_resolve_call() -> None:
     resolve = StubResolveReader()
     media_policy = StubMediaPolicy()
     processor = StubAudioProcessor()
+    audit = StubWorkflowAuditor()
     application = AgentApplication(
         resolve=resolve,
         media_policy=media_policy,
         audio_processor=processor,
+        workflow_audit=audit,
     )
 
     report = application.clean_dialogue_audio("dialogue.wav")
@@ -728,14 +756,17 @@ def test_application_processes_audio_without_resolve_call() -> None:
     assert report["source"]["preserved"] is True
     assert processor.source_file == "normalized:dialogue.wav"
     assert processor.preset == "pcm-dialogue-level-v1"
+    assert audit.operations == ["clean_dialogue_audio"]
     assert resolve.timeouts == []
 
 
 def test_application_inspects_audio_reports_without_resolve_call() -> None:
     resolve = StubResolveReader()
+    audit = StubWorkflowAuditor()
     application = AgentApplication(
         resolve=resolve,
         audio_report_inspector=StubAudioReportInspector(),
+        workflow_audit=audit,
     )
 
     detail = application.get_audio_report("b" * 64)
@@ -743,6 +774,10 @@ def test_application_inspects_audio_reports_without_resolve_call() -> None:
 
     assert detail["status"] == "completed"
     assert listing["count"] == 1
+    assert audit.operations == [
+        "get_audio_report",
+        "list_audio_reports",
+    ]
     assert resolve.timeouts == []
 
 

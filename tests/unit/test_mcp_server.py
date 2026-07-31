@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -351,6 +352,19 @@ class StubAudioReportInspector:
         }
 
 
+class StubWorkflowAuditor:
+    def __init__(self) -> None:
+        self.operations: list[str] = []
+
+    def run(
+        self,
+        operation: str,
+        callback: Callable[[], Any],
+    ) -> Any:
+        self.operations.append(operation)
+        return callback()
+
+
 def _fresh_state() -> dict[str, Any]:
     return {
         "bridge_version": "0.1.0",
@@ -362,6 +376,7 @@ def _fresh_state() -> dict[str, Any]:
 
 
 def test_mcp_exposes_fixed_m5_tool_surface() -> None:
+    workflow_audit = StubWorkflowAuditor()
     application = AgentApplication(
         resolve=StubResolveReader(),
         state_loader=_fresh_state,
@@ -371,6 +386,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         rough_cut_inspector=StubRoughCutInspector(),
         audio_processor=StubAudioProcessor(),
         audio_report_inspector=StubAudioReportInspector(),
+        workflow_audit=workflow_audit,
     )
     server = create_server(application)
 
@@ -697,3 +713,12 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["audio"].structured_content["status"] == "completed"
     assert results["audio_detail"].structured_content["status"] == "completed"
     assert results["audio_reports"].structured_content["count"] == 1
+    assert workflow_audit.operations == [
+        "create_rough_cut",
+        "approve_rough_cut",
+        "get_rough_cut_plan",
+        "list_rough_cut_plans",
+        "clean_dialogue_audio",
+        "get_audio_report",
+        "list_audio_reports",
+    ]

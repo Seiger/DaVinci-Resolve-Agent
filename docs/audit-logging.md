@@ -35,5 +35,5 @@ payloads або error messages. Директорія `logs\audit` не може 
 
 M25 охоплює transport-команди Resolve, які використовують
 `FilesystemCommandClient`. Локальні rough-cut та audio workflows не
-представляються як Resolve-команди й потребують окремого application-level
-audit шару.
+представляються як Resolve-команди. Їхній окремий application-level шар
+описано в [workflow-audit.md](workflow-audit.md).

@@ -576,6 +576,23 @@ no fields capable of storing arguments, results, idempotency keys, paths, or
 error messages. M25 covers Resolve filesystem transport commands only; local
 workflow audit remains a separate application-layer concern.
 
+## M26 local workflow audit
+
+```text
+MCP local tool
+ └─ AgentApplication._run_local_workflow(operation, callback)
+     └─ atomically create logs/workflow/<operation_id>.json (running)
+         ├─ callback result → success + duration
+         └─ exception → fixed error class + retryable
+```
+
+The production MCP composition root injects `WorkflowAuditLog`; tests and
+future adapters can inject a compatible auditor or omit it. The allowlist has
+exactly seven rough-cut/audio operations. Audit begins before media policy,
+artifact validation, processing, or inspection and records no arguments,
+artifact IDs, paths, results, or exception messages. Invalid operation names
+cannot invoke the callback.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

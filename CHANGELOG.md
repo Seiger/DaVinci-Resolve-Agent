@@ -136,3 +136,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M25 canonical per-command filesystem transport audit records.
 - Atomic submitting, pending, success, error, and timeout states without
   arguments, media paths, idempotency keys, response payloads, or messages.
+- M26 application-level audit for seven local rough-cut and audio operations.
+- Atomic workflow lifecycle records with fixed error classification and no
+  arguments, artifact IDs, paths, results, contents, or exception messages.
