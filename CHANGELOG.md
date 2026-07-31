@@ -119,3 +119,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   documented `Timeline.DuplicateTimeline`.
 - Timeline-name conflict protection, canonical duplicate readback, project
   list verification, and idempotent replay without changing the current timeline.
+- M21 explicit local approval for one canonical rough-cut draft with mandatory
+  `confirm_review=true`.
+- Immutable draft preservation, SHA-256-bound approval records, tamper
+  detection, and idempotent replay while plan application remains unsupported.

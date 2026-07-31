@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M20: safe timeline duplication**. Він установлює
+Проєкт перебуває на етапі **Milestone M21: explicit rough-cut approval**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -88,6 +88,10 @@ M20 додає backup-backed дублювання одного timeline за ID 
 новий ID і появу копії у project timeline list, не перемикає current timeline
 та не змінює оригінал. Це створює безпечну основу для майбутнього застосування
 reviewed rough-cut до окремої копії.
+M21 додає локальне явне схвалення draft-плану через окремий approval record.
+Draft залишається незмінним, approval прив’язаний до SHA-256 його канонічного
+вмісту, а повторне схвалення є idempotent. `apply_supported` залишається
+`false`: схвалення не запускає ResolveBridge і не застосовує монтаж.
 
 ## Вимоги
 
@@ -188,9 +192,10 @@ Read-only інструменти:
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
 
-Draft-only інструмент M5:
+Локальні rough-cut інструменти:
 
 - `create_rough_cut`.
+- `approve_rough_cut`.
 
 Локальний audio-інструмент M6:
 
@@ -207,6 +212,11 @@ MCP-клієнт очікує відповідь. Перед кожною write-
 Результат завжди має статус `pending_review` та зберігається в локальній
 runtime-директорії. Деталі наведено в
 [документації rough cut](docs/rough-cut.md).
+
+`approve_rough_cut` приймає лише canonical `plan_id` і
+`confirm_review=true`. Він повторно валідовує draft, фіксує його SHA-256 та
+створює окремий approval record у runtime `plans`. Tool не змінює draft,
+не ставить bridge-команду й завжди повертає `apply_supported=false`.
 
 `clean_dialogue_audio` працює без Resolve та приймає allowlisted 16-bit PCM
 WAV. Preset виконує детерміноване RMS leveling із peak guard, зберігає

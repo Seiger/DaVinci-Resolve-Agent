@@ -372,6 +372,26 @@ class StubRoughCutPlanner:
         }
 
 
+class StubRoughCutReviewer:
+    def __init__(self) -> None:
+        self.plan_id = ""
+        self.confirm_review = False
+
+    def approve(
+        self,
+        plan_id: str,
+        *,
+        confirm_review: bool,
+    ) -> dict[str, Any]:
+        self.plan_id = plan_id
+        self.confirm_review = confirm_review
+        return {
+            "plan_id": plan_id,
+            "status": "approved",
+            "apply_supported": False,
+        }
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -626,6 +646,26 @@ def test_application_creates_review_only_plan_without_resolve_call() -> None:
         "webcam.wav",
         "speech.wav",
     ]
+    assert resolve.timeouts == []
+
+
+def test_application_approves_plan_without_resolve_call() -> None:
+    resolve = StubResolveReader()
+    reviewer = StubRoughCutReviewer()
+    application = AgentApplication(
+        resolve=resolve,
+        rough_cut_reviewer=reviewer,
+    )
+
+    approval = application.approve_rough_cut(
+        "a" * 64,
+        confirm_review=True,
+    )
+
+    assert approval["status"] == "approved"
+    assert approval["apply_supported"] is False
+    assert reviewer.plan_id == "a" * 64
+    assert reviewer.confirm_review is True
     assert resolve.timeouts == []
 
 

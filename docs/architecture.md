@@ -482,6 +482,23 @@ Stable idempotency receipts prevent repeated calls from creating additional
 copies or backups. The bridge records the current timeline before duplication
 and restores it through documented project APIs if Resolve changes selection.
 
+## M21 explicit rough-cut approval
+
+```text
+MCP approve_rough_cut(plan_id, confirm_review=true)
+ └─ derive plans/<canonical-id>.json
+     └─ validate immutable rough-cut draft
+         └─ compute canonical SHA-256
+             └─ atomically persist separate approval record
+                 └─ apply_supported=false
+```
+
+M21 keeps planning and review provider-neutral. It never accepts a filesystem
+path, never mutates the deterministic draft, and never queues a Resolve
+command. Existing approval records are returned idempotently only while their
+stored hash matches the current valid draft; post-approval changes are
+rejected.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import math
 import wave
 from pathlib import Path
 
+import pytest
+
 from agent.contracts import validate_contract
-from agent.rough_cut import RoughCutPlanner
+from agent.rough_cut import (
+    RoughCutPlanner,
+    RoughCutPlanningError,
+    RoughCutReviewer,
+)
 
 SAMPLE_RATE = 8_000
 
@@ -75,4 +82,42 @@ def test_planner_persists_deterministic_pending_review_plan(
     assert first["pause_analysis"]["proposed_cuts"] == [
         {"start_ms": 320, "end_ms": 880, "duration_ms": 560}
     ]
-    assert (tmp_path / "plans" / f"{first['plan_id']}.json").is_file()
+    plan_path = tmp_path / "plans" / f"{first['plan_id']}.json"
+    assert plan_path.is_file()
+
+    plan_before_review = plan_path.read_bytes()
+    reviewer = RoughCutReviewer(tmp_path / "plans")
+    approval = reviewer.approve(
+        first["plan_id"],
+        confirm_review=True,
+    )
+    replay = reviewer.approve(
+        first["plan_id"],
+        confirm_review=True,
+    )
+
+    validate_contract("rough-cut-approval", approval)
+    assert approval == replay
+    assert approval["status"] == "approved"
+    assert approval["apply_supported"] is False
+    assert plan_path.read_bytes() == plan_before_review
+    assert (
+        tmp_path / "plans" / f"{first['plan_id']}.approval.json"
+    ).is_file()
+
+    changed_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    changed_plan["warnings"].append("Changed after approval.")
+    plan_path.write_text(json.dumps(changed_plan), encoding="utf-8")
+    with pytest.raises(RoughCutPlanningError, match="does not match"):
+        reviewer.approve(first["plan_id"], confirm_review=True)
+
+
+def test_reviewer_requires_canonical_id_and_explicit_confirmation(
+    tmp_path: Path,
+) -> None:
+    reviewer = RoughCutReviewer(tmp_path / "plans")
+
+    with pytest.raises(RoughCutPlanningError, match="plan_id"):
+        reviewer.approve("../plan", confirm_review=True)
+    with pytest.raises(RoughCutPlanningError, match="confirm_review"):
+        reviewer.approve("a" * 64, confirm_review=False)

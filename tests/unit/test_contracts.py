@@ -31,6 +31,21 @@ def test_valid_command_contract() -> None:
     validate_contract("command", _valid_command())
 
 
+def test_valid_rough_cut_approval_contract() -> None:
+    validate_contract(
+        "rough-cut-approval",
+        {
+            "approval_version": "1.0",
+            "plan_id": "a" * 64,
+            "plan_sha256": "b" * 64,
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+            "status": "approved",
+            "confirm_review": True,
+            "apply_supported": False,
+        },
+    )
+
+
 def test_write_command_requires_backup_and_action_arguments() -> None:
     command = _valid_command()
     command["action"] = "create_timeline"

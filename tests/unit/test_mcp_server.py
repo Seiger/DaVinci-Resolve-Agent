@@ -293,6 +293,21 @@ class StubRoughCutPlanner:
         }
 
 
+class StubRoughCutReviewer:
+    def approve(
+        self,
+        plan_id: str,
+        *,
+        confirm_review: bool,
+    ) -> dict[str, Any]:
+        return {
+            "plan_id": plan_id,
+            "status": "approved",
+            "confirm_review": confirm_review,
+            "apply_supported": False,
+        }
+
+
 class StubAudioProcessor:
     def process(
         self,
@@ -323,6 +338,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         state_loader=_fresh_state,
         media_policy=StubMediaPolicy(),
         rough_cut_planner=StubRoughCutPlanner(),
+        rough_cut_reviewer=StubRoughCutReviewer(),
         audio_processor=StubAudioProcessor(),
     )
     server = create_server(application)
@@ -343,6 +359,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             status_annotations = annotations["video_agent_status"]
             import_annotations = annotations["resolve_import_media"]
             rough_cut_annotations = annotations["create_rough_cut"]
+            approval_annotations = annotations["approve_rough_cut"]
             audio_annotations = annotations["clean_dialogue_audio"]
             render_annotations = annotations["resolve_get_render_options"]
             prepare_annotations = annotations["resolve_prepare_render_job"]
@@ -358,6 +375,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert status_annotations is not None
             assert import_annotations is not None
             assert rough_cut_annotations is not None
+            assert approval_annotations is not None
             assert audio_annotations is not None
             assert render_annotations is not None
             assert prepare_annotations is not None
@@ -371,6 +389,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
+            assert approval_annotations.read_only_hint is False
             assert audio_annotations.read_only_hint is False
             assert render_annotations.read_only_hint is True
             assert prepare_annotations.read_only_hint is False
@@ -512,6 +531,13 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "timeline_name": "M5 Draft",
                     },
                 ),
+                "approval": await client.call_tool(
+                    "approve_rough_cut",
+                    {
+                        "plan_id": "a" * 64,
+                        "confirm_review": True,
+                    },
+                ),
                 "audio": await client.call_tool(
                     "clean_dialogue_audio",
                     {"source_file": "dialogue.wav"},
@@ -546,6 +572,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_start_render_job",
         "resolve_verify_render_output",
         "create_rough_cut",
+        "approve_rough_cut",
         "clean_dialogue_audio",
     }
     assert results["project"].structured_content == {
@@ -598,4 +625,6 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     ] == "Ready"
     assert results["render_start"].structured_content["started"] is True
     assert results["rough_cut"].structured_content["status"] == "pending_review"
+    assert results["approval"].structured_content["status"] == "approved"
+    assert results["approval"].structured_content["apply_supported"] is False
     assert results["audio"].structured_content["status"] == "completed"

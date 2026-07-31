@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/rough-cut-approval.schema.json",
+  "title": "DaVinci Resolve Agent rough-cut approval record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_version",
+    "plan_id",
+    "plan_sha256",
+    "approved_at",
+    "status",
+    "confirm_review",
+    "apply_supported"
+  ],
+  "properties": {
+    "approval_version": {
+      "const": "1.0"
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "const": "approved"
+    },
+    "confirm_review": {
+      "const": true
+    },
+    "apply_supported": {
+      "const": false
+    }
+  }
+}

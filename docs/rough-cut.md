@@ -42,9 +42,30 @@ Resolve bridge.
 діапазони вирізання, майбутні операції та потрібні capabilities. Низьку
 впевненість синхронізації потрібно перевірити вручну.
 
-У M5 немає MCP-команди схвалення або застосування плану. Додавати таку команду
-до окремого milestone можна лише разом із перевіреним Resolve API, backup,
-idempotency та явним підтвердженням користувача.
+M21 додає окрему локальну команду схвалення:
+
+```text
+approve_rough_cut(plan_id, confirm_review=true)
+```
+
+Вона приймає лише 64-символьний lowercase hex `plan_id`, повторно валідовує
+draft і зберігає `<plan_id>.approval.json`. Approval містить SHA-256
+канонічного draft, тому зміна плану після схвалення виявляється. Повторний
+виклик повертає той самий record без зміни `approved_at`.
+
+Схвалення не означає застосування:
+
+```json
+{
+  "status": "approved",
+  "confirm_review": true,
+  "apply_supported": false
+}
+```
+
+M21 не запускає ResolveBridge, не створює timeline і не виконує proposed
+operations. Застосування залишається заблокованим, доки немає повного
+документованого API для move/trim/split та окремого безпечного apply milestone.
 
 ## Деінсталяція
 

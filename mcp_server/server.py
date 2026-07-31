@@ -415,6 +415,18 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def approve_rough_cut(
+        plan_id: str,
+        confirm_review: bool,
+    ) -> dict[str, Any]:
+        """Approve one stored draft without applying any Resolve edits."""
+        return await asyncio.to_thread(
+            service.approve_rough_cut,
+            plan_id,
+            confirm_review=confirm_review,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
         preset: str = "pcm-dialogue-level-v1",

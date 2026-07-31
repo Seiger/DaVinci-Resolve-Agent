@@ -36,6 +36,10 @@ move, trim, split, delete, ripple, transform, or arbitrary clipInfo fields.
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.
 
+`rough-cut-approval.schema.json` is the separate M21 review record. It binds
+one explicit approval to the canonical draft SHA-256 and keeps
+`apply_supported=false`. Approval never changes the deterministic draft.
+
 `audio-report.schema.json` defines the M6 before/after measurements, fixed
 preset parameters, source-preservation flag, derived asset, and target
 validation. It is also independent from the Resolve command protocol.

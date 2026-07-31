@@ -49,6 +49,11 @@ PowerShell або shell-коду.
 проєкт Resolve й не застосовує запропоновані операції. Формат і обмеження
 описано в [rough-cut.md](rough-cut.md).
 
+`approve_rough_cut` локально фіксує явне `confirm_review=true` для одного
+canonical `plan_id`. Окремий approval record прив’язаний до SHA-256 draft і
+має `apply_supported=false`. Tool не викликає Resolve bridge та не застосовує
+запропоновані операції.
+
 `clean_dialogue_audio` приймає allowlisted 16-bit PCM WAV, створює derived WAV
 і before/after report. Інструмент не викликає Resolve bridge та не приймає
 довільних filter graph, команд або коду. Докладніше:
@@ -77,7 +82,8 @@ PowerShell або shell-коду.
 ## Виконання Resolve-запитів
 
 `video_agent_status` повертає кешований стан bridge одразу.
-`create_rough_cut` і `clean_dialogue_audio` також працюють без bridge.
+`create_rough_cut`, `approve_rough_cut` і `clean_dialogue_audio` також працюють
+без bridge.
 Resolve-інструменти ставлять команду в локальну чергу. Поки клієнт очікує
 відповідь:
 

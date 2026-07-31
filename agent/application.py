@@ -21,7 +21,7 @@ from agent.rendering import (
     validate_render_profile,
     verify_render_output,
 )
-from agent.rough_cut import RoughCutPlanner
+from agent.rough_cut import RoughCutPlanner, RoughCutReviewer
 from providers.resolve import ResolveProviderClient
 
 MAX_COMMAND_TIMEOUT_SECONDS = 300.0
@@ -252,6 +252,18 @@ class RoughCutPlanBuilder(Protocol):
         """Create a review-only rough-cut plan."""
 
 
+class RoughCutPlanReviewer(Protocol):
+    """Explicit local approval boundary for one stored rough-cut plan."""
+
+    def approve(
+        self,
+        plan_id: str,
+        *,
+        confirm_review: bool,
+    ) -> dict[str, Any]:
+        """Persist one idempotent approval record."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -273,12 +285,14 @@ class AgentApplication:
         state_loader: Callable[[], dict[str, Any]] = load_bridge_state,
         media_policy: MediaImportPolicy | None = None,
         rough_cut_planner: RoughCutPlanBuilder | None = None,
+        rough_cut_reviewer: RoughCutPlanReviewer | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
         self._state_loader = state_loader
         self._media_policy = media_policy
         self._rough_cut_planner = rough_cut_planner
+        self._rough_cut_reviewer = rough_cut_reviewer
         self._audio_processor = audio_processor
 
     def status(
@@ -791,6 +805,23 @@ class AgentApplication:
             pause_threshold_dbfs=pause_threshold_dbfs,
             min_pause_duration_ms=min_pause_duration_ms,
             preserve_context_ms=preserve_context_ms,
+        )
+
+    def approve_rough_cut(
+        self,
+        plan_id: str,
+        *,
+        confirm_review: bool,
+    ) -> dict[str, Any]:
+        """Record explicit review without applying the plan to Resolve."""
+        reviewer = (
+            RoughCutReviewer()
+            if self._rough_cut_reviewer is None
+            else self._rough_cut_reviewer
+        )
+        return reviewer.approve(
+            plan_id,
+            confirm_review=confirm_review,
         )
 
     def clean_dialogue_audio(
