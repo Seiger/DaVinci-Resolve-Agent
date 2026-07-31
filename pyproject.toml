@@ -47,7 +47,7 @@ version = {attr = "agent.__version__"}
 
 [tool.setuptools.package-data]
 config = ["*.toml"]
-contracts = ["*.json"]
+contracts = ["*.json", "examples/*.json"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

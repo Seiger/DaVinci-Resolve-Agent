@@ -1,0 +1,304 @@
+[
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-ping",
+    "idempotency_key": "example-ping",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "ping",
+    "arguments": {},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-get-bridge-info",
+    "idempotency_key": "example-get-bridge-info",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "get_bridge_info",
+    "arguments": {},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-get-capabilities",
+    "idempotency_key": "example-get-capabilities",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "get_capabilities",
+    "arguments": {},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-get-current-project",
+    "idempotency_key": "example-get-current-project",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "get_current_project",
+    "arguments": {},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-list-timelines",
+    "idempotency_key": "example-list-timelines",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "list_timelines",
+    "arguments": {},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-get-current-timeline",
+    "idempotency_key": "example-get-current-timeline",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "get_current_timeline",
+    "arguments": {},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-list-timeline-items",
+    "idempotency_key": "example-list-timeline-items",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "list_timeline_items",
+    "arguments": {"timeline_id": "timeline-1"},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-list-media-pool-items",
+    "idempotency_key": "example-list-media-pool-items",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "list_media_pool_items",
+    "arguments": {},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-get-workspace-snapshot",
+    "idempotency_key": "example-get-workspace-snapshot",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "get_workspace_snapshot",
+    "arguments": {},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-get-render-environment",
+    "idempotency_key": "example-get-render-environment",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "get_render_environment",
+    "arguments": {},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-get-render-job-status",
+    "idempotency_key": "example-get-render-job-status",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "get_render_job_status",
+    "arguments": {"job_id": "job-1"},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-import-media",
+    "idempotency_key": "example-import-media",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "import_media",
+    "arguments": {"paths": ["media/source.mp4"]},
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-create-timeline",
+    "idempotency_key": "example-create-timeline",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "create_timeline",
+    "arguments": {"name": "Agent Timeline"},
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-duplicate-timeline",
+    "idempotency_key": "example-duplicate-timeline",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "duplicate_timeline",
+    "arguments": {"timeline_id": "timeline-1", "name": "Agent Draft"},
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-set-current-timeline",
+    "idempotency_key": "example-set-current-timeline",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "set_current_timeline",
+    "arguments": {"timeline_id": "timeline-1"},
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-append-clip",
+    "idempotency_key": "example-append-clip",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "append_clip",
+    "arguments": {"timeline_id": "timeline-1", "asset_id": "asset-1"},
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-insert-clip",
+    "idempotency_key": "example-insert-clip",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "insert_clip",
+    "arguments": {
+      "timeline_id": "timeline-1",
+      "asset_id": "asset-1",
+      "source_start_frame": 0,
+      "source_end_frame": 240,
+      "position_frames": 0,
+      "track_type": "video",
+      "track_index": 1
+    },
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-set-clip-enabled",
+    "idempotency_key": "example-set-clip-enabled",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "set_clip_enabled",
+    "arguments": {
+      "timeline_id": "timeline-1",
+      "timeline_item_id": "item-1",
+      "enabled": false
+    },
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-set-clips-linked",
+    "idempotency_key": "example-set-clips-linked",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "set_clips_linked",
+    "arguments": {
+      "timeline_id": "timeline-1",
+      "timeline_item_ids": ["video-1", "audio-1"],
+      "linked": true
+    },
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-set-clip-transform",
+    "idempotency_key": "example-set-clip-transform",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "set_clip_transform",
+    "arguments": {
+      "timeline_id": "timeline-1",
+      "timeline_item_id": "item-1",
+      "position_x": 120.0,
+      "position_y": -40.0,
+      "zoom": 0.75,
+      "rotation_degrees": 0.0,
+      "opacity_percent": 90.0
+    },
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-delete-clip",
+    "idempotency_key": "example-delete-clip",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "delete_clip",
+    "arguments": {
+      "timeline_id": "timeline-1",
+      "timeline_item_id": "item-1",
+      "confirm_delete": true
+    },
+    "safety": {"allow_destructive": true, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-add-marker",
+    "idempotency_key": "example-add-marker",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "add_marker",
+    "arguments": {
+      "timeline_id": "timeline-1",
+      "frame": 120,
+      "color": "Blue",
+      "name": "Review",
+      "note": "Check this section",
+      "duration": 1
+    },
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-prepare-render-job",
+    "idempotency_key": "example-prepare-render-job",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "prepare_render_job",
+    "arguments": {
+      "custom_name": "Agent Export",
+      "profile": "youtube-1080p-h264-v1"
+    },
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-start-render-job",
+    "idempotency_key": "example-start-render-job",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "start_render_job",
+    "arguments": {"job_id": "job-1"},
+    "safety": {"allow_destructive": false, "create_backup": true}
+  }
+]

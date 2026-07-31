@@ -1,0 +1,8 @@
+{
+  "bridge.ping": true,
+  "project.read": true,
+  "timeline.read": true,
+  "timeline.create": "requires_confirmation",
+  "media.import": "unknown",
+  "render.start": "requires_studio"
+}

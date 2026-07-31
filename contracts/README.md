@@ -13,6 +13,17 @@ status/error consistency, and capability reports with Draft 2020-12 semantics.
 No contract permits arbitrary Python, Lua, PowerShell, shell, or Resolve
 expression execution.
 
+M31 adds canonical examples under `contracts/examples/`. `commands.json`
+contains exactly one full envelope for every action currently enumerated by
+`command.schema.json`; tests reject missing, duplicate, or extra actions and
+validate every envelope. `responses.json` covers success and error consistency,
+while `capabilities.json` covers boolean and all symbolic capability values.
+
+Example timestamps, IDs, media paths, and results are illustrative contract
+fixtures. They are packaged for inspection but must not be copied directly to
+the live command queue. Production commands require fresh IDs, current
+timestamps, policy-validated paths, and application-generated safety fields.
+
 M7 adds the empty-argument read-only `get_render_environment` command and the
 strict `prepare_render_job` write command. The latter accepts only
 `custom_name` and requires backup.

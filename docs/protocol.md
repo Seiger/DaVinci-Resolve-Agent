@@ -30,6 +30,25 @@ response and are preserved under `failed/`.
 Response files are retained as local audit evidence. The external client checks
 that the response `command_id` matches the submitted command.
 
+## Canonical examples
+
+M31 packages three inspected fixture catalogs:
+
+- `contracts/examples/commands.json` — one full envelope for each allowlisted
+  action;
+- `contracts/examples/responses.json` — one success and one error response;
+- `contracts/examples/capabilities.json` — boolean, `unknown`,
+  `requires_confirmation`, and `requires_studio` values.
+
+Automated tests compare the command catalog with the schema action enum in
+both directions, validate every fixture, require unique command/idempotency
+IDs, require backup for every write example, and allow the destructive flag
+only for confirmed clip deletion.
+
+These are static protocol examples, not executable queue payloads. Their
+timestamps expire, paths are illustrative, and IDs do not identify live
+Resolve objects. Live commands must be produced by the application service.
+
 M25 also creates one canonical transport audit record under
 `logs/audit/<command-id>.json` before publishing the command. The same file is
 atomically updated to `pending`, then `success`, `error`, or `timeout`.

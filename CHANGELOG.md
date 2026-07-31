@@ -154,3 +154,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M30 canonical manual Resolve integration platform and state matrices.
 - Evidence requirements that separate verified live runs, pending coverage,
   automated CI, stale cached state, and operator-confirmed edition.
+- M31 packaged canonical command, response, and capability examples.
+- Exact automated coverage of every allowlisted action with schema-validated
+  envelopes and safety invariants.

@@ -668,6 +668,24 @@ Resolve edition may be recorded as operator-confirmed when the documented API
 does not report it, but that provenance must remain explicit. Evidence excludes
 credentials, private media paths, raw configuration, and unsanitized bundles.
 
+## M31 canonical protocol examples
+
+```text
+command.schema.json action enum
+ └─ exact set equality with contracts/examples/commands.json
+     ├─ validate each full envelope
+     ├─ unique command and idempotency IDs
+     ├─ backup=true for write actions
+     └─ destructive=true only for confirmed delete
+
+response/capability examples
+ └─ validate success, error, boolean, and symbolic states
+```
+
+Examples ship as package data for documentation and downstream contract tests.
+They remain inert fixtures: no adapter reads them as runtime commands, and no
+example permits arbitrary execution or bypasses the application service.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

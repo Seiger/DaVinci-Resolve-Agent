@@ -1,0 +1,27 @@
+[
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-ping",
+    "status": "success",
+    "started_at": "2026-07-30T12:00:01Z",
+    "finished_at": "2026-07-30T12:00:01Z",
+    "result": {"message": "pong"},
+    "error": null,
+    "warnings": []
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-unsupported-action",
+    "status": "error",
+    "started_at": "2026-07-30T12:00:01Z",
+    "finished_at": "2026-07-30T12:00:01Z",
+    "result": null,
+    "error": {
+      "code": "UNSUPPORTED_CAPABILITY",
+      "message": "The operation is unavailable in the current Resolve context.",
+      "details": {"action": "example_action"},
+      "retryable": false
+    },
+    "warnings": []
+  }
+]

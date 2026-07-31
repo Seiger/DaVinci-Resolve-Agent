@@ -4,8 +4,8 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M30: manual integration evidence
-matrix**. Він установлює
+Проєкт перебуває на етапі **Milestone M31: canonical protocol examples**. Він
+установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -194,6 +194,12 @@ Live Resolve compatibility ведеться окремою platform/state мат
 21.0.3.7 з відкритим проєктом та timeline. Windows 11, Studio, project absent
 і timeline absent не видаються за перевірені та залишаються `pending`.
 Деталі: [ручне інтеграційне тестування](docs/manual-integration-testing.md).
+
+Кожна з 24 allowlisted Resolve actions має рівно один повний command example,
+який автоматично валідовується канонічною schema. Окремі fixtures покривають
+success/error responses і всі capability value kinds. Статичні приклади
+призначені для документації та тестів — їх не можна напряму ставити у live
+чергу. Деталі: [протокол](docs/protocol.md) і [contracts](contracts/README.md).
 
 Коди завершення CLI:
 
