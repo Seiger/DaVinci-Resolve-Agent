@@ -42,7 +42,7 @@ def test_codex_mcp_config_is_portable_and_safe_by_default() -> None:
 
 def test_codex_mcp_config_starts_the_installed_stdio_server() -> None:
     server = _load_server_config()
-    executable = (CODEX_DIRECTORY / server["command"]).resolve()
+    executable = (REPOSITORY_ROOT / server["command"]).resolve()
     assert executable.is_file()
 
     async def initialize_server() -> set[str]:

@@ -84,6 +84,9 @@ media paths, повні command arguments або diagnostics bundles без по
 
 - Resolve 21 Free 21.0.3.7, Windows 10 build 19045, Python 3.12.10,
   project open, timeline present: `verified`;
+- Codex project-scoped MCP → `video_agent_status` →
+  `resolve_get_project(timeout_seconds=120)` → one-shot ResolveBridge → live
+  project readback: `verified`;
 - Python 3.10–3.12 package compatibility: автоматизовано в Windows CI;
 - Windows 11 live Resolve: `pending`;
 - Resolve 21 Studio: `pending`;
@@ -91,3 +94,20 @@ media paths, повні command arguments або diagnostics bundles без по
 
 Новий рядок можна перевести у `verified` лише після фактичного live-запуску з
 evidence за цим контрактом.
+
+### M33 Codex MCP acceptance evidence
+
+- UTC heartbeat: `2026-07-31T14:05:14.819536Z`;
+- platform: Windows 10 build 19045, Python 3.12.10;
+- Resolve: DaVinci Resolve 21.0.3.7 Free, edition operator-confirmed;
+- versions: agent 0.1.0, bridge 0.1.0, protocol 1.0;
+- initial state: project open, current timeline present;
+- MCP server/tool: `davinci-resolve-agent.resolve_get_project`,
+  `timeout_seconds=120`, status `completed`;
+- sanitized readback: project name `DaVinci Agent M4 Test`;
+- safety: read-only operation, no backup and no project mutation expected;
+- result: `verified` for the full
+  `Codex → MCP → AgentApplication → filesystem transport → ResolveBridge → Resolve`
+  path;
+- limitation: ResolveBridge was started once from the Resolve menu while the
+  MCP tool waited; background bridge startup was not tested or claimed.

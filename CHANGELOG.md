@@ -13,6 +13,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   and a live end-to-end acceptance procedure.
 - Automated validation that the Codex configuration starts the installed STDIO
   server and exposes representative status, Resolve, and render tools.
+- Live Codex MCP verification of cached bridge status and current Resolve
+  project readback through the one-shot internal bridge.
 - M0 repository foundation.
 - Python package skeleton and version CLI.
 - Windows installation, verification, and uninstallation scripts.

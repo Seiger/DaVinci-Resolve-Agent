@@ -62,3 +62,12 @@ def test_manual_matrix_has_sanitized_evidence_contract() -> None:
     assert "media paths" in matrix
     assert r"C:\Users" not in matrix
     assert "G:\\" not in matrix
+
+
+def test_manual_matrix_records_codex_mcp_acceptance() -> None:
+    matrix = _matrix_text()
+
+    assert "M33 Codex MCP acceptance evidence" in matrix
+    assert "davinci-resolve-agent.resolve_get_project" in matrix
+    assert "status `completed`" in matrix
+    assert "background bridge startup was not tested or claimed" in matrix

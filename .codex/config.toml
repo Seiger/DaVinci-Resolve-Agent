@@ -1,5 +1,5 @@
 [mcp_servers.davinci-resolve-agent]
-command = "../.venv/Scripts/davinci-agent-mcp.exe"
+command = ".venv/Scripts/davinci-agent-mcp.exe"
 startup_timeout_sec = 20
 tool_timeout_sec = 330
 default_tools_approval_mode = "writes"
