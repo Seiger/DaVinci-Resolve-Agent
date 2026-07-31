@@ -58,6 +58,7 @@
         "append_clip",
         "insert_clip",
         "set_clip_enabled",
+        "set_clips_linked",
         "set_clip_transform",
         "delete_clip",
         "add_marker",
@@ -250,6 +251,48 @@
                 "maxLength": 128
               },
               "enabled": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "set_clips_linked"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id",
+              "timeline_item_ids",
+              "linked"
+            ],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "timeline_item_ids": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 16,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "linked": {
                 "type": "boolean"
               }
             }
@@ -629,6 +672,7 @@
               "append_clip",
               "insert_clip",
               "set_clip_enabled",
+              "set_clips_linked",
               "set_clip_transform",
               "delete_clip",
               "add_marker",

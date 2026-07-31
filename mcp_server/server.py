@@ -231,6 +231,24 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def resolve_set_clips_linked(
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        linked: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Link or unlink 2 to 16 timeline items after exporting a backup."""
+        return await asyncio.to_thread(
+            service.resolve_set_clips_linked,
+            timeline_id,
+            timeline_item_ids,
+            linked,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def resolve_set_clip_transform(
         timeline_id: str,
         timeline_item_id: str,

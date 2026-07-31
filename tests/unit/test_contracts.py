@@ -205,6 +205,29 @@ def test_set_clip_enabled_requires_ids_boolean_and_backup() -> None:
         validate_contract("command", command)
 
 
+def test_set_clips_linked_requires_unique_bounded_ids_and_backup() -> None:
+    command = _valid_command()
+    command["action"] = "set_clips_linked"
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "timeline_item_ids": ["video-1", "audio-1"],
+        "linked": True,
+    }
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "timeline_item_ids": ["video-1", "video-1"],
+        "linked": True,
+    }
+    with pytest.raises(ContractValidationError, match="timeline_item_ids"):
+        validate_contract("command", command)
+
+
 def test_set_clip_transform_requires_allowlisted_bounded_values() -> None:
     command = _valid_command()
     command["action"] = "set_clip_transform"

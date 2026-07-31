@@ -51,6 +51,7 @@ class FakeTimelineItem:
         self._track_type = track_type
         self._track_index = track_index
         self._enabled = True
+        self._linked_items: list[FakeTimelineItem] = []
         self._properties: dict[str, bool | float] = {
             "Pan": 0.0,
             "Tilt": 0.0,
@@ -94,6 +95,9 @@ class FakeTimelineItem:
 
     def GetClipEnabled(self) -> bool:
         return self._enabled
+
+    def GetLinkedItems(self) -> list[FakeTimelineItem]:
+        return self._linked_items
 
     def SetProperty(self, properties: dict[str, bool | float]) -> bool:
         self._properties.update(properties)
@@ -179,6 +183,25 @@ class FakeTimeline:
         if len(timeline_items) != 1 or timeline_items[0] not in self.items:
             return False
         self.items.remove(timeline_items[0])
+        return True
+
+    def SetClipsLinked(
+        self,
+        timeline_items: list[FakeTimelineItem],
+        linked: bool,
+    ) -> bool:
+        selected = set(timeline_items)
+        for item in timeline_items:
+            existing = [
+                linked_item
+                for linked_item in item._linked_items
+                if linked_item not in selected
+            ]
+            item._linked_items = (
+                existing + [peer for peer in timeline_items if peer is not item]
+                if linked
+                else existing
+            )
         return True
 
     def AddMarker(
@@ -725,6 +748,69 @@ def test_clip_enabled_state_is_backed_up_read_back_and_replay_safe(
         "Returned the stored idempotent result."
     ]
     assert state["capabilities"]["clip.enable"] is True
+
+
+def test_clip_links_are_backed_up_read_back_and_replay_safe(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M19 Links")
+    resolve.project.SetCurrentTimeline(timeline)
+    video = FakeTimelineItem("video-1", "source.mkv", track_type="video")
+    audio = FakeTimelineItem("audio-1", "source.mkv", track_type="audio")
+    timeline.items.extend([video, audio])
+    state = collect_bridge_state(resolve)
+    arguments = {
+        "timeline_id": timeline.GetUniqueId(),
+        "timeline_item_ids": ["video-1", "audio-1"],
+        "linked": True,
+    }
+    first = _command(
+        "link-first",
+        "set_clips_linked",
+        arguments,
+        idempotency_key="stable-link",
+    )
+    replay = _command(
+        "link-replay",
+        "set_clips_linked",
+        arguments,
+        idempotency_key="stable-link",
+    )
+    unlink = _command(
+        "unlink",
+        "set_clips_linked",
+        {**arguments, "linked": False},
+        idempotency_key="stable-unlink",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert first_response["result"]["linked"] is True
+    assert first_response["result"]["items"][0]["linked_item_ids"] == [
+        "audio-1"
+    ]
+    assert first_response["result"]["items"][1]["linked_item_ids"] == [
+        "video-1"
+    ]
+    assert resolve.project_manager.export_count == 1
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
+
+    unlink_response = _run_command(tmp_path, resolve, state, unlink)
+
+    assert unlink_response["status"] == "success"
+    assert unlink_response["result"]["linked"] is False
+    assert all(
+        not item["linked_item_ids"]
+        for item in unlink_response["result"]["items"]
+    )
+    assert resolve.project_manager.export_count == 2
+    assert state["capabilities"]["clip.link"] is True
 
 
 def test_timeline_items_are_discovered_with_bounded_metadata(

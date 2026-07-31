@@ -161,6 +161,22 @@ class StubResolveReader:
             "enabled": enabled,
         }
 
+    def set_clips_linked(
+        self,
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        linked: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "timeline_item_ids": timeline_item_ids,
+            "linked": linked,
+        }
+
     def set_clip_transform(
         self,
         timeline_id: str,
@@ -443,6 +459,12 @@ def test_application_exposes_validated_write_methods() -> None:
         False,
         timeout_seconds=37,
     )
+    linked = application.resolve_set_clips_linked(
+        "timeline-1",
+        ["video-1", "audio-1"],
+        True,
+        timeout_seconds=37.5,
+    )
     transformed = application.resolve_set_clip_transform(
         "timeline-1",
         "item-1",
@@ -485,6 +507,7 @@ def test_application_exposes_validated_write_methods() -> None:
     assert inserted["item"]["track_type"] == "video"
     assert disabled["timeline_item_id"] == "item-1"
     assert disabled["enabled"] is False
+    assert linked["linked"] is True
     assert transformed["transform"]["position_x"] == 320.0
     assert transformed["transform"]["zoom"] == 0.5
     assert deleted["deleted"] is True
@@ -502,6 +525,7 @@ def test_application_exposes_validated_write_methods() -> None:
         30,
         35,
         37,
+        37.5,
         38,
         39,
         40,

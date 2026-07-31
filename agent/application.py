@@ -133,6 +133,17 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Set one timeline item's enabled state."""
 
+    def set_clips_linked(
+        self,
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        linked: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Link or unlink a bounded group of timeline items."""
+
     def set_clip_transform(
         self,
         timeline_id: str,
@@ -507,6 +518,44 @@ class AgentApplication:
             timeline_id,
             timeline_item_id,
             enabled,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_set_clips_linked(
+        self,
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        linked: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Link or unlink 2 to 16 unique timeline items after a backup."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError(
+                "timeline_id must contain 1 to 128 characters."
+            )
+        if (
+            not isinstance(timeline_item_ids, list)
+            or not 2 <= len(timeline_item_ids) <= 16
+            or any(
+                not isinstance(item_id, str)
+                or not item_id
+                or len(item_id) > 128
+                for item_id in timeline_item_ids
+            )
+            or len(set(timeline_item_ids)) != len(timeline_item_ids)
+        ):
+            raise ValueError(
+                "timeline_item_ids must contain 2 to 16 unique bounded IDs."
+            )
+        if not isinstance(linked, bool):
+            raise ValueError("linked must be a boolean.")
+        return self._resolve.set_clips_linked(
+            timeline_id,
+            timeline_item_ids,
+            linked,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

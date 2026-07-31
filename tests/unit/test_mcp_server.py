@@ -146,6 +146,21 @@ class StubResolveReader:
             "enabled": enabled,
         }
 
+    def set_clips_linked(
+        self,
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        linked: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline_id": timeline_id,
+            "timeline_item_ids": timeline_item_ids,
+            "linked": linked,
+        }
+
     def set_clip_transform(
         self,
         timeline_id: str,
@@ -418,6 +433,14 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "enabled": False,
                     },
                 ),
+                "linked": await client.call_tool(
+                    "resolve_set_clips_linked",
+                    {
+                        "timeline_id": "timeline-1",
+                        "timeline_item_ids": ["video-1", "audio-1"],
+                        "linked": True,
+                    },
+                ),
                 "transformed": await client.call_tool(
                     "resolve_set_clip_transform",
                     {
@@ -493,6 +516,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_append_clip",
         "resolve_insert_clip",
         "resolve_set_clip_enabled",
+        "resolve_set_clips_linked",
         "resolve_set_clip_transform",
         "resolve_delete_clip",
         "resolve_add_marker",
@@ -537,6 +561,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "source_end_frame"
     ] == 240
     assert results["disabled"].structured_content["enabled"] is False
+    assert results["linked"].structured_content["linked"] is True
     assert results["transformed"].structured_content["transform"]["zoom"] == 0.5
     assert results["deleted"].structured_content["deleted"] is True
     assert results["marker"].structured_content["color"] == "Green"

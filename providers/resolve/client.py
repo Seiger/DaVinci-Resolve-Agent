@@ -270,6 +270,30 @@ class ResolveProviderClient:
         )
         return self._object_value("set_clip_enabled", result)
 
+    def set_clips_linked(
+        self,
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        linked: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Link or unlink a bounded TimelineItem group after a backup."""
+        result = self._client.request(
+            provider="resolve",
+            action="set_clips_linked",
+            arguments={
+                "timeline_id": timeline_id,
+                "timeline_item_ids": timeline_item_ids,
+                "linked": linked,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("set_clips_linked", result)
+
     def set_clip_transform(
         self,
         timeline_id: str,

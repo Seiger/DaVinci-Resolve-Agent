@@ -43,6 +43,7 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "resolve_append_clip",
         "resolve_insert_clip",
         "resolve_set_clip_enabled",
+        "resolve_set_clips_linked",
         "resolve_set_clip_transform",
         "resolve_delete_clip",
         "resolve_add_marker",

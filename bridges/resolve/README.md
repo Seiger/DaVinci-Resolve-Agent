@@ -41,3 +41,9 @@ inside one queued command. It reduces full diagnostics to one menu invocation
 without exposing arbitrary batches. Automatic external startup is not claimed
 for Resolve 21 Free because the locally installed Resolve documentation
 identifies the external Scripting API as a Resolve Studio facility.
+
+M19 uses documented `Timeline.SetClipsLinked` and
+`TimelineItem.GetLinkedItems` for an explicitly addressed group of 2 to 16
+video/audio items. Every selected track must be unlocked, the project is
+backed up before mutation, and the requested pairwise link state is read back
+before success is reported.

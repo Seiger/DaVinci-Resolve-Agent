@@ -47,6 +47,7 @@ ALLOWED_ACTIONS = {
     "append_clip",
     "insert_clip",
     "set_clip_enabled",
+    "set_clips_linked",
     "set_clip_transform",
     "delete_clip",
     "add_marker",
@@ -60,6 +61,7 @@ WRITE_ACTIONS = {
     "append_clip",
     "insert_clip",
     "set_clip_enabled",
+    "set_clips_linked",
     "set_clip_transform",
     "delete_clip",
     "add_marker",
@@ -76,6 +78,7 @@ CAPABILITY_BY_ACTION = {
     "append_clip": "clip.insert",
     "insert_clip": "clip.range_insert",
     "set_clip_enabled": "clip.enable",
+    "set_clips_linked": "clip.link",
     "set_clip_transform": "clip.transform",
     "delete_clip": "clip.delete",
     "add_marker": "marker.create",
@@ -259,6 +262,7 @@ def collect_bridge_state(
         "clip.read": "unknown",
         "clip.range_insert": "unknown",
         "clip.enable": "unknown",
+        "clip.link": "unknown",
         "clip.transform": "unknown",
         "clip.delete": "unknown",
         "marker.create": "unknown",
@@ -484,6 +488,42 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
                 )
         if not isinstance(arguments["enabled"], bool):
             raise ValueError("enabled must be a boolean.")
+        return
+    if action == "set_clips_linked":
+        if set(arguments) != {
+            "timeline_id",
+            "timeline_item_ids",
+            "linked",
+        }:
+            raise ValueError(
+                "set_clips_linked fields do not match the contract."
+            )
+        timeline_id = arguments["timeline_id"]
+        item_ids = arguments["timeline_item_ids"]
+        if (
+            not isinstance(timeline_id, str)
+            or not timeline_id
+            or len(timeline_id) > 128
+        ):
+            raise ValueError(
+                "timeline_id must contain 1 to 128 characters."
+            )
+        if (
+            not isinstance(item_ids, list)
+            or not 2 <= len(item_ids) <= 16
+            or any(
+                not isinstance(item_id, str)
+                or not item_id
+                or len(item_id) > 128
+                for item_id in item_ids
+            )
+            or len(set(item_ids)) != len(item_ids)
+        ):
+            raise ValueError(
+                "timeline_item_ids must contain 2 to 16 unique bounded IDs."
+            )
+        if not isinstance(arguments["linked"], bool):
+            raise ValueError("linked must be a boolean.")
         return
     if action == "set_clip_transform":
         required = {"timeline_id", "timeline_item_id"}
@@ -1415,6 +1455,32 @@ def _find_timeline_item(timeline: Any, timeline_item_id: str) -> Any:
     )
 
 
+def _linked_timeline_item_ids(item: Any) -> list[str]:
+    """Return validated canonical IDs from documented link-state readback."""
+    linked_items = item.GetLinkedItems()
+    if not isinstance(linked_items, (list, tuple)):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "TimelineItem.GetLinkedItems() returned an invalid value.",
+        )
+    linked_ids: list[str] = []
+    for linked_item in linked_items:
+        get_unique_id = getattr(linked_item, "GetUniqueId", None)
+        if not callable(get_unique_id):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "A linked TimelineItem cannot report its unique ID.",
+            )
+        linked_id = str(get_unique_id())
+        if not linked_id:
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "A linked TimelineItem returned an empty unique ID.",
+            )
+        linked_ids.append(linked_id)
+    return sorted(set(linked_ids))
+
+
 def _timeline_item_exists(timeline: Any, timeline_item_id: str) -> bool:
     try:
         _find_timeline_item(timeline, timeline_item_id)
@@ -1711,6 +1777,7 @@ def _execute_write_command(
         "append_clip",
         "insert_clip",
         "set_clip_enabled",
+        "set_clips_linked",
         "set_clip_transform",
         "delete_clip",
         "add_marker",
@@ -1830,6 +1897,74 @@ def _execute_write_command(
                 raise BridgeOperationError(
                     "INVALID_RESOLVE_RESPONSE",
                     "TimelineItem.GetClipEnabled() returned an invalid value.",
+                )
+        elif action == "set_clips_linked":
+            set_linked = getattr(timeline, "SetClipsLinked", None)
+            get_locked = getattr(timeline, "GetIsTrackLocked", None)
+            missing_timeline_methods = [
+                name
+                for name, method in (
+                    ("SetClipsLinked", set_linked),
+                    ("GetIsTrackLocked", get_locked),
+                )
+                if not callable(method)
+            ]
+            if missing_timeline_methods:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot safely change clip links.",
+                    details={"missing_methods": missing_timeline_methods},
+                )
+            items = [
+                _find_timeline_item(timeline, item_id)
+                for item_id in arguments["timeline_item_ids"]
+            ]
+            item_tracks: list[tuple[str, int]] = []
+            previous_links: dict[str, list[str]] = {}
+            for item in items:
+                missing_item_methods = [
+                    name
+                    for name in (
+                        "GetUniqueId",
+                        "GetName",
+                        "GetTrackTypeAndIndex",
+                        "GetLinkedItems",
+                    )
+                    if not callable(getattr(item, name, None))
+                ]
+                if missing_item_methods:
+                    raise BridgeOperationError(
+                        "UNSUPPORTED_CAPABILITY",
+                        "A timeline item cannot report its link state.",
+                        details={"missing_methods": missing_item_methods},
+                    )
+                actual_track = item.GetTrackTypeAndIndex()
+                if (
+                    not isinstance(actual_track, (list, tuple))
+                    or len(actual_track) != 2
+                    or actual_track[0] not in {"video", "audio"}
+                    or not isinstance(actual_track[1], int)
+                    or isinstance(actual_track[1], bool)
+                ):
+                    raise BridgeOperationError(
+                        "INVALID_RESOLVE_RESPONSE",
+                        "TimelineItem track readback is invalid.",
+                    )
+                track = (str(actual_track[0]), int(actual_track[1]))
+                get_locked_call = cast(Callable[..., Any], get_locked)
+                if get_locked_call(track[0], track[1]) is True:
+                    raise BridgeOperationError(
+                        "TIMELINE_TRACK_LOCKED",
+                        "A requested timeline item track is locked.",
+                        details={
+                            "timeline_item_id": str(item.GetUniqueId()),
+                            "track_type": track[0],
+                            "track_index": track[1],
+                        },
+                    )
+                item_tracks.append(track)
+                previous_links[str(item.GetUniqueId())] = (
+                    _linked_timeline_item_ids(item)
                 )
         elif action == "set_clip_transform":
             item = _find_timeline_item(
@@ -2251,6 +2386,59 @@ def _execute_write_command(
                 "track_index": int(actual_track[1]),
                 "previous_enabled": previous_enabled,
                 "enabled": actual_enabled,
+                "backup_path": backup_path,
+            }
+        elif action == "set_clips_linked":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested timeline.",
+                    retryable=True,
+                )
+            set_linked_call = cast(Callable[..., Any], set_linked)
+            if set_linked_call(items, arguments["linked"]) is not True:
+                raise BridgeOperationError(
+                    "CLIP_LINK_FAILED",
+                    "Resolve did not change the requested clip link state.",
+                    retryable=True,
+                )
+            requested_ids = set(arguments["timeline_item_ids"])
+            readback_items: list[dict[str, Any]] = []
+            for item, track in zip(items, item_tracks, strict=True):
+                item_id = str(item.GetUniqueId())
+                linked_ids = _linked_timeline_item_ids(item)
+                selected_peers = requested_ids - {item_id}
+                linked_selected_peers = selected_peers.intersection(linked_ids)
+                if (
+                    arguments["linked"]
+                    and linked_selected_peers != selected_peers
+                ) or (
+                    not arguments["linked"]
+                    and linked_selected_peers
+                ):
+                    raise BridgeOperationError(
+                        "CLIP_LINK_READBACK_FAILED",
+                        "Resolve did not report the requested clip link state.",
+                        details={
+                            "timeline_item_id": item_id,
+                            "requested_linked": arguments["linked"],
+                            "linked_item_ids": linked_ids,
+                        },
+                    )
+                readback_items.append(
+                    {
+                        "timeline_item_id": item_id,
+                        "name": str(item.GetName()),
+                        "track_type": track[0],
+                        "track_index": track[1],
+                        "previous_linked_item_ids": previous_links[item_id],
+                        "linked_item_ids": linked_ids,
+                    }
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "linked": arguments["linked"],
+                "items": readback_items,
                 "backup_path": backup_path,
             }
         elif action == "set_clip_transform":

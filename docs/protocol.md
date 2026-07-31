@@ -46,6 +46,7 @@ The allowlist additionally contains:
 - `append_clip` with `timeline_id` and `asset_id`;
 - `insert_clip` with IDs, source bounds, timeline-relative position, and track;
 - `set_clip_enabled` with timeline ID, item ID, and boolean enabled state;
+- `set_clips_linked` with timeline ID, bounded unique item IDs, and link state;
 - `set_clip_transform` with timeline/item IDs and a bounded transform subset;
 - `delete_clip` with one timeline item ID and explicit confirmation;
 - `add_marker` with timeline marker fields.
@@ -92,6 +93,12 @@ readback. It does not mutate existing items.
 ID, verifies its track is unlocked, creates a project backup, calls
 `SetClipEnabled(Bool)`, and confirms the exact result with
 `GetClipEnabled()`. It cannot address arbitrary properties or execute code.
+
+`set_clips_linked` resolves 2 to 16 unique video/audio TimelineItems, rejects
+locked tracks, creates a project backup, and invokes documented
+`Timeline.SetClipsLinked([items], Bool)`. It verifies every selected pair
+through `TimelineItem.GetLinkedItems()`. The action cannot infer item IDs,
+operate on a whole track, or represent undocumented move/trim/split behavior.
 
 `set_clip_transform` locates one video TimelineItem by documented unique ID,
 verifies the track is unlocked, and maps provider-neutral position, uniform

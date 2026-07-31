@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M18: single-run workspace snapshot**. Він установлює
+Проєкт перебуває на етапі **Milestone M19: bounded clip linking**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -78,6 +78,11 @@ M18 додає фіксований read-only snapshot поточного worksp
 items, Media Pool і render discovery. Команда не приймає перелік довільних
 дій, не створює backup і не запускає постійний цикл. Це скорочує повну
 діагностику до одного ручного запуску ResolveBridge.
+M19 додає backup-backed link/unlink для групи з 2–16 TimelineItem через
+документовані `SetClipsLinked` і `GetLinkedItems`. Bridge приймає лише
+канонічні IDs, перевіряє lock-state кожної доріжки, фактичний link-state та
+idempotent replay. Переміщення, trim і split не реалізовані, бо відповідних
+документованих TimelineItem API у локальній документації Resolve 21 немає.
 
 ## Вимоги
 
@@ -170,6 +175,7 @@ Read-only інструменти:
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
 - `resolve_set_clip_enabled`;
+- `resolve_set_clips_linked`;
 - `resolve_set_clip_transform`;
 - `resolve_delete_clip`;
 - `resolve_add_marker`.
@@ -227,6 +233,12 @@ timeline-relative `position_frames`, `track_type` (`video` або `audio`) і
 boolean `enabled`. Перед зміною bridge перевіряє існування item і lock-state
 й створює `.drp` backup. Tool не переміщує, не обрізає, не розділяє і не
 видаляє кліп.
+
+`resolve_set_clips_linked` приймає `timeline_id`, від 2 до 16 унікальних
+`timeline_item_ids` і boolean `linked`. Bridge перевіряє наявність кожного
+item, lock-state його video/audio track, створює `.drp` backup і звіряє
+фактичні зв’язки через `GetLinkedItems`. Довільне групування, один item або
+масове редагування всього timeline не підтримуються.
 
 `resolve_set_current_timeline` приймає лише ID наявного timeline. Bridge
 перевіряє його існування, створює `.drp` backup, викликає

@@ -24,6 +24,7 @@ Write-інструменти M4:
 - `resolve_append_clip`;
 - `resolve_insert_clip`;
 - `resolve_set_clip_enabled`;
+- `resolve_set_clips_linked`;
 - `resolve_set_clip_transform`;
 - `resolve_delete_clip`;
 - `resolve_add_marker`.
@@ -169,6 +170,12 @@ raw `GetClipProperty` snapshots, metadata та Resolve object handles не
 обмежено 1000 folders і 10000 items.
 Live discovery у Resolve 21 Free 21.0.3.7 повернув п'ять items у `Master`,
 зокрема source MKV із відомим `asset_id`, і не створив project backup.
+
+`resolve_set_clips_linked` приймає один timeline ID, від 2 до 16 унікальних
+TimelineItem IDs та `linked=true|false`. Інструмент працює лише з явно
+адресованими video/audio items, відхиляє locked tracks, створює backup і
+перевіряє link-state кожного item. Replay з тим самим `idempotency_key` не
+створює повторного backup.
 
 ## Безпечне редагування
 

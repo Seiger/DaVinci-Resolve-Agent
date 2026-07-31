@@ -443,6 +443,28 @@ as part of the DaVinci Resolve Studio scripting package. Since the supported
 target is Resolve 21 Free and direct external import is not available on the
 validated machine, the architecture retains the internal menu script.
 
+## M19 bounded clip linking
+
+```text
+MCP resolve_set_clips_linked(timeline_id, item_ids, linked)
+ └─ validate 2..16 unique canonical IDs
+     └─ resolve every video/audio TimelineItem
+         └─ reject any locked track
+             └─ export project backup
+                 └─ SetClipsLinked(items, linked)
+                     └─ verify each selected pair with GetLinkedItems()
+```
+
+M19 provides explicit synchronization-group control without introducing a
+generic timeline mutation surface. Idempotency receipts prevent duplicate
+backups on same-key replay. Link and unlink are non-destructive, but still
+modify project state and therefore always require a backup.
+
+The local Resolve 21 API does not document direct TimelineItem move, trim, or
+split methods. Those specification surfaces remain intentionally unimplemented
+instead of being simulated through delete-and-reinsert operations that could
+change linking, transitions, effects, or source timing.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

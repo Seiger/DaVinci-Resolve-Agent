@@ -111,3 +111,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   TimelineItem, Media Pool, and render discovery in one bridge command.
 - CLI and MCP snapshot entry points without arbitrary batching, project
   backups, persistent polling, or external Resolve scripting assumptions.
+- M19 backup-backed link/unlink for 2 to 16 explicitly addressed timeline
+  items through documented Resolve link APIs.
+- Per-item track-lock validation, link-state readback, and idempotent replay
+  without exposing undocumented move, trim, or split operations.

@@ -32,6 +32,7 @@ class StubCommandClient:
             "append_clip",
             "insert_clip",
             "set_clip_enabled",
+            "set_clips_linked",
             "set_clip_transform",
             "delete_clip",
             "add_marker",
@@ -141,6 +142,20 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 "previous_enabled": True,
                 "enabled": False,
             },
+            "set_clips_linked": {
+                "timeline_id": "timeline-1",
+                "linked": True,
+                "items": [
+                    {
+                        "timeline_item_id": "video-1",
+                        "linked_item_ids": ["audio-1"],
+                    },
+                    {
+                        "timeline_item_id": "audio-1",
+                        "linked_item_ids": ["video-1"],
+                    },
+                ],
+            },
             "set_clip_transform": {
                 "timeline_id": "timeline-1",
                 "timeline_item_id": "item-1",
@@ -222,6 +237,12 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         False,
         idempotency_key="stable-key",
     )["enabled"] is False
+    assert client.set_clips_linked(
+        "timeline-1",
+        ["video-1", "audio-1"],
+        True,
+        idempotency_key="stable-key",
+    )["linked"] is True
     assert client.set_clip_transform(
         "timeline-1",
         "item-1",
@@ -270,6 +291,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "append_clip",
         "insert_clip",
         "set_clip_enabled",
+        "set_clips_linked",
         "set_clip_transform",
         "delete_clip",
         "add_marker",
