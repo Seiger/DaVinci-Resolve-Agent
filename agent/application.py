@@ -298,6 +298,7 @@ class RoughCutPlanApplier(Protocol):
         target_timeline_name: str,
         *,
         confirm_apply: bool,
+        timeout_seconds: float = 30,
     ) -> dict[str, Any]:
         """Apply the supported plan to the copied timeline."""
 
