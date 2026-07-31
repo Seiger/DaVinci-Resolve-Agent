@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from agent.contracts import ContractValidationError, validate_contract
 from agent.paths import logs_directory
-from transports.filesystem import atomic_write_json
+from transports.filesystem import atomic_write_json_with_retry
 
 WORKFLOW_AUDIT_VERSION = "1.0"
 WORKFLOW_CATEGORIES = {
@@ -149,7 +149,7 @@ class WorkflowAuditLog:
     def _write(path: Path, payload: dict[str, Any]) -> None:
         try:
             validate_contract("workflow-audit-record", payload)
-            atomic_write_json(path, payload)
+            atomic_write_json_with_retry(path, payload)
         except (OSError, ContractValidationError) as error:
             raise WorkflowAuditError(
                 f"Workflow audit record could not be written: {error}"

@@ -139,3 +139,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M26 application-level audit for seven local rough-cut and audio operations.
 - Atomic workflow lifecycle records with fixed error classification and no
   arguments, artifact IDs, paths, results, contents, or exception messages.
+- M27 GitHub Actions Windows test matrix for Python 3.10, 3.11, and 3.12.
+- Read-only CI quality checks for Ruff, mypy, installed CLI, and installer
+  PowerShell syntax without Resolve, secrets, deployment, commit, or push.
+- Bounded retry for transient Windows `PermissionError` during atomic audit
+  replacement and simulated command/response publication.

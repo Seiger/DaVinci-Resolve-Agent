@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -86,6 +87,29 @@ def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
         output.flush()
         os.fsync(output.fileno())
     temporary_path.replace(path)
+
+
+def atomic_write_json_with_retry(
+    path: Path,
+    payload: dict[str, Any],
+    *,
+    attempts: int = 3,
+    retry_delay_seconds: float = 0.01,
+) -> None:
+    """Retry transient Windows access denial during atomic replacement."""
+    if attempts < 1:
+        raise ValueError("attempts must be greater than zero.")
+    if retry_delay_seconds < 0:
+        raise ValueError("retry_delay_seconds must not be negative.")
+
+    for attempt in range(attempts):
+        try:
+            atomic_write_json(path, payload)
+            return
+        except PermissionError:
+            if attempt + 1 == attempts:
+                raise
+            time.sleep(retry_delay_seconds)
 
 
 def read_json_object(path: Path) -> dict[str, Any]:

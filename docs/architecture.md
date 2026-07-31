@@ -593,6 +593,25 @@ artifact validation, processing, or inspection and records no arguments,
 artifact IDs, paths, results, or exception messages. Invalid operation names
 cannot invoke the callback.
 
+## M27 Windows CI matrix
+
+```text
+GitHub Actions / windows-latest
+ ├─ Python 3.10 → editable install → pytest → CLI version
+ ├─ Python 3.11 → editable install → pytest → CLI version
+ ├─ Python 3.12 → editable install → pytest → CLI version
+ └─ Python 3.12 quality
+     ├─ Ruff
+     ├─ mypy
+     └─ installer PowerShell syntax parse
+```
+
+CI validates the provider-neutral package and bridge simulation only. Live
+Resolve integration remains manual because hosted runners do not provide
+Resolve, a project, or its internal scripting context. Workflow permissions
+are read-only, checkout credentials are not persisted, and there are no
+secrets, deployment, commit, push, or external scripting steps.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from agent.contracts import ContractValidationError, validate_contract
 from agent.paths import logs_directory
-from transports.filesystem import atomic_write_json
+from transports.filesystem import atomic_write_json_with_retry
 
 AUDIT_VERSION = "1.0"
 SAFE_COMMAND_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -232,7 +232,7 @@ class CommandAuditLog:
 def _write_record(path: Path, payload: dict[str, Any]) -> None:
     try:
         validate_contract("audit-record", payload)
-        atomic_write_json(path, payload)
+        atomic_write_json_with_retry(path, payload)
     except (OSError, ContractValidationError) as error:
         raise AuditLogError(
             f"Command audit record could not be written: {error}"

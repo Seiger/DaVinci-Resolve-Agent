@@ -17,7 +17,7 @@ from agent.client import (
 )
 from transports.filesystem import (
     FilesystemLayout,
-    atomic_write_json,
+    atomic_write_json_with_retry,
     read_json_object,
 )
 
@@ -30,7 +30,11 @@ def _respond_to_first_command(
     while time.monotonic() < deadline:
         command_paths = list(layout.commands.glob("*.json"))
         if command_paths:
-            command = read_json_object(command_paths[0])
+            try:
+                command = read_json_object(command_paths[0])
+            except OSError:
+                time.sleep(0.01)
+                continue
             response: dict[str, Any] = {
                     "protocol_version": "1.0",
                     "command_id": command["command_id"],
@@ -56,7 +60,7 @@ def _respond_to_first_command(
                 )
             elif mode == "wrong-command-id":
                 response["command_id"] = "different-command"
-            atomic_write_json(
+            atomic_write_json_with_retry(
                 layout.responses / command_paths[0].name,
                 response,
             )

@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M26: local workflow audit**. Він установлює
+Проєкт перебуває на етапі **Milestone M27: Windows CI matrix**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -170,6 +170,12 @@ payloads чи error messages. Деталі: [audit logging](docs/audit-logging.m
 records зі станом `running`, `success` або `error`. Вони не містять arguments,
 plan/report IDs, file paths, contents, results чи exception messages. Деталі:
 [workflow audit](docs/workflow-audit.md).
+
+GitHub Actions перевіряє повний test suite на Windows із Python 3.10, 3.11 і
+3.12. Окрема quality job запускає Ruff, mypy та read-only syntax parse
+installer PowerShell scripts. Workflow має лише `contents: read` і не виконує
+deploy, commit, push або live Resolve automation. Деталі:
+[безперервна інтеграція](docs/continuous-integration.md).
 
 Коди завершення CLI:
 

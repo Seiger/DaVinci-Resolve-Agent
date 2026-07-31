@@ -19,10 +19,15 @@ Run all checks before proposing a change:
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\python.exe -m ruff check .
 .\.venv\Scripts\python.exe -m mypy .
+.\scripts\check-powershell-syntax.ps1
 .\.venv\Scripts\davinci-agent.exe --version
 ```
+
+GitHub Actions повторює pytest на Windows із Python 3.10, 3.11 і 3.12.
+Ruff, mypy та PowerShell syntax перевіряються в окремій Python 3.12 job.
+Resolve integration залишається manual-only. Докладніше:
+[docs/continuous-integration.md](docs/continuous-integration.md).
 
 Do not add Resolve API behavior without verifying it in the supported Resolve
 edition and documenting the evidence. Never expose arbitrary Python, Lua,
 PowerShell, or shell execution through a transport or public interface.
-

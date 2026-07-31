@@ -21,6 +21,10 @@ Record створюється атомарно до публікації command
 після завершення очікування той самий файл атомарно замінюється новим
 валідованим станом.
 
+Atomic audit replacement повторюється максимум тричі з інтервалом 10 ms лише
+для transient Windows `PermissionError`. Інші filesystem помилки не
+маскуються й не повторюються автоматично.
+
 Audit містить лише:
 
 - command ID, provider та allowlisted action;
