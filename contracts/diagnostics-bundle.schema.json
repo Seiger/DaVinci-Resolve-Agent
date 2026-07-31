@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/diagnostics-bundle.schema.json",
+  "title": "DaVinci Resolve Agent local diagnostics bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_version",
+    "generated_at",
+    "agent",
+    "config_source",
+    "config",
+    "bridge",
+    "failed_commands",
+    "logs",
+    "warnings"
+  ],
+  "properties": {
+    "bundle_version": {
+      "const": "1.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "python_version",
+        "platform",
+        "platform_release",
+        "architecture"
+      ],
+      "properties": {
+        "version": {"type": "string", "minLength": 1},
+        "python_version": {"type": "string", "minLength": 1},
+        "platform": {"type": "string", "minLength": 1},
+        "platform_release": {"type": "string", "minLength": 1},
+        "architecture": {"type": "string", "minLength": 1}
+      }
+    },
+    "config_source": {
+      "enum": ["local", "packaged_default"]
+    },
+    "config": {
+      "type": "object"
+    },
+    "bridge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "status",
+        "bridge_version",
+        "protocol_version",
+        "resolve_version",
+        "last_heartbeat",
+        "capabilities"
+      ],
+      "properties": {
+        "available": {"type": "boolean"},
+        "status": {"type": ["string", "null"]},
+        "bridge_version": {"type": ["string", "null"]},
+        "protocol_version": {"type": ["string", "null"]},
+        "resolve_version": {"type": ["string", "null"]},
+        "last_heartbeat": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "capabilities": {"type": "object"}
+      }
+    },
+    "failed_commands": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file_name",
+          "modified_at",
+          "size_bytes",
+          "command_id",
+          "provider",
+          "action",
+          "created_at",
+          "allow_destructive",
+          "create_backup"
+        ],
+        "properties": {
+          "file_name": {"type": "string", "minLength": 1},
+          "modified_at": {"type": "string", "format": "date-time"},
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "command_id": {"type": ["string", "null"]},
+          "provider": {"type": ["string", "null"]},
+          "action": {"type": ["string", "null"]},
+          "created_at": {
+            "type": ["string", "null"]
+          },
+          "allow_destructive": {"type": "boolean"},
+          "create_backup": {"type": "boolean"}
+        }
+      }
+    },
+    "logs": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file_name",
+          "modified_at",
+          "size_bytes",
+          "truncated",
+          "lines"
+        ],
+        "properties": {
+          "file_name": {"type": "string", "minLength": 1},
+          "modified_at": {"type": "string", "format": "date-time"},
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "truncated": {"type": "boolean"},
+          "lines": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

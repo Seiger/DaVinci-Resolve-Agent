@@ -58,6 +58,7 @@ try {
         $paths.BackupsRoot,
         $paths.PlansRoot,
         $paths.AudioReportsRoot,
+        $paths.DiagnosticsRoot,
         $paths.ProcessedAudioRoot,
         $paths.RenderOutputRoot,
         $paths.LogsRoot,

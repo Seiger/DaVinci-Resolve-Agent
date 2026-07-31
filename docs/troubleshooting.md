@@ -1,5 +1,16 @@
 # Troubleshooting
 
+## Local diagnostics bundle
+
+Collect bounded local diagnostics without launching ResolveBridge:
+
+```powershell
+.\.venv\Scripts\davinci-agent.exe diagnostics
+```
+
+Review the generated JSON before sharing it. The collected fields and
+redaction limits are documented in [diagnostics.md](diagnostics.md).
+
 ## ResolveBridge is absent from the Workspace menu
 
 Resolve scans menu scripts at startup. Confirm installation:

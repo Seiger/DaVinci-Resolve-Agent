@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M23: audio report inspection**. Він установлює
+Проєкт перебуває на етапі **Milestone M24: local diagnostics bundle**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -145,12 +145,21 @@ cd DaVinci-Resolve-Agent
 .\.venv\Scripts\davinci-agent.exe resolve timeline
 .\.venv\Scripts\davinci-agent.exe resolve snapshot --json
 .\.venv\Scripts\davinci-agent.exe resolve render-options
+.\.venv\Scripts\davinci-agent.exe diagnostics
 ```
 
-`status` читає останній збережений heartbeat. Інші команди ставлять перевірений
+`status` читає останній збережений heartbeat. `diagnostics` локально створює
+sanitized JSON із версіями, конфігурацією, cached capabilities, metadata
+failed commands і bounded log excerpts. Ці дві команди не потребують запуску
+ResolveBridge. Інші команди ставлять перевірений
 запит у чергу та типово очікують до 30 секунд. Поки команда очікує, запусти
 `Workspace → Scripts → Edit → ResolveBridge`, щоб одноразовий bridge її
 опрацював. Час очікування можна змінити через `--timeout-seconds`.
+
+Diagnostics bundle зберігається у фіксованій runtime-директорії, не містить
+медіа, backups, raw commands/responses або відомих secret-полів. Перед
+передаванням третій стороні його слід переглянути вручну. Деталі:
+[локальна діагностика](docs/diagnostics.md).
 
 Коди завершення CLI:
 

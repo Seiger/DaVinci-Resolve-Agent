@@ -97,6 +97,7 @@ if (Test-Path -LiteralPath $paths.RuntimeRoot) {
         $preservedPaths = @()
         if ($keepLogs) {
             $preservedPaths += $paths.LogsRoot
+            $preservedPaths += $paths.DiagnosticsRoot
         }
         if ($PreserveBackups) {
             $preservedPaths += $paths.BackupsRoot
@@ -112,6 +113,7 @@ if (Test-Path -LiteralPath $paths.RuntimeRoot) {
             Remove-Item -Recurse -Force
         if ($keepLogs) {
             Write-Host "Preserved runtime logs: $($paths.LogsRoot)"
+            Write-Host "Preserved diagnostics: $($paths.DiagnosticsRoot)"
         }
         if ($PreserveBackups) {
             Write-Host "Preserved project backups: $($paths.BackupsRoot)"

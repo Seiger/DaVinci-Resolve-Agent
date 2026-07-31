@@ -1,6 +1,7 @@
 """CLI tests."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -85,3 +86,26 @@ def test_workspace_snapshot_command_prints_summary(
         "Media Pool items: 1",
         "Render formats: 1",
     ]
+
+
+def test_diagnostics_command_prints_machine_readable_path(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / "diagnostics.json"
+
+    class StubDiagnosticsBuilder:
+        def create(self) -> Path:
+            return output_path
+
+    monkeypatch.setattr(
+        agent.cli,
+        "DiagnosticsBundleBuilder",
+        StubDiagnosticsBuilder,
+    )
+
+    assert main(["diagnostics", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "bundle_path": str(output_path)
+    }

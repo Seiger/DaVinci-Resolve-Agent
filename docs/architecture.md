@@ -536,6 +536,25 @@ the audio processor, queue a bridge command, or modify an artifact. Invalid
 canonical reports fail explicitly; unrelated non-canonical JSON files are
 ignored by listing.
 
+## M24 local diagnostics bundle
+
+```text
+CLI davinci-agent diagnostics
+ └─ load packaged or local config
+     ├─ recursively redact known secret-bearing keys
+     ├─ replace user-directory prefixes with environment placeholders
+     ├─ summarize cached bridge versions and capabilities
+     ├─ collect metadata for at most 20 recent failed commands
+     └─ collect bounded sanitized excerpts from at most 5 logs
+         └─ validate and atomically write diagnostics/*.json
+```
+
+The diagnostics service is provider-neutral and never queues a bridge command.
+It accepts no output path and does not include media, render outputs, project
+backups, raw command arguments, responses, or idempotency keys. Symlinked
+runtime files are ignored. Automatic redaction is a safety layer rather than a
+guarantee, so documentation requires human review before sharing a bundle.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

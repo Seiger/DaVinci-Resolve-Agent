@@ -62,6 +62,13 @@ def audio_reports_directory(
     return runtime_directory(environment) / "audio-reports"
 
 
+def diagnostics_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return the managed local diagnostics output directory."""
+    return runtime_directory(environment) / "diagnostics"
+
+
 def processed_audio_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

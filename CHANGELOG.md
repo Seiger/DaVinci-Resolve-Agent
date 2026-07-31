@@ -129,3 +129,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M23 read-only audio report listing and canonical report-detail retrieval.
 - Bounded path-free audio summaries with contract validation and no media
   processing or Resolve bridge call.
+- M24 bounded local diagnostics bundles with sanitized configuration, cached
+  capabilities, failed-command metadata, log excerpts, and version data.
+- Fixed managed diagnostics output with no media, backups, raw queue payloads,
+  arbitrary output paths, or Resolve bridge invocation.

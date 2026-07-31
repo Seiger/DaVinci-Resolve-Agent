@@ -94,6 +94,7 @@ function Get-AgentPaths {
         BackupsRoot = Join-Path $runtimeRoot "backups"
         PlansRoot = Join-Path $runtimeRoot "plans"
         AudioReportsRoot = Join-Path $runtimeRoot "audio-reports"
+        DiagnosticsRoot = Join-Path $runtimeRoot "diagnostics"
         ProcessedAudioRoot = Join-Path (
             Join-Path (
                 Join-Path $env:USERPROFILE "Videos"

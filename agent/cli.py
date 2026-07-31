@@ -17,6 +17,7 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.client import AgentClientError, CommandTimeoutError
+from agent.diagnostics import DiagnosticsBundleBuilder, DiagnosticsError
 from agent.paths import PathConfigurationError
 from providers.resolve import ResolveProviderClient
 
@@ -78,6 +79,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_request_options(ping_parser)
 
+    diagnostics_parser = subparsers.add_parser(
+        "diagnostics",
+        help="Create a sanitized local diagnostics JSON bundle.",
+    )
+    diagnostics_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Print the machine-readable result.",
+    )
+
     resolve_parser = subparsers.add_parser(
         "resolve",
         help="Send a validated read-only command to ResolveBridge.",
@@ -133,6 +145,15 @@ def _run_ping(*, timeout_seconds: float, json_output: bool) -> int:
         _print_json({"message": result})
     else:
         print(result)
+    return EXIT_SUCCESS
+
+
+def _run_diagnostics(*, json_output: bool) -> int:
+    output_path = DiagnosticsBundleBuilder().create()
+    if json_output:
+        _print_json({"bundle_path": str(output_path)})
+    else:
+        print(f"Diagnostics bundle: {output_path}")
     return EXIT_SUCCESS
 
 
@@ -233,6 +254,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 timeout_seconds=parsed.timeout_seconds,
                 json_output=parsed.json_output,
             )
+        if parsed.command == "diagnostics":
+            return _run_diagnostics(json_output=parsed.json_output)
         if parsed.command == "resolve" and parsed.resolve_command is not None:
             return _run_resolve_request(
                 parsed.resolve_command,
@@ -245,6 +268,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     except (
         AgentClientError,
         BridgeStateError,
+        DiagnosticsError,
         PathConfigurationError,
         ValueError,
     ) as error:

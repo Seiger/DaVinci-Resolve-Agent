@@ -5,6 +5,7 @@ from pathlib import Path, PureWindowsPath
 from agent.paths import (
     audio_reports_directory,
     config_directory,
+    diagnostics_directory,
     plans_directory,
     processed_audio_directory,
     render_output_directory,
@@ -42,6 +43,9 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     assert plans_directory(first_environment) == first_runtime / "plans"
     assert audio_reports_directory(first_environment) == (
         first_runtime / "audio-reports"
+    )
+    assert diagnostics_directory(first_environment) == (
+        first_runtime / "diagnostics"
     )
     assert processed_audio_directory(first_environment) == (
         Path(r"C:\Users\first-user")
