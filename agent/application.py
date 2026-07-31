@@ -26,6 +26,7 @@ from agent.rough_cut import (
     RoughCutPlanner,
     RoughCutReviewer,
 )
+from agent.rough_cut_apply import RoughCutApplier
 from providers.resolve import ResolveProviderClient
 
 MAX_COMMAND_TIMEOUT_SECONDS = 300.0
@@ -279,6 +280,28 @@ class RoughCutPlanInspector(Protocol):
         """Return bounded plan summaries."""
 
 
+class RoughCutPlanApplier(Protocol):
+    """Preview or apply an approved rough-cut plan to a copied timeline."""
+
+    def preview(
+        self,
+        plan_id: str,
+        source_timeline_id: str,
+        target_timeline_name: str,
+    ) -> dict[str, Any]:
+        """Return a write-free apply preview."""
+
+    def apply(
+        self,
+        plan_id: str,
+        source_timeline_id: str,
+        target_timeline_name: str,
+        *,
+        confirm_apply: bool,
+    ) -> dict[str, Any]:
+        """Apply the supported plan to the copied timeline."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -323,6 +346,7 @@ class AgentApplication:
         rough_cut_planner: RoughCutPlanBuilder | None = None,
         rough_cut_reviewer: RoughCutPlanReviewer | None = None,
         rough_cut_inspector: RoughCutPlanInspector | None = None,
+        rough_cut_applier: RoughCutPlanApplier | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -333,6 +357,7 @@ class AgentApplication:
         self._rough_cut_planner = rough_cut_planner
         self._rough_cut_reviewer = rough_cut_reviewer
         self._rough_cut_inspector = rough_cut_inspector
+        self._rough_cut_applier = rough_cut_applier
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -892,6 +917,58 @@ class AgentApplication:
                 if self._rough_cut_inspector is None
                 else self._rough_cut_inspector
             ).list_plans(limit),
+        )
+
+    def preview_rough_cut_apply(
+        self,
+        plan_id: str,
+        source_timeline_id: str,
+        target_timeline_name: str,
+    ) -> dict[str, Any]:
+        """Preview M34 application without sending a Resolve command."""
+        return self._run_local_workflow(
+            "preview_rough_cut_apply",
+            lambda: self._rough_cut_apply_service().preview(
+                plan_id,
+                source_timeline_id,
+                target_timeline_name,
+            ),
+        )
+
+    def apply_rough_cut(
+        self,
+        plan_id: str,
+        source_timeline_id: str,
+        target_timeline_name: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply an approved and fully supported plan only to a timeline copy."""
+        return self._run_local_workflow(
+            "apply_rough_cut",
+            lambda: self._rough_cut_apply_service().apply(
+                plan_id,
+                source_timeline_id,
+                target_timeline_name,
+                confirm_apply=confirm_apply,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _rough_cut_apply_service(self) -> RoughCutPlanApplier:
+        if self._rough_cut_applier is not None:
+            return self._rough_cut_applier
+        return RoughCutApplier(
+            capabilities=lambda: self.status()["bridge"].get("capabilities", {}),
+            duplicate_timeline=lambda source_id, name, key, timeout_seconds: (
+                self.resolve_duplicate_timeline(
+                    source_id,
+                    name,
+                    timeout_seconds=timeout_seconds,
+                    idempotency_key=key,
+                )
+            ),
         )
 
     def clean_dialogue_audio(

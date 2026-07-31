@@ -55,6 +55,13 @@ def plans_directory(environment: Mapping[str, str] | None = None) -> Path:
     return runtime_directory(environment) / "plans"
 
 
+def rough_cut_apply_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for bounded rough-cut apply attempts."""
+    return runtime_directory(environment) / "rough-cut-applies"
+
+
 def audio_reports_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

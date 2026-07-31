@@ -67,6 +67,29 @@ M21 не запускає ResolveBridge, не створює timeline і не в
 operations. Застосування залишається заблокованим, доки немає повного
 документованого API для move/trim/split та окремого безпечного apply milestone.
 
+## M34: preview і контрольоване застосування
+
+M34 додає `preview_rough_cut_apply` та `apply_rough_cut`. Обидва вимагають
+canonical `plan_id`, чинний approval з тим самим SHA-256, ID вихідного timeline
+та нову назву копії. Preview не звертається до Resolve і показує точний список
+операцій та всі непідтверджені capabilities.
+
+Apply потребує `confirm_apply=true`. Він не змінює original timeline: спочатку
+перевіряє кожну capability і кожну proposed operation. Зараз M34 не має
+документованого mapping для жодної операції M5 після копіювання, тому вона
+блокує apply ще до дублювання timeline. Коли mapping з'явиться, першим write
+буде лише документоване дублювання timeline; він уже створює `.drp` backup у
+ResolveBridge.
+Результат зберігається як idempotent apply receipt і також потрапляє до
+workflow audit. Якщо хоча б одна capability має значення не `true`, apply
+повертає `blocked` без backup і без команди до Resolve.
+
+Поточний M5 план вимагає `clip.move` і `clip.trim`, яких bridge ще не
+підтвердив, а також `import_media`, `create_timeline`, `place_media` й
+`remove_pauses`, для яких M34 поки не реалізує mapping. Тому на реальному
+такому плані M34 чесно блокує apply; він не імітує монтаж і не виконує
+непідтверджені Resolve API-виклики.
+
 ## Повторний перегляд планів
 
 M22 додає два read-only інструменти:

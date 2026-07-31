@@ -447,6 +447,38 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             limit,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_rough_cut_apply(
+        plan_id: str,
+        source_timeline_id: str,
+        target_timeline_name: str,
+    ) -> dict[str, Any]:
+        """Show M34 operations and capability blocks without changing Resolve."""
+        return await asyncio.to_thread(
+            service.preview_rough_cut_apply,
+            plan_id,
+            source_timeline_id,
+            target_timeline_name,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def apply_rough_cut(
+        plan_id: str,
+        source_timeline_id: str,
+        target_timeline_name: str,
+        confirm_apply: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply an approved plan only when every required API is verified."""
+        return await asyncio.to_thread(
+            service.apply_rough_cut,
+            plan_id,
+            source_timeline_id,
+            target_timeline_name,
+            confirm_apply=confirm_apply,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
