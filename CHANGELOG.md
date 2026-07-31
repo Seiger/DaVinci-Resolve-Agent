@@ -147,3 +147,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M28 isolated Windows installer lifecycle smoke test.
 - Repeat-install configuration preservation, previous-bridge backup/restore,
   fixed-scope uninstall, and out-of-scope sentinel verification in CI.
+- M29 explicit offline installer verification without a fabricated Resolve
+  heartbeat.
+- Machine-local TOML validation and write/delete permission probes for every
+  installer-managed application directory.

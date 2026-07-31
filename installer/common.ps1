@@ -114,6 +114,46 @@ function Get-AgentPaths {
     }
 }
 
+function Test-DirectoryWriteAccess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LiteralPath
+    )
+
+    if (-not (Test-Path -LiteralPath $LiteralPath -PathType Container)) {
+        throw "Directory does not exist: $LiteralPath"
+    }
+
+    $probePath = Join-Path $LiteralPath (
+        ".davinci-agent-write-probe-{0}.tmp" -f [Guid]::NewGuid()
+    )
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open(
+            $probePath,
+            [System.IO.FileMode]::CreateNew,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::None
+        )
+        $probeBytes = [System.Text.Encoding]::UTF8.GetBytes("write-probe")
+        $stream.Write($probeBytes, 0, $probeBytes.Length)
+    } catch {
+        throw (
+            "Directory is not writable: $LiteralPath. " +
+            $_.Exception.Message
+        )
+    } finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+        if (Test-Path -LiteralPath $probePath -PathType Leaf) {
+            Remove-Item -LiteralPath $probePath -Force
+        }
+    }
+
+    return $true
+}
+
 function Resolve-PreservationChoice {
     param(
         [Parameter(Mandatory = $true)]

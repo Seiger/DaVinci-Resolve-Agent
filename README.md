@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M28: installer lifecycle CI**. Він установлює
+Проєкт перебуває на етапі **Milestone M29: offline installer verification**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -123,10 +123,16 @@ cd DaVinci-Resolve-Agent
 
 Після встановлення:
 
-1. Перезапусти DaVinci Resolve.
-2. Відкрий проєкт.
-3. Запусти `Workspace → Scripts → Edit → ResolveBridge`.
-4. Повернися до PowerShell і виконай:
+1. За потреби виконай offline preflight без запущеного Resolve:
+
+```powershell
+.\installer\verify.ps1 -SkipResolveConnection
+```
+
+2. Перезапусти DaVinci Resolve.
+3. Відкрий проєкт.
+4. Запусти `Workspace → Scripts → Edit → ResolveBridge`.
+5. Повернися до PowerShell і виконай повну перевірку:
 
 ```powershell
 .\installer\verify.ps1
@@ -176,7 +182,9 @@ GitHub Actions перевіряє повний test suite на Windows із Pyth
 installer PowerShell scripts. M28 також запускає install → повторний install →
 uninstall у повністю тимчасовому профілі Windows, перевіряє збереження
 локальної конфігурації, backup/restore попереднього bridge та недоторканність
-стороннього sentinel-файлу. Workflow має лише `contents: read` і не виконує
+стороннього sentinel-файлу. M29 запускає в цій самій sandbox offline
+`verify.ps1`, включно з перевіркою локального TOML і write/delete probes у
+керованих директоріях. Workflow має лише `contents: read` і не виконує
 deploy, commit, push або live Resolve automation. Деталі:
 [безперервна інтеграція](docs/continuous-integration.md).
 

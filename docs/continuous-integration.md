@@ -1,7 +1,8 @@
 # Безперервна інтеграція
 
-M27 додає GitHub Actions workflow `.github/workflows/windows-ci.yml`, а M28 —
-ізольовану перевірку повного installer lifecycle.
+M27 додає GitHub Actions workflow `.github/workflows/windows-ci.yml`, M28 —
+ізольовану перевірку повного installer lifecycle, а M29 — offline verification
+installed state без підробленого Resolve heartbeat.
 
 ## Test matrix
 
@@ -33,6 +34,9 @@ known-folder fallback не міг створити cache у checkout. Усере
 - збереження наявного локального `config.toml`;
 - backup наявного стороннього `ResolveBridge.py`;
 - безпечний повторний запуск installer;
+- `verify.ps1 -SkipResolveConnection`;
+- валідація machine-local TOML;
+- write/delete probe у кожній installer-managed application directory;
 - повний opt-in uninstall;
 - відновлення попереднього bridge;
 - збереження sentinel-файлу поза installer-owned directories.
@@ -47,10 +51,10 @@ Live Resolve 21 Free перевірки залишаються manual-only, то
 GitHub-hosted runner не має Resolve, відкритого проєкту та внутрішнього
 Workspace script context.
 
-Installer lifecycle не запускає `verify.ps1`, бо його heartbeat/capability
-частина за контрактом потребує справжнього Resolve. Smoke-test перевіряє
-відтворюваність файлової інсталяції та видалення, але не заявляє live
-сумісність із Resolve.
+Installer lifecycle запускає лише явний offline-режим `verify.ps1`. Default
+режим продовжує вимагати heartbeat і capability report зі справжнього Resolve.
+CI перевіряє відтворюваність файлової інсталяції, конфігурацію та permissions,
+але не заявляє live сумісність із Resolve.
 
 ## Локальний еквівалент
 

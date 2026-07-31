@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipResolveConnection
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -33,12 +36,14 @@ try {
     }
 
     & $venvPython -c (
-        "import agent, mcp_server; " +
-        "from agent.configuration import load_default_config; " +
-        "load_default_config(); print(f'Package import OK: {agent.__version__}')"
-    )
+        "import sys, agent, mcp_server; " +
+        "from pathlib import Path; " +
+        "from agent.configuration import load_config, load_default_config; " +
+        "load_default_config(); load_config(Path(sys.argv[1])); " +
+        "print(f'Package import OK: {agent.__version__}')"
+    ) $paths.ConfigFile
     if ($LASTEXITCODE -ne 0) {
-        throw "Package import or default configuration validation failed."
+        throw "Package import or configuration validation failed."
     }
 
     & $cli --version
@@ -46,7 +51,7 @@ try {
         throw "davinci-agent --version failed."
     }
 
-    foreach ($directory in @(
+    $requiredDirectories = @(
         $paths.ConfigRoot,
         $paths.RuntimeRoot,
         $paths.CommandsRoot,
@@ -63,7 +68,8 @@ try {
         $paths.RenderOutputRoot,
         $paths.LogsRoot,
         $paths.ResolveScriptsRoot
-    )) {
+    )
+    foreach ($directory in $requiredDirectories) {
         if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
             throw "Required application directory not found: $directory"
         }
@@ -80,6 +86,20 @@ try {
     if ($sourceHash -ne $targetHash) {
         throw "Installed Resolve bridge differs from the repository source."
     }
+
+    foreach ($directory in $requiredDirectories) {
+        Test-DirectoryWriteAccess -LiteralPath $directory | Out-Null
+    }
+    Write-Host "Application directories are writable."
+
+    if ($SkipResolveConnection) {
+        Write-Host (
+            "Offline verification completed successfully. Resolve heartbeat " +
+            "and capabilities were intentionally skipped."
+        )
+        exit 0
+    }
+
     if (-not (Test-Path -LiteralPath $paths.BridgeStateFile -PathType Leaf)) {
         throw (
             "Resolve bridge has not written its state. Restart Resolve, open a " +

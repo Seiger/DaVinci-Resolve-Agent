@@ -75,3 +75,30 @@ def test_installer_lifecycle_script_has_bounded_sandbox() -> None:
     assert "-PreserveConfig $false" in script
     assert "-PreserveLogs $false" in script
     assert "Remove-Item -LiteralPath $sandboxRoot -Recurse -Force" in script
+
+
+def test_installer_lifecycle_runs_offline_verification() -> None:
+    repository_root = Path(__file__).parents[2]
+    lifecycle = (
+        repository_root / "scripts" / "test-installer-lifecycle.ps1"
+    ).read_text(encoding="utf-8")
+    verification = (
+        repository_root / "installer" / "verify.ps1"
+    ).read_text(encoding="utf-8")
+    common = (
+        repository_root / "installer" / "common.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert "-SkipResolveConnection" in lifecycle
+    assert 'Assert-LastExitCode -Operation "Offline installer verification"' in (
+        lifecycle
+    )
+    assert "[switch]$SkipResolveConnection" in verification
+    assert "load_config(Path(sys.argv[1]))" in verification
+    assert "Test-DirectoryWriteAccess" in verification
+    assert "if ($SkipResolveConnection)" in verification
+    assert "& $cli status" in verification
+    assert "'bridge.ping'" in verification
+    assert "function Test-DirectoryWriteAccess" in common
+    assert "[System.IO.FileMode]::CreateNew" in common
+    assert "Remove-Item -LiteralPath $probePath -Force" in common

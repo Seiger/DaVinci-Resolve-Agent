@@ -27,6 +27,8 @@ GitHub Actions повторює pytest на Windows із Python 3.10, 3.11 і 3.
 Ruff, mypy та PowerShell syntax перевіряються в окремій Python 3.12 job.
 Окрема installer job запускає повний lifecycle лише у створеній нею
 тимчасовій копії репозиторію та тимчасових Windows profile directories.
+Вона також виконує `verify.ps1 -SkipResolveConnection`; default verification
+із heartbeat залишається live-only.
 Resolve integration залишається manual-only. Докладніше:
 [docs/continuous-integration.md](docs/continuous-integration.md).
 

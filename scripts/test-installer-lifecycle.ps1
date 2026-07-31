@@ -119,9 +119,13 @@ try {
         "# pre-existing bridge`n",
         [System.Text.UTF8Encoding]::new($false)
     )
+    $defaultConfig = Get-Content -LiteralPath (
+        Join-Path $sandboxRepository "config\default.toml"
+    ) -Raw
+    $seededConfig = "# pre-existing config`n$defaultConfig"
     [System.IO.File]::WriteAllText(
         $configFile,
-        "# pre-existing config`n",
+        $seededConfig,
         [System.Text.UTF8Encoding]::new($false)
     )
 
@@ -145,7 +149,7 @@ try {
     ) -PathType Leaf
 
     $preservedConfig = Get-Content -LiteralPath $configFile -Raw
-    if ($preservedConfig -ne "# pre-existing config`n") {
+    if ($preservedConfig -ne $seededConfig) {
         throw "Installer replaced the pre-existing local configuration."
     }
 
@@ -162,6 +166,15 @@ try {
     if (-not (Test-Path -LiteralPath $bridgeBackup -PathType Leaf)) {
         throw "Installer rerun removed the pre-existing bridge backup."
     }
+
+    $verify = Join-Path $sandboxRepository "installer\verify.ps1"
+    $currentPowerShell = (Get-Process -Id $PID).Path
+    & $currentPowerShell `
+        -NoLogo `
+        -NoProfile `
+        -File $verify `
+        -SkipResolveConnection
+    Assert-LastExitCode -Operation "Offline installer verification"
 
     $uninstall = Join-Path $sandboxRepository "installer\uninstall.ps1"
     & $uninstall `

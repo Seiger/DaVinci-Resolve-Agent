@@ -633,6 +633,24 @@ repository copy, so the developer checkout and profile remain outside their
 scope. It intentionally does not run live heartbeat verification because
 hosted CI has no Resolve internal scripting context.
 
+## M29 offline installer verification
+
+```text
+verify.ps1 -SkipResolveConnection
+ ├─ supported system and venv Python
+ ├─ package and MCP imports
+ ├─ packaged defaults and machine-local TOML
+ ├─ CLI and MCP executables
+ ├─ required directories and bridge hash
+ └─ unique create/write/delete probe per managed directory
+```
+
+Offline verification is an explicit mode, not a successful fake connection.
+The default `verify.ps1` path performs the same local checks and then still
+requires a fresh bridge state, healthy CLI status, and reported ping
+capability. Permission probes use unique names, exclusive creation, and
+mandatory cleanup; they do not inspect or replace user content.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

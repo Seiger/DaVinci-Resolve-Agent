@@ -29,6 +29,17 @@ See [continuous integration](continuous-integration.md).
 
 ## First Resolve health check
 
+Before starting Resolve, the installed local state can be checked explicitly:
+
+```powershell
+.\installer\verify.ps1 -SkipResolveConnection
+```
+
+This mode validates the supported Python, virtual environment, package and MCP
+imports, packaged and machine-local configuration, installed CLI executables,
+bridge hash, required directories, and temporary write/delete probes. It does
+not accept or create a heartbeat and does not report Resolve connectivity.
+
 Resolve scans menu scripts at startup:
 
 1. Restart DaVinci Resolve after installation.
