@@ -11,6 +11,7 @@ Read-only інструменти:
 - `resolve_get_timeline`;
 - `resolve_list_timeline_items`;
 - `resolve_list_media_pool_items`;
+- `resolve_get_workspace_snapshot`;
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
 - `resolve_verify_render_output`.
@@ -85,6 +86,12 @@ Resolve-інструменти ставлять команду в локальн
 Типовий timeout становить 30 секунд. Аргумент `timeout_seconds` приймає значення
 понад `0` і не більше `300`. Одноразова модель bridge є навмисним обмеженням
 поточного прототипу.
+
+`resolve_get_workspace_snapshot` збирає основну діагностику одним запитом:
+bridge metadata, поточний проєкт, timelines, current timeline та його items,
+Media Pool і render discovery. Тому для повного read-only огляду достатньо
+одного запуску ResolveBridge. Tool не приймає масив команд, не створює backup
+і не перетворює bridge на фоновий процес.
 
 `resolve_get_render_options` є discovery-only інструментом M7. Він читає
 документовані Resolve formats, codecs, presets, поточні значення та render

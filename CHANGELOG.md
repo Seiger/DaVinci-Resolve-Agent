@@ -107,3 +107,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   Resolve object handles.
 - Resolve 21 Free 21.0.3.7 live discovery of the M10 source ID among five
   Media Pool items without creating a project backup.
+- M18 fixed read-only workspace snapshot for bridge, project, timeline,
+  TimelineItem, Media Pool, and render discovery in one bridge command.
+- CLI and MCP snapshot entry points without arbitrary batching, project
+  backups, persistent polling, or external Resolve scripting assumptions.

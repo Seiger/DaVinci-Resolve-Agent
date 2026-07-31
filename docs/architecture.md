@@ -421,6 +421,28 @@ folder, including the M10 source MKV with canonical ID
 `e2c01761-f786-4b2c-866e-b682d2806eca`. No project backup was created, and
 capability `media.read` was persisted as `true`.
 
+## M18 single-run workspace snapshot
+
+```text
+CLI/MCP snapshot
+ └─ one allowlisted get_workspace_snapshot command
+     ├─ bridge and project state
+     ├─ timeline list, current timeline, and current items
+     ├─ bounded Media Pool item discovery
+     └─ render discovery
+```
+
+M18 composes only existing read-only bridge functions and fails atomically if
+a required section cannot be collected. It accepts no user-defined action
+list, creates no backup, performs no write, and keeps the one-shot lifecycle.
+The goal is one Resolve menu invocation for a complete diagnostic snapshot,
+not an unverified persistent bridge inside the Resolve UI thread.
+
+The local Resolve 21 Scripting README describes external command-line access
+as part of the DaVinci Resolve Studio scripting package. Since the supported
+target is Resolve 21 Free and direct external import is not available on the
+validated machine, the architecture retains the internal menu script.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M17: Media Pool item discovery**. Він установлює
+Проєкт перебуває на етапі **Milestone M18: single-run workspace snapshot**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -73,6 +73,11 @@ M17 додає read-only рекурсивний перелік Media Pool items 
 повертає timeline entries, тому контракт чесно не називає всі результати
 source assets. У Resolve 21 Free 21.0.3.7 знайдено п'ять items у `Master`,
 включно з потрібним MKV asset `e2c01761-…`, без нового backup.
+M18 додає фіксований read-only snapshot поточного workspace: одним запитом
+повертаються bridge metadata, проєкт, timelines, current timeline та його
+items, Media Pool і render discovery. Команда не приймає перелік довільних
+дій, не створює backup і не запускає постійний цикл. Це скорочує повну
+діагностику до одного ручного запуску ResolveBridge.
 
 ## Вимоги
 
@@ -120,6 +125,7 @@ cd DaVinci-Resolve-Agent
 .\.venv\Scripts\davinci-agent.exe resolve project
 .\.venv\Scripts\davinci-agent.exe resolve timelines
 .\.venv\Scripts\davinci-agent.exe resolve timeline
+.\.venv\Scripts\davinci-agent.exe resolve snapshot --json
 .\.venv\Scripts\davinci-agent.exe resolve render-options
 ```
 
@@ -151,6 +157,7 @@ Read-only інструменти:
 - `resolve_get_timeline`.
 - `resolve_list_timeline_items`.
 - `resolve_list_media_pool_items`.
+- `resolve_get_workspace_snapshot`.
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
 - `resolve_verify_render_output`.
@@ -248,6 +255,13 @@ timeline/source frame bounds та duration. Tool read-only, не створює 
 Media Pool і повертає `asset_id`, назву, `folder_id` та логічний folder path. Tool
 read-only, не створює backup, не читає файлові шляхи та не викликає
 `GetClipProperty`.
+
+`resolve_get_workspace_snapshot` без аргументів збирає всі основні read-only
+розділи одним bridge-запитом. Він не є універсальним batch dispatcher:
+користувач не може передати назви команд, код або Resolve expressions.
+Внутрішній скрипт залишається одноразовим. Встановлена документація Resolve 21
+описує зовнішній Scripting API як API Resolve Studio, тому для Resolve 21 Free
+проєкт не заявляє непідтверджений автоматичний зовнішній запуск.
 
 ## Розробка
 

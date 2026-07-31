@@ -35,3 +35,9 @@ methods.
 
 The one-shot lifecycle is intentional: persistent polling is not enabled until
 live testing proves that it does not block the Resolve UI.
+
+M18 adds a fixed workspace snapshot that composes existing read-only discovery
+inside one queued command. It reduces full diagnostics to one menu invocation
+without exposing arbitrary batches. Automatic external startup is not claimed
+for Resolve 21 Free because the locally installed Resolve documentation
+identifies the external Scripting API as a Resolve Studio facility.

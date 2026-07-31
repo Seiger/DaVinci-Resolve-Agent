@@ -89,6 +89,18 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 ],
                 "folder_count": 1,
             },
+            "get_workspace_snapshot": {
+                "bridge": {"bridge_version": "0.1.0"},
+                "project": {"name": "Test Project"},
+                "timelines": [{"timeline_id": "timeline-1", "name": "Main"}],
+                "current_timeline": {
+                    "timeline_id": "timeline-1",
+                    "name": "Main",
+                },
+                "timeline_items": {"items": []},
+                "media_pool": {"items": [], "folder_count": 1},
+                "render": {"formats": []},
+            },
             "get_render_environment": {
                 "formats": [],
                 "current": {"format": "mp4", "codec": "H264"},
@@ -175,6 +187,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "timeline_item_id"
     ] == "item-1"
     assert client.media_pool_items()["items"][0]["asset_id"] == "asset-1"
+    assert client.workspace_snapshot()["project"]["name"] == "Test Project"
     assert client.render_environment()["current"]["format"] == "mp4"
     assert client.import_media(
         ["sample.wav"],
@@ -249,6 +262,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "get_current_timeline",
         "list_timeline_items",
         "list_media_pool_items",
+        "get_workspace_snapshot",
         "get_render_environment",
         "import_media",
         "create_timeline",

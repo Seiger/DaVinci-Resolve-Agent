@@ -43,6 +43,15 @@ class StubResolveReader:
             "folder_count": 1,
         }
 
+    def workspace_snapshot(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "project": {"name": "Test Project"},
+            "timelines": [{"index": 1, "name": "Main"}],
+        }
+
     def render_environment(
         self,
         timeout_seconds: float = 30,
@@ -364,6 +373,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                     "resolve_list_media_pool_items",
                     {},
                 ),
+                "snapshot": await client.call_tool(
+                    "resolve_get_workspace_snapshot",
+                    {},
+                ),
                 "render": await client.call_tool(
                     "resolve_get_render_options",
                     {},
@@ -472,6 +485,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_get_timeline",
         "resolve_list_timeline_items",
         "resolve_list_media_pool_items",
+        "resolve_get_workspace_snapshot",
         "resolve_get_render_options",
         "resolve_import_media",
         "resolve_create_timeline",
@@ -504,6 +518,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["media_pool_items"].structured_content["items"][0][
         "asset_id"
     ] == "asset-1"
+    assert results["snapshot"].structured_content["project"]["name"] == (
+        "Test Project"
+    )
     assert results["render"].structured_content["current"]["format"] == "mp4"
     assert results["status"].structured_content["healthy"] is True
     assert results["imported"].structured_content["items"][0]["asset_id"] == (

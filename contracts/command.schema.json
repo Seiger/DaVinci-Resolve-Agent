@@ -49,6 +49,7 @@
         "get_current_timeline",
         "list_timeline_items",
         "list_media_pool_items",
+        "get_workspace_snapshot",
         "get_render_environment",
         "get_render_job_status",
         "import_media",
@@ -439,6 +440,7 @@
               "get_current_project",
               "list_timelines",
               "get_current_timeline",
+              "get_workspace_snapshot",
               "get_render_environment"
             ]
           }

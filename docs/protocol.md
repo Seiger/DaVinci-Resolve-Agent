@@ -34,6 +34,7 @@ that the response `command_id` matches the submitted command.
 
 - read-only `list_timeline_items` with one existing `timeline_id`;
 - read-only `list_media_pool_items` with an empty arguments object;
+- read-only `get_workspace_snapshot` with an empty arguments object;
 
 ## Write actions
 
@@ -116,6 +117,13 @@ placement only. The bridge guards folder cycles and rejects discovery beyond
 1000 folders or 10000 items. Results may include timeline entries returned by
 the documented Folder API; the contract does not infer an undocumented kind.
 
+`get_workspace_snapshot` performs a fixed composition of the existing
+read-only operations. It returns bridge metadata, current project, timelines,
+current timeline and its items, Media Pool items, and render discovery. It
+requires an open project and accepts no action list or other arguments. Failure
+of a required section fails the command instead of returning a misleading
+partial snapshot.
+
 ## M1 action allowlist
 
 - `ping`
@@ -126,13 +134,15 @@ the documented Folder API; the contract does not infer an undocumented kind.
 - `get_current_timeline`
 - `list_timeline_items`
 - `list_media_pool_items`
+- `get_workspace_snapshot`
 - `get_render_environment`
 - `get_render_job_status`
 
-All actions except `get_render_job_status` accept an empty `arguments` object;
-status accepts only `job_id`. `allow_destructive` must be `false`. There is no
-action for executing Python, Lua, PowerShell, shell commands, or Resolve
-expressions.
+`list_timeline_items` accepts only `timeline_id`;
+`get_render_job_status` accepts only `job_id`; every other read action accepts
+an empty `arguments` object. `allow_destructive` must be `false`. There is no
+action for arbitrary batches or for executing Python, Lua, PowerShell, shell
+commands, or Resolve expressions.
 
 `get_render_environment` is the read-only M7 discovery action. It returns only
 documented formats, codecs, presets, the current format/codec, and existing
@@ -146,6 +156,12 @@ upload media.
 M1 does not continuously poll. Invoke `ResolveBridge` from Resolve to capture a
 fresh state and process commands already present in the queue. Persistent
 polling requires a separate UI-blocking safety proof.
+
+M18 reduces a full workspace inspection to one queued command and therefore
+one menu invocation. It does not claim zero-click startup: the Resolve 21
+documentation installed on the supported machine identifies the external
+Scripting API as a Resolve Studio facility, while the supported target is
+Resolve 21 Free.
 
 ## M2 timeout behavior
 

@@ -289,6 +289,16 @@ class FakeProject:
         self.current_timeline = timeline
         return True
 
+    def GetRenderFormats(self) -> dict[str, str]:
+        return {"mp4": "mp4"}
+
+    def GetRenderCodecs(self, render_format: str) -> dict[str, str]:
+        assert render_format == "mp4"
+        return {"H.264": "H264"}
+
+    def GetCurrentRenderFormatAndCodec(self) -> dict[str, str]:
+        return {"format": "mp4", "codec": "H264"}
+
     def GetRenderPresetList(self) -> list[str]:
         return ["YouTube - 1080p", "YouTube - 2160p"]
 
@@ -820,6 +830,53 @@ def test_media_pool_items_are_discovered_recursively_without_backup(
     }
     assert resolve.project_manager.export_count == 0
     assert state["capabilities"]["media.read"] is True
+
+
+def test_workspace_snapshot_collects_read_only_sections_in_one_command(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = FakeTimeline("timeline-main", "Main")
+    timeline.items.append(
+        FakeTimelineItem(
+            "item-video",
+            "screen.mkv",
+            timeline_start=86400,
+            timeline_end=86496,
+            source_start=0,
+            source_end=240,
+        )
+    )
+    resolve.project.timelines.append(timeline)
+    resolve.project.current_timeline = timeline
+    resolve.project.media_pool.root.clips.append(
+        FakeMediaItem("asset-screen", "screen.mkv")
+    )
+    state = collect_bridge_state(resolve)
+    command = _command("workspace-snapshot", "get_workspace_snapshot", {})
+    command["safety"]["create_backup"] = False
+
+    response = _run_command(tmp_path, resolve, state, command)
+
+    assert response["status"] == "success"
+    result = response["result"]
+    assert result["project"] == {"name": "M4 Test Project"}
+    assert result["current_timeline"] == {
+        "timeline_id": "timeline-main",
+        "name": "Main",
+    }
+    assert result["timeline_items"]["items"][0]["timeline_item_id"] == (
+        "item-video"
+    )
+    assert result["media_pool"]["items"][0]["asset_id"] == "asset-screen"
+    assert result["render"]["current"] == {
+        "format": "mp4",
+        "codec": "H264",
+    }
+    assert not list((tmp_path / "backups").glob("*.drp"))
+    assert state["capabilities"]["clip.read"] is True
+    assert state["capabilities"]["media.read"] is True
+    assert state["capabilities"]["render.discovery"] is True
 
 
 def test_clip_transform_is_bounded_backed_up_and_replay_safe(

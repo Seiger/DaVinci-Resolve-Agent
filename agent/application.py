@@ -58,6 +58,12 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Return bounded identity metadata for Media Pool items."""
 
+    def workspace_snapshot(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return the fixed read-only workspace view."""
+
     def render_environment(
         self,
         timeout_seconds: float = 30,
@@ -316,6 +322,15 @@ class AgentApplication:
     ) -> dict[str, Any]:
         """List addressable items in the current Resolve Media Pool."""
         return self._resolve.media_pool_items(
+            self._validated_timeout(timeout_seconds)
+        )
+
+    def resolve_get_workspace_snapshot(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Collect the current Resolve workspace through one bridge command."""
+        return self._resolve.workspace_snapshot(
             self._validated_timeout(timeout_seconds)
         )
 

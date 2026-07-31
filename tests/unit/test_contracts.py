@@ -86,6 +86,16 @@ def test_list_media_pool_items_accepts_no_arguments() -> None:
         validate_contract("command", command)
 
 
+def test_workspace_snapshot_accepts_no_arguments() -> None:
+    command = _valid_command()
+    command["action"] = "get_workspace_snapshot"
+    validate_contract("command", command)
+
+    command["arguments"] = {"actions": ["execute_python"]}
+    with pytest.raises(ContractValidationError, match="arguments"):
+        validate_contract("command", command)
+
+
 def test_unknown_action_violates_command_contract() -> None:
     command = _valid_command()
     command["action"] = "execute_python"

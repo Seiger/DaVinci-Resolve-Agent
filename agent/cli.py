@@ -89,6 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("project", "Show the current Resolve project."),
         ("timelines", "List timelines in the current Resolve project."),
         ("timeline", "Show the current Resolve timeline."),
+        ("snapshot", "Collect the current workspace in one bridge run."),
         ("render-options", "Discover render formats, codecs, presets, and jobs."),
     ):
         request_parser = resolve_subparsers.add_parser(command, help=help_text)
@@ -152,6 +153,8 @@ def _run_resolve_request(
         result = client.timelines(timeout_seconds)
     elif command == "timeline":
         result = client.current_timeline(timeout_seconds)
+    elif command == "snapshot":
+        result = client.workspace_snapshot(timeout_seconds)
     elif command == "render-options":
         result = client.render_environment(timeout_seconds)
     else:
@@ -184,6 +187,30 @@ def _run_resolve_request(
         print(f"Formats: {len(result['formats'])}")
         print(f"Presets: {len(result['presets'])}")
         print(f"Queued jobs: {len(result['jobs'])}")
+    elif command == "snapshot":
+        project = result["project"]
+        current_timeline = result["current_timeline"]
+        timeline_items = result["timeline_items"]
+        print(f"Project: {project['name']}")
+        print(f"Timelines: {len(result['timelines'])}")
+        print(
+            "Current timeline: "
+            + (
+                "(none)"
+                if current_timeline is None
+                else str(current_timeline["name"])
+            )
+        )
+        print(
+            "Timeline items: "
+            + (
+                "0"
+                if timeline_items is None
+                else str(len(timeline_items["items"]))
+            )
+        )
+        print(f"Media Pool items: {len(result['media_pool']['items'])}")
+        print(f"Render formats: {len(result['render']['formats'])}")
     else:
         for name, value in sorted(result.items()):
             print(f"{name}: {value}")

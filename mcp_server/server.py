@@ -109,6 +109,16 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=READ_ONLY_TOOL)
+    async def resolve_get_workspace_snapshot(
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Collect project, timeline, Media Pool, and render discovery once."""
+        return await asyncio.to_thread(
+            service.resolve_get_workspace_snapshot,
+            timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
     async def resolve_get_render_options(
         timeout_seconds: float = 30,
     ) -> dict[str, Any]:

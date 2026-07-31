@@ -38,6 +38,7 @@ ALLOWED_ACTIONS = {
     "get_current_timeline",
     "list_timeline_items",
     "list_media_pool_items",
+    "get_workspace_snapshot",
     "get_render_environment",
     "get_render_job_status",
     "import_media",
@@ -720,6 +721,14 @@ def command_result(
                 retryable=True,
             )
         return _list_media_pool_items(resolve)
+    if action == "get_workspace_snapshot":
+        if resolve is None:
+            raise BridgeOperationError(
+                "RESOLVE_CONTEXT_REQUIRED",
+                "A live Resolve context is required for workspace discovery.",
+                retryable=True,
+            )
+        return _workspace_snapshot(resolve, state)
     if action == "get_render_environment":
         if resolve is None:
             raise BridgeOperationError(
@@ -738,6 +747,51 @@ def command_result(
         job_id = _validate_render_job_arguments(action, arguments or {})
         return _render_job_status(resolve, job_id)
     raise ValueError("Unsupported or unsafe bridge action.")
+
+
+def _workspace_snapshot(
+    resolve: Any,
+    state: dict[str, Any],
+) -> dict[str, Any]:
+    """Collect the fixed read-only workspace view in one bridge command."""
+    project_name = state["project_name"]
+    if project_name is None:
+        raise BridgeOperationError(
+            "PROJECT_NOT_OPEN",
+            "Open a Resolve project before collecting a workspace snapshot.",
+            retryable=True,
+        )
+    timeline_id = state["current_timeline_id"]
+    timeline_name = state["current_timeline_name"]
+    current_timeline = (
+        None
+        if timeline_id is None or timeline_name is None
+        else {"timeline_id": timeline_id, "name": timeline_name}
+    )
+    timeline_items = (
+        None
+        if timeline_id is None
+        else _list_timeline_items(resolve, timeline_id)
+    )
+    return {
+        "bridge": {
+            key: state[key]
+            for key in (
+                "bridge_version",
+                "protocol_version",
+                "product_name",
+                "resolve_version",
+                "edition",
+                "last_heartbeat",
+            )
+        },
+        "project": {"name": project_name},
+        "timelines": state["timelines"],
+        "current_timeline": current_timeline,
+        "timeline_items": timeline_items,
+        "media_pool": _list_media_pool_items(resolve),
+        "render": _render_environment(resolve),
+    }
 
 
 def _list_media_pool_items(resolve: Any) -> dict[str, Any]:
@@ -2542,7 +2596,10 @@ def process_command_file(
                 command["arguments"],
             )
             if (
-                command["action"] == "get_render_environment"
+                command["action"] in {
+                    "get_render_environment",
+                    "get_workspace_snapshot",
+                }
                 and directories is not None
             ):
                 state["capabilities"]["render.discovery"] = True
@@ -2550,8 +2607,11 @@ def process_command_file(
                     directories["state"],
                     "render.discovery",
                 )
-            elif (
-                command["action"] == "list_timeline_items"
+            if (
+                command["action"] in {
+                    "list_timeline_items",
+                    "get_workspace_snapshot",
+                }
                 and directories is not None
             ):
                 state["capabilities"]["clip.read"] = True
@@ -2559,8 +2619,11 @@ def process_command_file(
                     directories["state"],
                     "clip.read",
                 )
-            elif (
-                command["action"] == "list_media_pool_items"
+            if (
+                command["action"] in {
+                    "list_media_pool_items",
+                    "get_workspace_snapshot",
+                }
                 and directories is not None
             ):
                 state["capabilities"]["media.read"] = True

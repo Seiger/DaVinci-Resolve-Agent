@@ -96,6 +96,30 @@ class ResolveProviderClient:
             )
         return result
 
+    def workspace_snapshot(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return the fixed read-only workspace view from one bridge run."""
+        result = self._object_result("get_workspace_snapshot", timeout_seconds)
+        required_objects = ("bridge", "project", "media_pool", "render")
+        if (
+            not all(isinstance(result.get(name), dict) for name in required_objects)
+            or not isinstance(result.get("timelines"), list)
+            or (
+                result.get("current_timeline") is not None
+                and not isinstance(result.get("current_timeline"), dict)
+            )
+            or (
+                result.get("timeline_items") is not None
+                and not isinstance(result.get("timeline_items"), dict)
+            )
+        ):
+            raise BridgeProtocolError(
+                "Resolve get_workspace_snapshot response is invalid."
+            )
+        return result
+
     def render_environment(
         self,
         timeout_seconds: float = 30,
