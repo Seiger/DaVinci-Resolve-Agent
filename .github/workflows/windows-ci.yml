@@ -75,6 +75,71 @@ jobs:
       - name: Parse installer PowerShell scripts
         run: .\scripts\check-powershell-syntax.ps1
 
+  wheel-package:
+    name: Wheel package
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install package and development tools
+        run: python -m pip install --editable ".[dev]"
+
+      - name: Build wheel
+        run: >-
+          python -m pip wheel --no-deps --no-build-isolation
+          --wheel-dir dist .
+
+      - name: Inspect wheel boundary
+        run: python .\scripts\check_wheel.py .\dist
+
+      - name: Replace editable install with wheel
+        shell: pwsh
+        run: |
+          python -m pip uninstall --yes davinci-resolve-agent
+          if ($LASTEXITCODE -ne 0) {
+              throw "Editable package uninstall failed."
+          }
+          $wheels = @(Get-ChildItem -LiteralPath .\dist -Filter "*.whl" -File)
+          if ($wheels.Count -ne 1) {
+              throw "Expected exactly one wheel, found $($wheels.Count)."
+          }
+          python -m pip install --no-deps $wheels[0].FullName
+          if ($LASTEXITCODE -ne 0) {
+              throw "Wheel installation failed."
+          }
+
+      - name: Verify non-editable CLI and resources
+        shell: pwsh
+        run: |
+          Push-Location $env:RUNNER_TEMP
+          try {
+              davinci-agent --version
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Wheel-installed CLI version check failed."
+              }
+              if (-not (Get-Command davinci-agent-mcp -ErrorAction SilentlyContinue)) {
+                  throw "davinci-agent-mcp entry point was not installed."
+              }
+              python -c "from importlib import resources; assert resources.files('contracts').joinpath('examples', 'commands.json').is_file(); print('Packaged resources OK')"
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Packaged resource check failed."
+              }
+          } finally {
+              Pop-Location
+          }
+
   installer-lifecycle:
     name: Installer lifecycle
     runs-on: windows-latest

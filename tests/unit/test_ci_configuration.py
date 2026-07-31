@@ -49,6 +49,20 @@ def test_windows_ci_runs_static_and_powershell_checks() -> None:
     assert r".\scripts\check-powershell-syntax.ps1" in workflow
 
 
+def test_windows_ci_builds_and_installs_wheel_package() -> None:
+    workflow = _workflow_text()
+
+    assert "wheel-package:" in workflow
+    assert "name: Wheel package" in workflow
+    assert "timeout-minutes: 10" in workflow
+    assert "python -m pip wheel --no-deps --no-build-isolation" in workflow
+    assert r"python .\scripts\check_wheel.py .\dist" in workflow
+    assert "python -m pip uninstall --yes davinci-resolve-agent" in workflow
+    assert "python -m pip install --no-deps $wheels[0].FullName" in workflow
+    assert "Push-Location $env:RUNNER_TEMP" in workflow
+    assert "Packaged resources OK" in workflow
+
+
 def test_windows_ci_runs_isolated_installer_lifecycle() -> None:
     workflow = _workflow_text()
 

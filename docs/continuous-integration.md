@@ -41,6 +41,20 @@ known-folder fallback не міг створити cache у checkout. Усере
 - відновлення попереднього bridge;
 - збереження sentinel-файлу поза installer-owned directories.
 
+## Wheel package
+
+M32 додає окрему Python 3.12 job із timeout 10 хвилин:
+
+1. Збирає wheel без dependency wheels і build isolation.
+2. Запускає `scripts/check_wheel.py` для безпечних archive paths, metadata,
+   entry points, required resources і repository-only exclusions.
+3. Видаляє editable install лише з ephemeral CI environment.
+4. Встановлює зібраний wheel без повторного dependency resolution.
+5. Поза checkout запускає `davinci-agent --version`, перевіряє MCP entry point
+   і доступність packaged contract examples.
+
+Job не публікує wheel, не використовує upload-artifact і не змінює release.
+
 ## Межі безпеки
 
 Workflow має лише `contents: read`, не зберігає checkout credentials і не
@@ -64,5 +78,6 @@ CI перевіряє відтворюваність файлової інста
 .\.venv\Scripts\python.exe -m mypy .
 .\scripts\check-powershell-syntax.ps1
 .\scripts\test-installer-lifecycle.ps1
+.\.venv\Scripts\python.exe .\scripts\check_wheel.py <wheel-directory>
 .\.venv\Scripts\davinci-agent.exe --version
 ```

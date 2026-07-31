@@ -69,6 +69,7 @@ files = [
   "config",
   "mcp_server",
   "providers",
+  "scripts",
   "transports",
   "tests",
 ]

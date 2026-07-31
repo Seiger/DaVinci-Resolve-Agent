@@ -157,3 +157,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M31 packaged canonical command, response, and capability examples.
 - Exact automated coverage of every allowlisted action with schema-validated
   envelopes and safety invariants.
+- M32 isolated Windows wheel build, boundary inspection, and non-editable
+  installation verification.
+- Wheel metadata, console entry-point, safe archive-path, packaged-resource,
+  and repository-only content checks without publication or upload.

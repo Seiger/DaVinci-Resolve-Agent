@@ -29,8 +29,16 @@ Ruff, mypy та PowerShell syntax перевіряються в окремій P
 тимчасовій копії репозиторію та тимчасових Windows profile directories.
 Вона також виконує `verify.ps1 -SkipResolveConnection`; default verification
 із heartbeat залишається live-only.
+Окрема wheel job збирає непублікований wheel, перевіряє package boundary,
+замінює editable install і запускає встановлений CLI поза checkout.
 Resolve integration залишається manual-only. Докладніше:
 [docs/continuous-integration.md](docs/continuous-integration.md).
+
+Перевірити вже зібрану директорію з одним wheel можна без інсталяції:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\check_wheel.py <wheel-directory>
+```
 
 Кожне нове твердження про live Resolve compatibility має оновлювати
 [manual integration matrix](docs/manual-integration-testing.md) і містити

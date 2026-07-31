@@ -686,6 +686,24 @@ Examples ship as package data for documentation and downstream contract tests.
 They remain inert fixtures: no adapter reads them as runtime commands, and no
 example permits arbitrary execution or bypasses the application service.
 
+## M32 wheel package boundary
+
+```text
+wheel build
+ └─ check_wheel.py
+     ├─ safe ZIP member paths
+     ├─ required runtime modules and resources
+     ├─ no tests/docs/installer/runtime content
+     ├─ Name, Version, and Requires-Python metadata
+     └─ CLI and MCP console entry points
+         └─ replace editable CI install with wheel
+             └─ verify from outside checkout
+```
+
+The package job is verification-only. It has read-only workflow permissions,
+does not upload or publish the wheel, and runs independently from live Resolve.
+The checker uses only the standard library plus the local package version.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.
