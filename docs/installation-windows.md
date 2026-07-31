@@ -52,8 +52,11 @@ Resolve scans menu scripts at startup:
 .\.venv\Scripts\davinci-agent.exe status
 ```
 
-The bridge is one-shot in M1. If `status` reports a stale heartbeat, run
-`ResolveBridge` from the Workspace menu again.
+Після ручного запуску bridge лишається активним і оновлює heartbeat, доки не
+отримає `resolve_stop_bridge`. Якщо `status` повідомляє stale heartbeat,
+запусти `ResolveBridge` з Workspace menu знову. Responsive UI та clean stop
+перевірено у Resolve 21 Free 21.0.3.7; інші environments залишаються в manual
+test matrix.
 
 For an M2 live request, start a command in PowerShell and invoke
 `ResolveBridge` while it waits:

@@ -45,7 +45,9 @@ expected state file is:
 
 ## Heartbeat is stale
 
-M1 is intentionally one-shot. Run `ResolveBridge` again, then immediately run:
+The manually launched persistent bridge is not running, has stopped, or has
+failed. Inspect `state\bridge.json` and `logs\bridge.jsonl`, then run
+`ResolveBridge` again and verify:
 
 ```powershell
 .\installer\verify.ps1
@@ -53,16 +55,23 @@ M1 is intentionally one-shot. Run `ResolveBridge` again, then immediately run:
 
 ## Live CLI command times out
 
-Live commands wait for the one-shot bridge and exit with code `3` on timeout.
-Start the CLI command with a sufficient deadline, then invoke
-`Workspace → Scripts → Edit → ResolveBridge` before it expires:
+Live commands require an active internal bridge and exit with code `3` on
+timeout. Start `Workspace → Scripts → Edit → ResolveBridge` once, then run:
 
 ```powershell
 .\.venv\Scripts\davinci-agent.exe ping --timeout-seconds 60
 ```
 
-The timed-out command remains under `runtime\commands` until a later bridge run
-rejects it as expired and moves it to `failed`.
+The timed-out command remains under `runtime\commands` until an active or later
+bridge iteration rejects it as expired and moves it to `failed`.
+
+## Resolve UI becomes unresponsive after bridge start
+
+Persistent lifecycle is live-verified only on Resolve 21 Free 21.0.3.7. If UI
+becomes unresponsive in another environment, send the allowlisted
+`resolve_stop_bridge` command from MCP. If the bridge cannot process it, close
+Resolve normally when possible, preserve `state\bridge.json` and
+`logs\bridge.jsonl` for diagnosis, and record that environment as unsupported.
 
 ## Bridge reports BRIDGE_INITIALIZATION_FAILED
 

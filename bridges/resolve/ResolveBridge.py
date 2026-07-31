@@ -8,6 +8,7 @@ import json
 import math
 import os
 import re
+import time
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +18,7 @@ BRIDGE_VERSION = "0.1.0"
 PROTOCOL_VERSION = "1.0"
 APPLICATION_DIRECTORY_NAME = "DaVinciResolveAgent"
 DEFAULT_RENDER_PROFILE = "youtube-1080p-h264-v1"
+POLL_INTERVAL_SECONDS = 0.5
 RENDER_PROFILES = {
     "youtube-1080p-h264-v1": {
         "resolve_preset": "YouTube - 1080p",
@@ -31,6 +33,7 @@ RENDER_PROFILES = {
 }
 ALLOWED_ACTIONS = {
     "ping",
+    "stop_bridge",
     "get_bridge_info",
     "get_capabilities",
     "get_current_project",
@@ -38,6 +41,7 @@ ALLOWED_ACTIONS = {
     "get_current_timeline",
     "list_timeline_items",
     "list_media_pool_items",
+    "get_editing_metadata",
     "get_workspace_snapshot",
     "get_render_environment",
     "get_render_job_status",
@@ -74,6 +78,7 @@ DESTRUCTIVE_ACTIONS = {"delete_clip"}
 CAPABILITY_BY_ACTION = {
     "list_timeline_items": "clip.read",
     "list_media_pool_items": "media.read",
+    "get_editing_metadata": "media.metadata.read",
     "import_media": "media.import",
     "create_timeline": "timeline.create",
     "duplicate_timeline": "timeline.duplicate",
@@ -262,6 +267,7 @@ def collect_bridge_state(
         "timeline.select": "unknown",
         "media.import": "unknown",
         "media.read": "unknown",
+        "media.metadata.read": "unknown",
         "clip.insert": "unknown",
         "clip.read": "unknown",
         "clip.range_insert": "unknown",
@@ -290,6 +296,11 @@ def collect_bridge_state(
         "current_timeline_name": current_timeline_name,
         "timelines": timelines,
         "capabilities": capabilities,
+        "lifecycle": {
+            "mode": "persistent",
+            "poll_interval_seconds": POLL_INTERVAL_SECONDS,
+            "stop_supported": True,
+        },
         "error": None,
     }
 
@@ -366,6 +377,8 @@ def validate_command(command: Any) -> dict[str, Any]:
         )
     elif command["action"] == "list_timeline_items":
         _validate_list_timeline_items_arguments(command["arguments"])
+    elif command["action"] == "get_editing_metadata":
+        _validate_editing_metadata_arguments(command["arguments"])
     elif command["arguments"] != {}:
         raise ValueError("This read-only action does not accept arguments.")
 
@@ -389,6 +402,35 @@ def _validate_list_timeline_items_arguments(
     ):
         raise ValueError("timeline_id must contain 1 to 128 characters.")
     return timeline_id
+
+
+def _validate_editing_metadata_arguments(
+    arguments: dict[str, Any],
+) -> tuple[str, list[str]]:
+    """Validate bounded, read-only media metadata discovery arguments."""
+    if set(arguments) != {"timeline_id", "asset_ids"}:
+        raise ValueError(
+            "get_editing_metadata requires timeline_id and asset_ids."
+        )
+    timeline_id = _validate_list_timeline_items_arguments(
+        {"timeline_id": arguments["timeline_id"]}
+    )
+    asset_ids = arguments["asset_ids"]
+    if (
+        not isinstance(asset_ids, list)
+        or not 1 <= len(asset_ids) <= 100
+        or len(set(asset_ids)) != len(asset_ids)
+        or not all(
+            isinstance(asset_id, str)
+            and 1 <= len(asset_id) <= 128
+            for asset_id in asset_ids
+        )
+    ):
+        raise ValueError(
+            "asset_ids must contain 1 to 100 unique identifiers of up to "
+            "128 characters."
+        )
+    return timeline_id, asset_ids
 
 
 def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
@@ -737,6 +779,8 @@ def command_result(
     """Return a read-only result from the collected snapshot."""
     if action == "ping":
         return {"message": "pong"}
+    if action == "stop_bridge":
+        return {"status": "stopping"}
     if action == "get_bridge_info":
         return {
             key: state[key]
@@ -783,6 +827,17 @@ def command_result(
                 retryable=True,
             )
         return _list_media_pool_items(resolve)
+    if action == "get_editing_metadata":
+        if resolve is None:
+            raise BridgeOperationError(
+                "RESOLVE_CONTEXT_REQUIRED",
+                "A live Resolve context is required for media metadata discovery.",
+                retryable=True,
+            )
+        timeline_id, asset_ids = _validate_editing_metadata_arguments(
+            arguments or {}
+        )
+        return _editing_metadata(resolve, timeline_id, asset_ids)
     if action == "get_workspace_snapshot":
         if resolve is None:
             raise BridgeOperationError(
@@ -972,6 +1027,177 @@ def _list_media_pool_items(resolve: Any) -> dict[str, Any]:
         ),
         "folder_count": len(visited_folder_ids),
     }
+
+
+def _editing_metadata(
+    resolve: Any,
+    timeline_id: str,
+    asset_ids: list[str],
+) -> dict[str, Any]:
+    """Return only placement-relevant documented Resolve metadata.
+
+    `MediaPoolItem.GetClipProperty` is intentionally narrowed to Frames and
+    FPS. Raw property snapshots may expose machine-specific paths and are not
+    part of the MCP contract.
+    """
+    _, project, media_pool = _require_project(resolve)
+    timeline = _find_timeline(project, timeline_id)
+    get_track_count = getattr(timeline, "GetTrackCount", None)
+    if not callable(get_track_count):
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "The timeline cannot report track counts.",
+            details={"missing_methods": ["GetTrackCount"]},
+        )
+    tracks: dict[str, int] = {}
+    for track_type in ("video", "audio"):
+        count = get_track_count(track_type)
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Timeline.GetTrackCount() returned an invalid value.",
+                details={"track_type": track_type},
+            )
+        tracks[track_type] = count
+
+    requested = set(asset_ids)
+    found: dict[str, Any] = {}
+    get_root_folder = getattr(media_pool, "GetRootFolder", None)
+    if not callable(get_root_folder):
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "The media pool cannot report its root folder.",
+            details={"missing_methods": ["GetRootFolder"]},
+        )
+    root = get_root_folder()
+    if root is None:
+        raise BridgeOperationError(
+            "MEDIA_POOL_ROOT_UNAVAILABLE",
+            "Resolve MediaPool returned no root folder.",
+            retryable=True,
+        )
+    pending = [root]
+    visited: set[str] = set()
+    while pending and len(found) < len(requested):
+        if len(visited) >= 1_000:
+            raise BridgeOperationError(
+                "MEDIA_POOL_LIMIT_EXCEEDED",
+                "Media Pool metadata discovery exceeded 1000 folders.",
+            )
+        folder = pending.pop(0)
+        required = ("GetUniqueId", "GetClipList", "GetSubFolderList")
+        missing = [
+            name
+            for name in required
+            if not callable(getattr(folder, name, None))
+        ]
+        if missing:
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "A Media Pool folder cannot enumerate requested assets.",
+                details={"missing_methods": missing},
+            )
+        folder_id = str(folder.GetUniqueId())
+        if folder_id in visited:
+            continue
+        visited.add(folder_id)
+        clips = folder.GetClipList()
+        children = folder.GetSubFolderList()
+        if not isinstance(clips, list) or not isinstance(children, list):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Media Pool folder lists are invalid.",
+            )
+        for clip in clips:
+            get_media_id = getattr(clip, "GetMediaId", None)
+            if not callable(get_media_id):
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "A Media Pool item cannot report its canonical ID.",
+                    details={"missing_methods": ["GetMediaId"]},
+                )
+            asset_id = str(get_media_id())
+            if asset_id in requested:
+                found[asset_id] = clip
+        pending.extend(children)
+
+    missing_assets = sorted(requested - set(found))
+    if missing_assets:
+        raise BridgeOperationError(
+            "MEDIA_ASSET_NOT_FOUND",
+            "One or more requested Media Pool assets are unavailable.",
+            details={"asset_ids": missing_assets},
+        )
+
+    assets: list[dict[str, Any]] = []
+    for asset_id in asset_ids:
+        clip = found[asset_id]
+        get_name = getattr(clip, "GetName", None)
+        get_property = getattr(clip, "GetClipProperty", None)
+        if not callable(get_name) or not callable(get_property):
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "A Media Pool item cannot report placement metadata.",
+                details={"missing_methods": ["GetName", "GetClipProperty"]},
+            )
+        frames_value = get_property("Frames")
+        frame_rate_value = get_property("FPS")
+        try:
+            duration_frames = _positive_integer_property(frames_value)
+            frame_rate = _positive_number_property(frame_rate_value)
+        except ValueError:
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "MediaPoolItem.GetClipProperty() returned invalid Frames or FPS.",
+                details={
+                    "asset_id": asset_id,
+                    "frames_type": type(frames_value).__name__,
+                    "fps_type": type(frame_rate_value).__name__,
+                },
+            ) from None
+        assets.append(
+            {
+                "asset_id": asset_id,
+                "name": str(get_name()),
+                "duration_frames": duration_frames,
+                "frame_rate": frame_rate,
+            }
+        )
+    return {
+        "timeline": {
+            "timeline_id": timeline_id,
+            "name": str(timeline.GetName()),
+            "video_track_count": tracks["video"],
+            "audio_track_count": tracks["audio"],
+        },
+        "assets": assets,
+    }
+
+
+def _positive_number_property(value: Any) -> float:
+    """Normalize a finite positive numeric Resolve clip property."""
+    if isinstance(value, bool):
+        raise ValueError("Boolean is not a numeric clip property.")
+    if isinstance(value, (int, float)):
+        number = float(value)
+    elif isinstance(value, str) and value.strip():
+        try:
+            number = float(value.strip())
+        except ValueError as error:
+            raise ValueError("Clip property is not numeric.") from error
+    else:
+        raise ValueError("Clip property is not numeric.")
+    if not math.isfinite(number) or number <= 0:
+        raise ValueError("Clip property must be finite and positive.")
+    return number
+
+
+def _positive_integer_property(value: Any) -> int:
+    """Normalize a finite positive whole-frame Resolve clip property."""
+    number = _positive_number_property(value)
+    if not number.is_integer():
+        raise ValueError("Frame count must be a whole number.")
+    return int(number)
 
 
 def _list_timeline_items(
@@ -2929,6 +3155,8 @@ def process_command_file(
                 resolve,
                 command["arguments"],
             )
+            if command["action"] == "stop_bridge":
+                state["stop_requested"] = True
             if (
                 command["action"] in {
                     "get_render_environment",
@@ -2964,6 +3192,15 @@ def process_command_file(
                 _record_verified_capability(
                     directories["state"],
                     "media.read",
+                )
+            if (
+                command["action"] == "get_editing_metadata"
+                and directories is not None
+            ):
+                state["capabilities"]["media.metadata.read"] = True
+                _record_verified_capability(
+                    directories["state"],
+                    "media.metadata.read",
                 )
         response = {
             "protocol_version": PROTOCOL_VERSION,
@@ -3019,10 +3256,16 @@ def process_pending_commands(
     directories: dict[str, Path],
     state: dict[str, Any],
     resolve: Any | None = None,
+    *,
+    max_commands: int | None = None,
 ) -> int:
     """Claim and process every complete command currently in the queue."""
+    if max_commands is not None and max_commands < 1:
+        raise ValueError("max_commands must be at least one when set.")
     processed = 0
     for command_path in sorted(directories["commands"].glob("*.json")):
+        if max_commands is not None and processed >= max_commands:
+            break
         processing_path = directories["processing"] / command_path.name
         try:
             command_path.replace(processing_path)
@@ -3038,6 +3281,57 @@ def process_pending_commands(
         )
         processed += 1
     return processed
+
+
+def run_persistent_bridge(
+    resolve: Any,
+    directories: dict[str, Path],
+    *,
+    sleep: Callable[[float], None] = time.sleep,
+    max_iterations: int | None = None,
+) -> tuple[dict[str, Any], int]:
+    """Serve one queued command per cooperative bridge iteration.
+
+    The loop intentionally has no arbitrary execution action: it only consumes
+    allowlisted protocol commands. A single command per iteration bounds the
+    amount of Resolve work before the next heartbeat and stop check.
+    """
+    if max_iterations is not None and max_iterations < 1:
+        raise ValueError("max_iterations must be at least one when set.")
+    state_path = directories["state"] / "bridge.json"
+    log_path = directories["logs"] / "bridge.jsonl"
+    processed_total = 0
+    iterations = 0
+    state: dict[str, Any] = {}
+    while max_iterations is None or iterations < max_iterations:
+        state = collect_bridge_state(resolve)
+        _apply_verified_capabilities(state, directories["state"])
+        atomic_write_json(state_path, state)
+        processed_total += process_pending_commands(
+            directories,
+            state,
+            resolve,
+            max_commands=1,
+        )
+        if state.get("stop_requested") is True:
+            state.pop("stop_requested", None)
+            state["status"] = "stopped"
+            state["last_heartbeat"] = utc_now()
+            lifecycle = state["lifecycle"]
+            if isinstance(lifecycle, dict):
+                lifecycle["mode"] = "stopped"
+            atomic_write_json(state_path, state)
+            append_log(
+                log_path,
+                "INFO",
+                "bridge_stopped",
+                commands=processed_total,
+            )
+            return state, processed_total
+        atomic_write_json(state_path, state)
+        iterations += 1
+        sleep(POLL_INTERVAL_SECONDS)
+    return state, processed_total
 
 
 def error_state(error: Exception) -> dict[str, Any]:
@@ -3072,22 +3366,23 @@ def error_state(error: Exception) -> dict[str, Any]:
 
 
 def main() -> int:
-    """Execute one safe bridge observation and command-processing pass."""
+    """Start the manually launched persistent allowlisted bridge."""
     root = runtime_root()
     directories = ensure_runtime_directories(root)
     log_path = directories["logs"] / "bridge.jsonl"
-    state_path = directories["state"] / "bridge.json"
 
     try:
         resolve = get_resolve_application()
-        state = collect_bridge_state(resolve)
-        _apply_verified_capabilities(state, directories["state"])
-        atomic_write_json(state_path, state)
-        processed = process_pending_commands(directories, state, resolve)
-        atomic_write_json(state_path, state)
-        append_log(log_path, "INFO", "bridge_run_completed", commands=processed)
+        state, processed = run_persistent_bridge(resolve, directories)
+        append_log(
+            log_path,
+            "INFO",
+            "bridge_run_completed",
+            commands=processed,
+            status=state["status"],
+        )
         print(
-            "DaVinci Resolve Agent bridge ready: "
+            "DaVinci Resolve Agent bridge stopped: "
             f"project={state['project_name']!r}, "
             f"timeline={state['current_timeline_name']!r}, "
             f"commands={processed}"
@@ -3095,7 +3390,7 @@ def main() -> int:
         return 0
     except Exception as error:
         state = error_state(error)
-        atomic_write_json(state_path, state)
+        atomic_write_json(directories["state"] / "bridge.json", state)
         append_log(
             log_path,
             "ERROR",

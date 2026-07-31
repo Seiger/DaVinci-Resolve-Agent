@@ -33,6 +33,13 @@ class ResolveProviderClient:
             raise BridgeProtocolError("Resolve ping response is invalid.")
         return "pong"
 
+    def stop_bridge(self, timeout_seconds: float = 30) -> dict[str, Any]:
+        """Request a clean stop of a manually launched persistent bridge."""
+        result = self._object_result("stop_bridge", timeout_seconds)
+        if result.get("status") != "stopping":
+            raise BridgeProtocolError("Resolve stop_bridge response is invalid.")
+        return result
+
     def bridge_info(self, timeout_seconds: float = 30) -> dict[str, Any]:
         return self._object_result("get_bridge_info", timeout_seconds)
 
@@ -95,6 +102,29 @@ class ResolveProviderClient:
                 "Resolve list_media_pool_items response is invalid."
             )
         return result
+
+    def editing_metadata(
+        self,
+        timeline_id: str,
+        asset_ids: list[str],
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return bounded frame count/FPS and target timeline track counts."""
+        result = self._client.request(
+            provider="resolve",
+            action="get_editing_metadata",
+            arguments={"timeline_id": timeline_id, "asset_ids": asset_ids},
+            timeout_seconds=timeout_seconds,
+        )
+        value = self._object_value("get_editing_metadata", result)
+        timeline = value.get("timeline")
+        assets = value.get("assets")
+        if not isinstance(timeline, dict) or not isinstance(assets, list):
+            raise BridgeProtocolError(
+                "Resolve get_editing_metadata response is invalid."
+            )
+        return value
 
     def workspace_snapshot(
         self,

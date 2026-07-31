@@ -64,6 +64,15 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Return bounded identity metadata for Media Pool items."""
 
+    def editing_metadata(
+        self,
+        timeline_id: str,
+        asset_ids: list[str],
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return placement-relevant media metadata and target track counts."""
+
     def workspace_snapshot(
         self,
         timeout_seconds: float = 30,
@@ -75,6 +84,12 @@ class ResolveReader(Protocol):
         timeout_seconds: float = 30,
     ) -> dict[str, Any]:
         """Return documented render discovery information."""
+
+    def stop_bridge(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Request clean shutdown of the persistent Resolve bridge."""
 
     def import_media(
         self,
@@ -428,6 +443,34 @@ class AgentApplication:
             self._validated_timeout(timeout_seconds)
         )
 
+    def resolve_get_editing_metadata(
+        self,
+        timeline_id: str,
+        asset_ids: list[str],
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Read documented source duration/FPS and target timeline tracks."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        if (
+            not 1 <= len(asset_ids) <= 100
+            or len(set(asset_ids)) != len(asset_ids)
+            or not all(
+                isinstance(asset_id, str)
+                and 1 <= len(asset_id) <= 128
+                for asset_id in asset_ids
+            )
+        ):
+            raise ValueError(
+                "asset_ids must contain 1 to 100 unique identifiers of up to "
+                "128 characters."
+            )
+        return self._resolve.editing_metadata(
+            timeline_id,
+            asset_ids,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+        )
+
     def resolve_get_workspace_snapshot(
         self,
         timeout_seconds: float = 30,
@@ -443,6 +486,15 @@ class AgentApplication:
     ) -> dict[str, Any]:
         """Return Resolve render options without modifying the project."""
         return self._resolve.render_environment(
+            self._validated_timeout(timeout_seconds)
+        )
+
+    def resolve_stop_bridge(
+        self,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Request clean shutdown without changing the Resolve project."""
+        return self._resolve.stop_bridge(
             self._validated_timeout(timeout_seconds)
         )
 

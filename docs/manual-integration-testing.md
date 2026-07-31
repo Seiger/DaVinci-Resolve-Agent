@@ -111,3 +111,42 @@ evidence за цим контрактом.
   path;
 - limitation: ResolveBridge was started once from the Resolve menu while the
   MCP tool waited; background bridge startup was not tested or claimed.
+
+### M34 guarded rough-cut apply evidence
+
+Статус: `pending`. Автоматичні тести підтверджують SHA-256 approval gate,
+preview, idempotent receipt та блокування непідтверджених API. Вони не є
+доказом live timeline mutation.
+
+Перед live write потрібен окремий явний дозвіл оператора, бо перевірка
+`timeline.duplicate` створює новий timeline і `.drp` backup. Після запуску
+ResolveBridge ручний сценарій має зафіксувати:
+
+1. свіжий `video_agent_status(max_age_seconds=120)`;
+2. preview approved M5 plan: статус `blocked`, без command у filesystem queue;
+3. окремий disposable plan лише з підтвердженою `timeline.duplicate`;
+4. backup path, ID створеної копії, readback original та copy;
+5. повтор apply з тим самим idempotency receipt без другого backup або копії;
+6. фактичний список API, що лишилися `blocked` для M5 plan.
+
+Без цього evidence `timeline.duplicate` і M34 live apply не позначаються як
+`verified`.
+
+### M35 persistent bridge and editing metadata evidence
+
+- UTC heartbeat: `2026-07-31T18:26:04.019624Z`;
+- platform: Windows 10 build 19045, Python 3.12.10;
+- Resolve: DaVinci Resolve 21.0.3.7 Free, edition operator-confirmed;
+- lifecycle: manual menu start, `persistent`, 0.5-second polling;
+- UI: operator-confirmed responsive while the bridge loop was active;
+- sequential commands without another menu invocation: cached status, `ping`,
+  current project and workspace snapshot;
+- MCP metadata readback: timeline `M7 Render Source Test`, one video track,
+  one audio track, two explicitly requested MKV assets;
+- sanitized asset results: `447272` frames at `60.0` FPS and `447300` frames
+  at `60.0` FPS;
+- safety: metadata operation read-only, no backup and no project mutation;
+- clean shutdown: `resolve_stop_bridge` returned `status=stopping`, persisted
+  lifecycle state became `stopped`;
+- result: `verified` on this exact environment; other Resolve versions and
+  editions remain pending.

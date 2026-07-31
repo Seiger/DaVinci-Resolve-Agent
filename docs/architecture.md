@@ -28,10 +28,12 @@ M1 adds a read-only proof inside `bridges/resolve`:
 - capability reporting that leaves untested operations as `unknown`;
 - a filesystem transport with an explicit read-only action allowlist.
 
-The initial bridge is one-shot. Each manual invocation observes Resolve,
-atomically writes `state/bridge.json`, processes complete commands currently in
-`commands/`, and exits. This avoids introducing an unverified polling loop that
-could block the Resolve UI.
+Bridge запускається вручну, після чого обслуговує queue в обмеженому
+persistent lifecycle: максимум одна команда за ітерацію, heartbeat і state
+перед/після команди, інтервал 0.5 секунди та allowlisted `stop_bridge` для
+clean shutdown. Це не додає зовнішнього запуску Resolve або arbitrary code.
+Responsive UI, repeated queue processing and clean stop підтверджено live у
+Resolve 21 Free 21.0.3.7; інші версії та editions не вважаються перевіреними.
 
 Live testing on Resolve 21 Free 21.0.3.7 established that the internal host
 context works, while importing `DaVinciResolveScript` directly from that menu
@@ -434,9 +436,9 @@ CLI/MCP snapshot
 
 M18 composes only existing read-only bridge functions and fails atomically if
 a required section cannot be collected. It accepts no user-defined action
-list, creates no backup, performs no write, and keeps the one-shot lifecycle.
-The goal is one Resolve menu invocation for a complete diagnostic snapshot,
-not an unverified persistent bridge inside the Resolve UI thread.
+list, creates no backup, and performs no write. At the time of M18 it reduced
+diagnostics to one invocation of the then one-shot bridge; M35 changes the
+lifecycle separately without turning snapshot into a batch dispatcher.
 
 The local Resolve 21 Scripting README describes external command-line access
 as part of the DaVinci Resolve Studio scripting package. Since the supported

@@ -42,6 +42,7 @@
     "action": {
       "enum": [
         "ping",
+        "stop_bridge",
         "get_bridge_info",
         "get_capabilities",
         "get_current_project",
@@ -49,6 +50,7 @@
         "get_current_timeline",
         "list_timeline_items",
         "list_media_pool_items",
+        "get_editing_metadata",
         "get_workspace_snapshot",
         "get_render_environment",
         "get_render_job_status",
@@ -88,6 +90,44 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "get_editing_metadata"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id",
+              "asset_ids"
+            ],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "asset_ids": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 100,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {
@@ -479,6 +519,7 @@
           "action": {
             "enum": [
               "ping",
+              "stop_bridge",
               "get_bridge_info",
               "get_capabilities",
               "get_current_project",

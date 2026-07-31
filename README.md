@@ -4,11 +4,13 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M33: Codex MCP acceptance**. Він установлює
-одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
+Проєкт перебуває на етапі **Milestone M35: interactive editing session**. Він
+установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
-чернетки rough cut із синхронізацією та аналізом пауз, але не застосовує їх.
+чернетки rough cut із синхронізацією та аналізом пауз. M34 додає preview та
+контрольоване застосування лише повністю підтриманого approved plan до копії
+timeline; поточні `remove_pauses` плани чесно блокуються як unsupported.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -157,10 +159,12 @@ cd DaVinci-Resolve-Agent
 `status` читає останній збережений heartbeat. `diagnostics` локально створює
 sanitized JSON із версіями, конфігурацією, cached capabilities, metadata
 failed commands і bounded log excerpts. Ці дві команди не потребують запуску
-ResolveBridge. Інші команди ставлять перевірений
-запит у чергу та типово очікують до 30 секунд. Поки команда очікує, запусти
-`Workspace → Scripts → Edit → ResolveBridge`, щоб одноразовий bridge її
-опрацював. Час очікування можна змінити через `--timeout-seconds`.
+ResolveBridge. Інші команди ставлять перевірений запит у чергу та типово
+очікують до 30 секунд. Запусти
+`Workspace → Scripts → Edit → ResolveBridge` один раз: bridge обслуговує
+allowlisted queue, доки не отримає `resolve_stop_bridge`. Час очікування можна
+змінити через `--timeout-seconds`. Responsive UI, послідовні команди без
+повторного запуску меню та clean stop перевірено у Resolve 21 Free 21.0.3.7.
 
 Diagnostics bundle зберігається у фіксованій runtime-директорії, не містить
 медіа, backups, raw commands/responses або відомих secret-полів. Перед
@@ -234,6 +238,7 @@ Read-only інструменти:
 - `resolve_get_timeline`.
 - `resolve_list_timeline_items`.
 - `resolve_list_media_pool_items`.
+- `resolve_get_editing_metadata`.
 - `resolve_get_workspace_snapshot`.
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
@@ -241,6 +246,7 @@ Read-only інструменти:
 
 Безпечні write-інструменти:
 
+- `resolve_stop_bridge`;
 - `resolve_import_media`;
 - `resolve_create_timeline`;
 - `resolve_duplicate_timeline`;
@@ -268,8 +274,10 @@ Read-only інструменти:
 - `get_audio_report`.
 - `list_audio_reports`.
 
-Для Resolve-запитів потрібно запустити `ResolveBridge` з меню Resolve, поки
-MCP-клієнт очікує відповідь. Перед кожною write-операцією bridge експортує
+Для Resolve-запитів потрібно один раз вручну запустити `ResolveBridge` з меню
+Resolve. Після цього bridge обслуговує наступні allowlisted команди, доки
+`resolve_stop_bridge` не завершить його cleanly. Перед кожною write-операцією
+bridge експортує
 проєкт у `.drp`; імпорт дозволений лише з `media.allowed_roots`. Приклад
 конфігурації клієнта наведено в [документації MCP](docs/mcp.md), а відновлення —
 в [rollback strategy](docs/rollback.md).
@@ -367,10 +375,17 @@ Media Pool і повертає `asset_id`, назву, `folder_id` та логі
 read-only, не створює backup, не читає файлові шляхи та не викликає
 `GetClipProperty`.
 
+`resolve_get_editing_metadata` приймає один `timeline_id` та 1–100 унікальних
+`asset_id`. Він повертає кількість video/audio tracks і лише потрібні для
+placement значення `Frames` та `FPS`; raw property snapshot і файлові шляхи
+не повертаються. Capability стає підтвердженою лише після успішного live
+readback.
+
 `resolve_get_workspace_snapshot` без аргументів збирає всі основні read-only
 розділи одним bridge-запитом. Він не є універсальним batch dispatcher:
 користувач не може передати назви команд, код або Resolve expressions.
-Внутрішній скрипт залишається одноразовим. Встановлена документація Resolve 21
+Внутрішній скрипт запускається вручну та не додає зовнішнього керування
+Resolve. Встановлена документація Resolve 21
 описує зовнішній Scripting API як API Resolve Studio, тому для Resolve 21 Free
 проєкт не заявляє непідтверджений автоматичний зовнішній запуск.
 

@@ -20,6 +20,10 @@ class StubResolveReader:
         self.timeouts.append(timeout_seconds)
         return {"name": "Test Project"}
 
+    def stop_bridge(self, timeout_seconds: float = 30) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {"status": "stopping"}
+
     def timelines(self, timeout_seconds: float = 30) -> list[dict[str, Any]]:
         self.timeouts.append(timeout_seconds)
         return [{"index": 1, "name": "Main"}]
@@ -49,6 +53,30 @@ class StubResolveReader:
         return {
             "items": [{"asset_id": "asset-1", "name": "screen.mkv"}],
             "folder_count": 1,
+        }
+
+    def editing_metadata(
+        self,
+        timeline_id: str,
+        asset_ids: list[str],
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline": {
+                "timeline_id": timeline_id,
+                "video_track_count": 1,
+                "audio_track_count": 1,
+            },
+            "assets": [
+                {
+                    "asset_id": asset_id,
+                    "duration_frames": 240,
+                    "frame_rate": 60.0,
+                }
+                for asset_id in asset_ids
+            ],
         }
 
     def workspace_snapshot(
@@ -473,6 +501,7 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
     assert status["healthy"] is True
     assert status["bridge"]["status"] == "ready"
     assert application.resolve_get_project(10) == {"name": "Test Project"}
+    assert application.resolve_stop_bridge(12) == {"status": "stopping"}
     assert application.resolve_list_timelines(20) == [
         {"index": 1, "name": "Main"}
     ]
@@ -484,6 +513,9 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
     assert application.resolve_list_media_pool_items(37)["items"][0][
         "asset_id"
     ] == "asset-1"
+    assert application.resolve_get_editing_metadata(
+        "timeline-1", ["asset-1"], 37.5
+    )["assets"][0]["frame_rate"] == 60.0
     assert application.resolve_get_workspace_snapshot(38)["project"]["name"] == (
         "Test Project"
     )
@@ -491,7 +523,7 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
         "format": "mp4",
         "codec": "H264",
     }
-    assert resolve.timeouts == [10, 20, 30, 35, 37, 38, 40]
+    assert resolve.timeouts == [10, 12, 20, 30, 35, 37, 37.5, 38, 40]
 
 
 def test_application_exposes_validated_write_methods() -> None:

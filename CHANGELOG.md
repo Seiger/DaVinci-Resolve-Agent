@@ -9,6 +9,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M35 manually launched persistent Resolve bridge with bounded polling,
+  heartbeat refresh, one allowlisted command per iteration, and clean stop.
+- Read-only editing metadata discovery limited to requested asset IDs,
+  `Frames`, `FPS`, and target timeline track counts.
+- Resolve 21 Free 21.0.3.7 live verification of responsive persistent polling,
+  sequential commands, bounded metadata for both synchronized MKV assets, and
+  clean MCP stop without project mutation.
+- M34 guarded rough-cut apply preview and approved-plan validation with
+  timeline-copy targeting, capability blocking, idempotent receipts, and no
+  fabricated mapping for unsupported pause removal.
 - M33 portable project-scoped Codex MCP configuration with write-tool approval
   and a live end-to-end acceptance procedure.
 - Automated validation that the Codex configuration starts the installed STDIO

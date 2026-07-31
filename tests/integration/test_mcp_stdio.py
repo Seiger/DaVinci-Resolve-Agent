@@ -30,11 +30,13 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
 
     assert asyncio.run(list_tool_names()) == {
         "video_agent_status",
+        "resolve_stop_bridge",
         "resolve_get_project",
         "resolve_list_timelines",
         "resolve_get_timeline",
         "resolve_list_timeline_items",
         "resolve_list_media_pool_items",
+        "resolve_get_editing_metadata",
         "resolve_get_workspace_snapshot",
         "resolve_get_render_options",
         "resolve_import_media",

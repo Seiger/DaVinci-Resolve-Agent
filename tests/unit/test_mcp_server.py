@@ -17,6 +17,9 @@ class StubResolveReader:
     def current_project(self, timeout_seconds: float = 30) -> dict[str, Any]:
         return {"name": "Test Project"}
 
+    def stop_bridge(self, timeout_seconds: float = 30) -> dict[str, Any]:
+        return {"status": "stopping"}
+
     def timelines(self, timeout_seconds: float = 30) -> list[dict[str, Any]]:
         return [{"index": 1, "name": "Main"}]
 
@@ -42,6 +45,29 @@ class StubResolveReader:
         return {
             "items": [{"asset_id": "asset-1", "name": "screen.mkv"}],
             "folder_count": 1,
+        }
+
+    def editing_metadata(
+        self,
+        timeline_id: str,
+        asset_ids: list[str],
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "timeline": {
+                "timeline_id": timeline_id,
+                "video_track_count": 1,
+                "audio_track_count": 1,
+            },
+            "assets": [
+                {
+                    "asset_id": asset_id,
+                    "duration_frames": 240,
+                    "frame_rate": 60.0,
+                }
+                for asset_id in asset_ids
+            ],
         }
 
     def workspace_snapshot(
@@ -463,6 +489,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
 
             results = {
                 "project": await client.call_tool("resolve_get_project", {}),
+                "stopped": await client.call_tool("resolve_stop_bridge", {}),
                 "timelines": await client.call_tool(
                     "resolve_list_timelines",
                     {},
@@ -478,6 +505,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                 "media_pool_items": await client.call_tool(
                     "resolve_list_media_pool_items",
                     {},
+                ),
+                "editing_metadata": await client.call_tool(
+                    "resolve_get_editing_metadata",
+                    {"timeline_id": "timeline-1", "asset_ids": ["asset-1"]},
                 ),
                 "snapshot": await client.call_tool(
                     "resolve_get_workspace_snapshot",
@@ -625,10 +656,12 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert names == {
         "video_agent_status",
         "resolve_get_project",
+        "resolve_stop_bridge",
         "resolve_list_timelines",
         "resolve_get_timeline",
         "resolve_list_timeline_items",
         "resolve_list_media_pool_items",
+        "resolve_get_editing_metadata",
         "resolve_get_workspace_snapshot",
         "resolve_get_render_options",
         "resolve_import_media",
@@ -659,6 +692,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["project"].structured_content == {
         "project": {"name": "Test Project"}
     }
+    assert results["stopped"].structured_content == {"status": "stopping"}
     assert results["timelines"].structured_content == {
         "timelines": [{"index": 1, "name": "Main"}]
     }
@@ -671,6 +705,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["media_pool_items"].structured_content["items"][0][
         "asset_id"
     ] == "asset-1"
+    assert results["editing_metadata"].structured_content["assets"][0][
+        "duration_frames"
+    ] == 240
     assert results["snapshot"].structured_content["project"]["name"] == (
         "Test Project"
     )

@@ -11,6 +11,8 @@ import pytest
 
 from bridges.resolve.ResolveBridge import (
     _apply_verified_capabilities,
+    _positive_integer_property,
+    _positive_number_property,
     collect_bridge_state,
     ensure_runtime_directories,
     process_pending_commands,
@@ -27,6 +29,22 @@ class FakeMediaItem:
 
     def GetName(self) -> str:
         return self._name
+
+    def GetClipProperty(self, key: str) -> str:
+        return {"Frames": "240", "FPS": "60"}[key]
+
+
+def test_clip_metadata_numeric_properties_are_strictly_normalized() -> None:
+    assert _positive_integer_property("240") == 240
+    assert _positive_integer_property(240.0) == 240
+    assert _positive_number_property("59.94") == 59.94
+    assert _positive_number_property(60) == 60.0
+
+    for invalid in (True, 0, -1, float("inf"), "unknown", ""):
+        with pytest.raises(ValueError):
+            _positive_number_property(invalid)
+    with pytest.raises(ValueError):
+        _positive_integer_property(23.976)
 
 
 class FakeTimelineItem:
@@ -980,6 +998,47 @@ def test_media_pool_items_are_discovered_recursively_without_backup(
     }
     assert resolve.project_manager.export_count == 0
     assert state["capabilities"]["media.read"] is True
+
+
+def test_editing_metadata_is_bounded_read_only_discovery(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = FakeTimeline("timeline-draft", "sMailer M5 Draft")
+    resolve.project.timelines.append(timeline)
+    resolve.project.current_timeline = timeline
+    resolve.project.media_pool.root.clips.append(
+        FakeMediaItem("asset-screen", "screen.mkv")
+    )
+    state = collect_bridge_state(resolve)
+    command = _command(
+        "editing-metadata",
+        "get_editing_metadata",
+        {"timeline_id": "timeline-draft", "asset_ids": ["asset-screen"]},
+    )
+    command["safety"]["create_backup"] = False
+
+    response = _run_command(tmp_path, resolve, state, command)
+
+    assert response["status"] == "success"
+    assert response["result"] == {
+        "timeline": {
+            "timeline_id": "timeline-draft",
+            "name": "sMailer M5 Draft",
+            "video_track_count": 1,
+            "audio_track_count": 1,
+        },
+        "assets": [
+            {
+                "asset_id": "asset-screen",
+                "name": "screen.mkv",
+                "duration_frames": 240,
+                "frame_rate": 60.0,
+            }
+        ],
+    }
+    assert resolve.project_manager.export_count == 0
+    assert state["capabilities"]["media.metadata.read"] is True
 
 
 def test_workspace_snapshot_collects_read_only_sections_in_one_command(

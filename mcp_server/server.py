@@ -69,6 +69,13 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
         return {"project": project}
 
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_stop_bridge(
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Stop the manually launched persistent bridge cleanly."""
+        return await asyncio.to_thread(service.resolve_stop_bridge, timeout_seconds)
+
     @server.tool(annotations=READ_ONLY_TOOL)
     async def resolve_list_timelines(
         timeout_seconds: float = 30,
@@ -110,6 +117,20 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         """List bounded identities for items in the current Media Pool."""
         return await asyncio.to_thread(
             service.resolve_list_media_pool_items,
+            timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def resolve_get_editing_metadata(
+        timeline_id: str,
+        asset_ids: list[str],
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Read source frame count/FPS and target video/audio track counts."""
+        return await asyncio.to_thread(
+            service.resolve_get_editing_metadata,
+            timeline_id,
+            asset_ids,
             timeout_seconds,
         )
 

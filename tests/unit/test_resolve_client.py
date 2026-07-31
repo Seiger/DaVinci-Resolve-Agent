@@ -48,6 +48,13 @@ class StubCommandClient:
             assert arguments == {"timeline_id": "timeline-1"}
             assert create_backup is False
             assert allow_destructive is False
+        elif action == "get_editing_metadata":
+            assert arguments == {
+                "timeline_id": "timeline-1",
+                "asset_ids": ["asset-1"],
+            }
+            assert create_backup is False
+            assert allow_destructive is False
         elif action == "get_render_job_status":
             assert arguments == {"job_id": "job-1"}
             assert create_backup is False
@@ -62,6 +69,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     command_client = StubCommandClient(
         {
             "ping": {"message": "pong"},
+            "stop_bridge": {"status": "stopping"},
             "get_capabilities": {
                 "bridge.ping": True,
                 "timeline.create": "unknown",
@@ -90,6 +98,20 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                     }
                 ],
                 "folder_count": 1,
+            },
+            "get_editing_metadata": {
+                "timeline": {
+                    "timeline_id": "timeline-1",
+                    "video_track_count": 1,
+                    "audio_track_count": 1,
+                },
+                "assets": [
+                    {
+                        "asset_id": "asset-1",
+                        "duration_frames": 240,
+                        "frame_rate": 60.0,
+                    }
+                ],
             },
             "get_workspace_snapshot": {
                 "bridge": {"bridge_version": "0.1.0"},
@@ -205,6 +227,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     client = ResolveProviderClient(command_client)
 
     assert client.ping() == "pong"
+    assert client.stop_bridge() == {"status": "stopping"}
     assert client.capabilities()["bridge.ping"] is True
     assert client.current_project() == {"name": "Test Project"}
     assert client.timelines() == [{"index": 1, "name": "Main"}]
@@ -213,6 +236,9 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "timeline_item_id"
     ] == "item-1"
     assert client.media_pool_items()["items"][0]["asset_id"] == "asset-1"
+    assert client.editing_metadata("timeline-1", ["asset-1"])["assets"][0][
+        "frame_rate"
+    ] == 60.0
     assert client.workspace_snapshot()["project"]["name"] == "Test Project"
     assert client.render_environment()["current"]["format"] == "mp4"
     assert client.import_media(
@@ -293,12 +319,14 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     )["started"] is True
     assert command_client.actions == [
         "ping",
+        "stop_bridge",
         "get_capabilities",
         "get_current_project",
         "list_timelines",
         "get_current_timeline",
         "list_timeline_items",
         "list_media_pool_items",
+        "get_editing_metadata",
         "get_workspace_snapshot",
         "get_render_environment",
         "import_media",

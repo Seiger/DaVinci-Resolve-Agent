@@ -147,15 +147,20 @@ Resolve-інструменти ставлять команду в локальн
 2. запусти `Workspace → Scripts → Edit → ResolveBridge`;
 3. дочекайся відповіді MCP-клієнта.
 
+Після ручного старту `resolve_stop_bridge` завершує persistent bridge cleanly.
+Він не приймає параметрів і не змінює Resolve project, але свідомо зупиняє
+локальний service, тому має write annotation. Після відповіді `stopping`
+`video_agent_status` зрештою показує `stopped`, що не є healthy state.
+
 Типовий timeout становить 30 секунд. Аргумент `timeout_seconds` приймає значення
-понад `0` і не більше `300`. Одноразова модель bridge є навмисним обмеженням
-поточного прототипу.
+понад `0` і не більше `300`. Persistent lifecycle починається лише після
+ручного запуску bridge. Responsive UI, кілька послідовних команд і clean stop
+перевірено у Resolve 21 Free 21.0.3.7.
 
 `resolve_get_workspace_snapshot` збирає основну діагностику одним запитом:
 bridge metadata, поточний проєкт, timelines, current timeline та його items,
-Media Pool і render discovery. Тому для повного read-only огляду достатньо
-одного запуску ResolveBridge. Tool не приймає масив команд, не створює backup
-і не перетворює bridge на фоновий процес.
+Media Pool і render discovery. Tool не приймає масив команд, не створює backup
+і не змінює lifecycle bridge.
 
 `resolve_get_render_options` є discovery-only інструментом M7. Він читає
 документовані Resolve formats, codecs, presets, поточні значення та render
@@ -233,6 +238,16 @@ raw `GetClipProperty` snapshots, metadata та Resolve object handles не
 обмежено 1000 folders і 10000 items.
 Live discovery у Resolve 21 Free 21.0.3.7 повернув п'ять items у `Master`,
 зокрема source MKV із відомим `asset_id`, і не створив project backup.
+
+`resolve_get_editing_metadata` є read-only підготовкою до точного placement.
+Він приймає canonical `timeline_id` і від 1 до 100 явних `asset_ids`, читає
+лише bounded `MediaPoolItem.GetClipProperty("Frames")` та
+`GetClipProperty("FPS")`, а також `Timeline.GetTrackCount("video"|"audio")`.
+Відповідь повертає нормалізовані `duration_frames: int` і
+`frame_rate: float` разом із кількістю target tracks. Raw clip-property snapshots,
+файлові шляхи, Resolve handles і будь-які write-операції не входять до
+контракту; backup не створюється. Live readback у Resolve 21 Free 21.0.3.7
+підтвердив обидва синхронні MKV assets як 60 FPS із різними frame counts.
 
 `resolve_set_clips_linked` приймає один timeline ID, від 2 до 16 унікальних
 TimelineItem IDs та `linked=true|false`. Інструмент працює лише з явно

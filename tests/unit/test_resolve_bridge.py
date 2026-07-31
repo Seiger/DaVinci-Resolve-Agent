@@ -12,6 +12,7 @@ from bridges.resolve.ResolveBridge import (
     ensure_runtime_directories,
     get_resolve_application,
     process_pending_commands,
+    run_persistent_bridge,
 )
 
 
@@ -229,6 +230,42 @@ def test_ping_command_is_claimed_and_answered(tmp_path: Path) -> None:
     assert response["result"] == {"message": "pong"}
     assert not command_path.exists()
     assert not (directories["processing"] / "ping-1.json").exists()
+
+
+def test_persistent_bridge_heartbeats_and_stops_cleanly(tmp_path: Path) -> None:
+    directories = ensure_runtime_directories(tmp_path)
+    now = datetime.now(timezone.utc)
+    command = {
+        "protocol_version": "1.0",
+        "command_id": "stop-1",
+        "idempotency_key": "stop-1",
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(minutes=5)).isoformat(),
+        "provider": "resolve",
+        "action": "stop_bridge",
+        "arguments": {},
+        "safety": {
+            "allow_destructive": False,
+            "create_backup": False,
+        },
+    }
+    (directories["commands"] / "stop-1.json").write_text(
+        json.dumps(command), encoding="utf-8"
+    )
+
+    state, processed = run_persistent_bridge(
+        FakeResolve(FakeProject()),
+        directories,
+        sleep=lambda _: None,
+    )
+
+    assert processed == 1
+    assert state["status"] == "stopped"
+    assert state["lifecycle"]["mode"] == "stopped"
+    response = json.loads(
+        (directories["responses"] / "stop-1.json").read_text(encoding="utf-8")
+    )
+    assert response["result"] == {"status": "stopping"}
 
 
 def test_unsafe_command_is_rejected_and_preserved(tmp_path: Path) -> None:

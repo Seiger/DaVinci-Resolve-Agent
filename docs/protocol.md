@@ -193,11 +193,19 @@ current timeline audio/video track and item counts as a render preflight. It
 does not change render settings, add a job, start rendering, delete a job, or
 upload media.
 
-## One-shot lifecycle
+## Persistent lifecycle
 
-M1 does not continuously poll. Invoke `ResolveBridge` from Resolve to capture a
-fresh state and process commands already present in the queue. Persistent
-polling requires a separate UI-blocking safety proof.
+`ResolveBridge` запускається вручну з Resolve та після цього працює як
+консервативний persistent loop: один allowlisted command за ітерацію,
+heartbeat перед обробкою, інтервал 0.5 секунди та запис state після кожного
+кроку. `stop_bridge` не приймає аргументів, не створює backup і не змінює
+проєкт: він завершує loop лише після структурованої відповіді `stopping`.
+Жодного arbitrary code, shell або Resolve expression цей lifecycle не додає.
+
+Автоматичні тести підтверджують queue, heartbeat state і clean stop у
+симуляції. Live acceptance у Resolve 21 Free 21.0.3.7 підтвердив responsive UI,
+кілька послідовних команд без повторного menu invocation, metadata readback і
+clean stop; це не є доказом сумісності з іншими environments.
 
 M18 reduces a full workspace inspection to one queued command and therefore
 one menu invocation. It does not claim zero-click startup: the Resolve 21
