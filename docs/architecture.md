@@ -612,6 +612,27 @@ Resolve, a project, or its internal scripting context. Workflow permissions
 are read-only, checkout credentials are not persisted, and there are no
 secrets, deployment, commit, push, or external scripting steps.
 
+## M28 isolated installer lifecycle
+
+```text
+GitHub Actions / windows-latest / Python 3.12
+ └─ create unique temporary sandbox
+     ├─ copy tracked checkout files
+     ├─ redirect APPDATA, LOCALAPPDATA, USERPROFILE, and pip cache
+     ├─ seed pre-existing config and ResolveBridge
+     ├─ install → import → CLI version
+     ├─ install again → preservation checks
+     └─ uninstall with explicit removal flags
+         ├─ restore pre-existing ResolveBridge
+         └─ preserve out-of-scope sentinel
+```
+
+The smoke-test owns and removes only its GUID-named directory under the system
+temporary root. It exercises the real installer scripts from an isolated
+repository copy, so the developer checkout and profile remain outside their
+scope. It intentionally does not run live heartbeat verification because
+hosted CI has no Resolve internal scripting context.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

@@ -25,8 +25,16 @@ Run all checks before proposing a change:
 
 GitHub Actions повторює pytest на Windows із Python 3.10, 3.11 і 3.12.
 Ruff, mypy та PowerShell syntax перевіряються в окремій Python 3.12 job.
+Окрема installer job запускає повний lifecycle лише у створеній нею
+тимчасовій копії репозиторію та тимчасових Windows profile directories.
 Resolve integration залишається manual-only. Докладніше:
 [docs/continuous-integration.md](docs/continuous-integration.md).
+
+Локальний installer lifecycle змінює лише власну тимчасову sandbox:
+
+```powershell
+.\scripts\test-installer-lifecycle.ps1
+```
 
 Do not add Resolve API behavior without verifying it in the supported Resolve
 edition and documenting the evidence. Never expose arbitrary Python, Lua,

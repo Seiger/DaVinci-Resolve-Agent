@@ -21,6 +21,12 @@ The installer copies the internal script to the current user's documented
 Resolve script tree. If a different file already occupies the target path, the
 installer preserves it as `ResolveBridge.py.davinci-agent-backup`.
 
+CI separately exercises install, repeat install, and uninstall in a generated
+temporary repository copy with temporary Windows profile directories. This
+smoke-test validates filesystem ownership and restoration behavior without
+touching the developer's real profile or claiming live Resolve connectivity.
+See [continuous integration](continuous-integration.md).
+
 ## First Resolve health check
 
 Resolve scans menu scripts at startup:

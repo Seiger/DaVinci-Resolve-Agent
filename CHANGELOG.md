@@ -144,3 +144,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   PowerShell syntax without Resolve, secrets, deployment, commit, or push.
 - Bounded retry for transient Windows `PermissionError` during atomic audit
   replacement and simulated command/response publication.
+- M28 isolated Windows installer lifecycle smoke test.
+- Repeat-install configuration preservation, previous-bridge backup/restore,
+  fixed-scope uninstall, and out-of-scope sentinel verification in CI.

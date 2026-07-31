@@ -1,6 +1,7 @@
 # Безперервна інтеграція
 
-M27 додає GitHub Actions workflow `.github/workflows/windows-ci.yml`.
+M27 додає GitHub Actions workflow `.github/workflows/windows-ci.yml`, а M28 —
+ізольовану перевірку повного installer lifecycle.
 
 ## Test matrix
 
@@ -19,6 +20,23 @@ M27 додає GitHub Actions workflow `.github/workflows/windows-ci.yml`.
 - `mypy .`;
 - read-only syntax parse чотирьох installer PowerShell scripts.
 
+Ще одна Python 3.12 job виконує `scripts/test-installer-lifecycle.ps1`.
+Job має явний timeout 15 хвилин.
+Скрипт копіює лише tracked files поточного checkout у нову директорію під
+Windows temporary root і спрямовує `APPDATA`, `LOCALAPPDATA` та `USERPROFILE`
+у цю sandbox. `PIP_CACHE_DIR` також має окреме sandbox-значення, щоб Win32
+known-folder fallback не міг створити cache у checkout. Усередині
+перевіряються:
+
+- перша інсталяція та імпорт установленого package;
+- `davinci-agent --version`;
+- збереження наявного локального `config.toml`;
+- backup наявного стороннього `ResolveBridge.py`;
+- безпечний повторний запуск installer;
+- повний opt-in uninstall;
+- відновлення попереднього bridge;
+- збереження sentinel-файлу поза installer-owned directories.
+
 ## Межі безпеки
 
 Workflow має лише `contents: read`, не зберігає checkout credentials і не
@@ -29,6 +47,11 @@ Live Resolve 21 Free перевірки залишаються manual-only, то
 GitHub-hosted runner не має Resolve, відкритого проєкту та внутрішнього
 Workspace script context.
 
+Installer lifecycle не запускає `verify.ps1`, бо його heartbeat/capability
+частина за контрактом потребує справжнього Resolve. Smoke-test перевіряє
+відтворюваність файлової інсталяції та видалення, але не заявляє live
+сумісність із Resolve.
+
 ## Локальний еквівалент
 
 ```powershell
@@ -36,5 +59,6 @@ Workspace script context.
 .\.venv\Scripts\python.exe -m ruff check .
 .\.venv\Scripts\python.exe -m mypy .
 .\scripts\check-powershell-syntax.ps1
+.\scripts\test-installer-lifecycle.ps1
 .\.venv\Scripts\davinci-agent.exe --version
 ```
