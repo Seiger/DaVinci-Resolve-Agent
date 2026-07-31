@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M32: wheel package CI**. Він установлює
+Проєкт перебуває на етапі **Milestone M33: Codex MCP acceptance**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -219,6 +219,12 @@ success/error responses і всі capability value kinds. Статичні пр�
 ```powershell
 .\.venv\Scripts\davinci-agent-mcp.exe
 ```
+
+Для Codex репозиторій уже містить переносиму project-scoped конфігурацію
+`.codex/config.toml`. Після `installer\install.ps1` відкрий цей checkout як
+trusted project і перезапусти Codex. Read-only tools виконуються без
+підтвердження, а write-tools запитують його. Наскрізна перевірка описана в
+[документації MCP](docs/mcp.md).
 
 Read-only інструменти:
 

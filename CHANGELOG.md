@@ -9,6 +9,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M33 portable project-scoped Codex MCP configuration with write-tool approval
+  and a live end-to-end acceptance procedure.
+- Automated validation that the Codex configuration starts the installed STDIO
+  server and exposes representative status, Resolve, and render tools.
 - M0 repository foundation.
 - Python package skeleton and version CLI.
 - Windows installation, verification, and uninstallation scripts.

@@ -79,11 +79,43 @@ SHA-256-зв’язок між ними. Обидва tools read-only, прац�
 paths, results або exception messages. Докладніше:
 [workflow-audit.md](workflow-audit.md).
 
-## Конфігурація клієнта
+## Codex як перший підтримуваний клієнт
 
-Спочатку виконай `installer\install.ps1`. У конфігурації MCP-клієнта вкажи
-абсолютний шлях до створеного executable. Не записуй власний шлях у файли
-репозиторію:
+Репозиторій містить project-scoped `.codex/config.toml`. Він запускає MCP
+через executable у локальній `.venv`, не містить імені користувача, літери
+диска або абсолютного шляху. Codex завантажує цю конфігурацію лише для
+trusted project.
+
+1. Виконай `installer\install.ps1`.
+2. Відкрий корінь репозиторію як trusted project у Codex.
+3. Перезапусти Codex після першого встановлення або зміни MCP-конфігурації.
+4. Перевір у списку MCP servers наявність `davinci-resolve-agent`.
+
+Для read-only tools підтвердження не потрібне. Project config використовує
+approval mode `writes`, тому Codex запитує підтвердження для tools, які MCP
+сервер не позначив read-only. Tool timeout становить 330 секунд: цього
+достатньо для максимального bridge timeout у 300 секунд і завершення STDIO
+відповіді.
+
+### Наскрізний acceptance-тест у Codex
+
+1. Попроси Codex викликати `video_agent_status`. Ця перевірка не ставить
+   команду bridge.
+2. Відкрий потрібний проєкт у Resolve.
+3. Попроси Codex викликати `resolve_get_project` з `timeout_seconds=120`.
+4. Поки tool очікує, один раз запусти
+   `Workspace → Scripts → Edit → ResolveBridge`.
+5. Звір назву проєкту у відповіді Codex з реально відкритим проєктом.
+
+Успішний результат доводить весь ланцюжок
+`Codex → MCP → AgentApplication → filesystem transport → ResolveBridge → Resolve`.
+Він не доводить фоновий або автоматичний запуск bridge.
+
+## Інші MCP-клієнти
+
+Спочатку виконай `installer\install.ps1`. Якщо клієнт не підтримує
+project-scoped Codex config, вкажи в його локальній конфігурації абсолютний
+шлях до створеного executable. Не записуй власний шлях у файли репозиторію:
 
 ```json
 {
@@ -97,7 +129,8 @@ paths, results або exception messages. Докладніше:
 ```
 
 Заміни `<repository-path>` на локальний шлях до checkout на конкретному
-комп'ютері та перезапусти MCP-клієнт.
+комп'ютері та перезапусти MCP-клієнт. Цей JSON є узагальненим прикладом;
+точний файл і формат залежать від конкретного клієнта.
 
 ## Виконання Resolve-запитів
 
