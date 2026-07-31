@@ -32,6 +32,11 @@ Ruff, mypy та PowerShell syntax перевіряються в окремій P
 Resolve integration залишається manual-only. Докладніше:
 [docs/continuous-integration.md](docs/continuous-integration.md).
 
+Кожне нове твердження про live Resolve compatibility має оновлювати
+[manual integration matrix](docs/manual-integration-testing.md) і містити
+повний sanitized evidence contract. CI або stale heartbeat не можна позначати
+як live `verified`.
+
 Локальний installer lifecycle змінює лише власну тимчасову sandbox:
 
 ```powershell

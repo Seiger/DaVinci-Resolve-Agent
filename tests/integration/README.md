@@ -15,3 +15,7 @@ Live Resolve integration remains manual-only. Verified live evidence targets
 Resolve 21 Free on Windows and must document the exact version, project state,
 operation, readback, backup behavior, and replay result. CI must not claim that
 the Resolve application or its internal script context is available.
+
+The canonical platform/state coverage, current `verified` and `pending` rows,
+and sanitized evidence requirements are maintained in
+[manual integration testing](../../docs/manual-integration-testing.md).

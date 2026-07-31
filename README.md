@@ -4,7 +4,8 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M29: offline installer verification**. Він установлює
+Проєкт перебуває на етапі **Milestone M30: manual integration evidence
+matrix**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -187,6 +188,12 @@ uninstall у повністю тимчасовому профілі Windows, п�
 керованих директоріях. Workflow має лише `contents: read` і не виконує
 deploy, commit, push або live Resolve automation. Деталі:
 [безперервна інтеграція](docs/continuous-integration.md).
+
+Live Resolve compatibility ведеться окремою platform/state матрицею.
+Підтверджено Windows 10 build 19045, Python 3.12.10 і Resolve 21 Free
+21.0.3.7 з відкритим проєктом та timeline. Windows 11, Studio, project absent
+і timeline absent не видаються за перевірені та залишаються `pending`.
+Деталі: [ручне інтеграційне тестування](docs/manual-integration-testing.md).
 
 Коди завершення CLI:
 

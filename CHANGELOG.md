@@ -151,3 +151,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   heartbeat.
 - Machine-local TOML validation and write/delete permission probes for every
   installer-managed application directory.
+- M30 canonical manual Resolve integration platform and state matrices.
+- Evidence requirements that separate verified live runs, pending coverage,
+  automated CI, stale cached state, and operator-confirmed edition.

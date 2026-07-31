@@ -651,6 +651,23 @@ requires a fresh bridge state, healthy CLI status, and reported ping
 capability. Permission probes use unique names, exclusive creation, and
 mandatory cleanup; they do not inspect or replace user content.
 
+## M30 manual integration evidence matrix
+
+```text
+Live evidence
+ ├─ platform: Windows version/build + Python + Resolve edition/version
+ ├─ state: project open/none + timeline present/absent/not applicable
+ ├─ operation: CLI or MCP + status/readback
+ ├─ write safety: backup + flags + idempotent replay
+ └─ result: verified / pending / blocked
+```
+
+The canonical matrix is separate from CI. A hosted bridge simulation, stale
+cached heartbeat, or operator assumption cannot move a live row to `verified`.
+Resolve edition may be recorded as operator-confirmed when the documented API
+does not report it, but that provenance must remain explicit. Evidence excludes
+credentials, private media paths, raw configuration, and unsanitized bundles.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.
