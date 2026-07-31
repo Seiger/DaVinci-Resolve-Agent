@@ -6,7 +6,7 @@ import math
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from agent.audio_workflow import DialogueAudioWorkflow
+from agent.audio_workflow import AudioReportInspector, DialogueAudioWorkflow
 from agent.bridge_state import (
     DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
     bridge_is_healthy,
@@ -21,7 +21,11 @@ from agent.rendering import (
     validate_render_profile,
     verify_render_output,
 )
-from agent.rough_cut import RoughCutPlanner, RoughCutReviewer
+from agent.rough_cut import (
+    RoughCutInspector,
+    RoughCutPlanner,
+    RoughCutReviewer,
+)
 from providers.resolve import ResolveProviderClient
 
 MAX_COMMAND_TIMEOUT_SECONDS = 300.0
@@ -264,6 +268,16 @@ class RoughCutPlanReviewer(Protocol):
         """Persist one idempotent approval record."""
 
 
+class RoughCutPlanInspector(Protocol):
+    """Read-only access to validated local rough-cut artifacts."""
+
+    def get_plan(self, plan_id: str) -> dict[str, Any]:
+        """Return one draft and its effective approval state."""
+
+    def list_plans(self, limit: int = 100) -> dict[str, Any]:
+        """Return bounded plan summaries."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -276,6 +290,16 @@ class DialogueAudioProcessor(Protocol):
         """Create derived audio and a before/after report."""
 
 
+class AudioReportReader(Protocol):
+    """Read-only access to validated local audio reports."""
+
+    def get_report(self, report_id: str) -> dict[str, Any]:
+        """Return one canonical before/after report."""
+
+    def list_reports(self, limit: int = 100) -> dict[str, Any]:
+        """Return bounded report summaries."""
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -286,14 +310,18 @@ class AgentApplication:
         media_policy: MediaImportPolicy | None = None,
         rough_cut_planner: RoughCutPlanBuilder | None = None,
         rough_cut_reviewer: RoughCutPlanReviewer | None = None,
+        rough_cut_inspector: RoughCutPlanInspector | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
+        audio_report_inspector: AudioReportReader | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
         self._state_loader = state_loader
         self._media_policy = media_policy
         self._rough_cut_planner = rough_cut_planner
         self._rough_cut_reviewer = rough_cut_reviewer
+        self._rough_cut_inspector = rough_cut_inspector
         self._audio_processor = audio_processor
+        self._audio_report_inspector = audio_report_inspector
 
     def status(
         self,
@@ -824,6 +852,24 @@ class AgentApplication:
             confirm_review=confirm_review,
         )
 
+    def get_rough_cut_plan(self, plan_id: str) -> dict[str, Any]:
+        """Return one validated draft and approval without changing either."""
+        inspector = (
+            RoughCutInspector()
+            if self._rough_cut_inspector is None
+            else self._rough_cut_inspector
+        )
+        return inspector.get_plan(plan_id)
+
+    def list_rough_cut_plans(self, limit: int = 100) -> dict[str, Any]:
+        """Return bounded summaries for locally stored rough-cut plans."""
+        inspector = (
+            RoughCutInspector()
+            if self._rough_cut_inspector is None
+            else self._rough_cut_inspector
+        )
+        return inspector.list_plans(limit)
+
     def clean_dialogue_audio(
         self,
         source_file: str,
@@ -843,6 +889,24 @@ class AgentApplication:
             else self._audio_processor
         )
         return processor.process(normalized[0], preset=preset)
+
+    def get_audio_report(self, report_id: str) -> dict[str, Any]:
+        """Return one validated report without processing media."""
+        inspector = (
+            AudioReportInspector()
+            if self._audio_report_inspector is None
+            else self._audio_report_inspector
+        )
+        return inspector.get_report(report_id)
+
+    def list_audio_reports(self, limit: int = 100) -> dict[str, Any]:
+        """Return bounded summaries for locally stored audio reports."""
+        inspector = (
+            AudioReportInspector()
+            if self._audio_report_inspector is None
+            else self._audio_report_inspector
+        )
+        return inspector.list_reports(limit)
 
     @staticmethod
     def _validated_timeout(timeout_seconds: float) -> float:

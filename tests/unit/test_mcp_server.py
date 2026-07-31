@@ -308,6 +308,23 @@ class StubRoughCutReviewer:
         }
 
 
+class StubRoughCutInspector:
+    def get_plan(self, plan_id: str) -> dict[str, Any]:
+        return {
+            "plan": {"plan_id": plan_id},
+            "approval": None,
+            "effective_status": "pending_review",
+            "apply_supported": False,
+        }
+
+    def list_plans(self, limit: int = 100) -> dict[str, Any]:
+        return {
+            "plans": [{"plan_id": "a" * 64}],
+            "count": 1,
+            "truncated": False,
+        }
+
+
 class StubAudioProcessor:
     def process(
         self,
@@ -319,6 +336,18 @@ class StubAudioProcessor:
             "status": "completed",
             "source": {"path": source_file, "preserved": True},
             "preset": {"name": preset},
+        }
+
+
+class StubAudioReportInspector:
+    def get_report(self, report_id: str) -> dict[str, Any]:
+        return {"report_id": report_id, "status": "completed"}
+
+    def list_reports(self, limit: int = 100) -> dict[str, Any]:
+        return {
+            "reports": [{"report_id": "b" * 64}],
+            "count": 1,
+            "truncated": False,
         }
 
 
@@ -339,7 +368,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         media_policy=StubMediaPolicy(),
         rough_cut_planner=StubRoughCutPlanner(),
         rough_cut_reviewer=StubRoughCutReviewer(),
+        rough_cut_inspector=StubRoughCutInspector(),
         audio_processor=StubAudioProcessor(),
+        audio_report_inspector=StubAudioReportInspector(),
     )
     server = create_server(application)
 
@@ -360,7 +391,11 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             import_annotations = annotations["resolve_import_media"]
             rough_cut_annotations = annotations["create_rough_cut"]
             approval_annotations = annotations["approve_rough_cut"]
+            get_plan_annotations = annotations["get_rough_cut_plan"]
+            list_plans_annotations = annotations["list_rough_cut_plans"]
             audio_annotations = annotations["clean_dialogue_audio"]
+            get_audio_annotations = annotations["get_audio_report"]
+            list_audio_annotations = annotations["list_audio_reports"]
             render_annotations = annotations["resolve_get_render_options"]
             prepare_annotations = annotations["resolve_prepare_render_job"]
             job_status_annotations = annotations[
@@ -376,7 +411,11 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert import_annotations is not None
             assert rough_cut_annotations is not None
             assert approval_annotations is not None
+            assert get_plan_annotations is not None
+            assert list_plans_annotations is not None
             assert audio_annotations is not None
+            assert get_audio_annotations is not None
+            assert list_audio_annotations is not None
             assert render_annotations is not None
             assert prepare_annotations is not None
             assert job_status_annotations is not None
@@ -390,7 +429,11 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert import_annotations.read_only_hint is False
             assert rough_cut_annotations.read_only_hint is False
             assert approval_annotations.read_only_hint is False
+            assert get_plan_annotations.read_only_hint is True
+            assert list_plans_annotations.read_only_hint is True
             assert audio_annotations.read_only_hint is False
+            assert get_audio_annotations.read_only_hint is True
+            assert list_audio_annotations.read_only_hint is True
             assert render_annotations.read_only_hint is True
             assert prepare_annotations.read_only_hint is False
             assert job_status_annotations.read_only_hint is True
@@ -538,9 +581,25 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "confirm_review": True,
                     },
                 ),
+                "rough_cut_detail": await client.call_tool(
+                    "get_rough_cut_plan",
+                    {"plan_id": "a" * 64},
+                ),
+                "rough_cut_plans": await client.call_tool(
+                    "list_rough_cut_plans",
+                    {"limit": 10},
+                ),
                 "audio": await client.call_tool(
                     "clean_dialogue_audio",
                     {"source_file": "dialogue.wav"},
+                ),
+                "audio_detail": await client.call_tool(
+                    "get_audio_report",
+                    {"report_id": "b" * 64},
+                ),
+                "audio_reports": await client.call_tool(
+                    "list_audio_reports",
+                    {"limit": 10},
                 ),
             }
         return results, names
@@ -573,7 +632,11 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_verify_render_output",
         "create_rough_cut",
         "approve_rough_cut",
+        "get_rough_cut_plan",
+        "list_rough_cut_plans",
         "clean_dialogue_audio",
+        "get_audio_report",
+        "list_audio_reports",
     }
     assert results["project"].structured_content == {
         "project": {"name": "Test Project"}
@@ -627,4 +690,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["rough_cut"].structured_content["status"] == "pending_review"
     assert results["approval"].structured_content["status"] == "approved"
     assert results["approval"].structured_content["apply_supported"] is False
+    assert results["rough_cut_detail"].structured_content[
+        "effective_status"
+    ] == "pending_review"
+    assert results["rough_cut_plans"].structured_content["count"] == 1
     assert results["audio"].structured_content["status"] == "completed"
+    assert results["audio_detail"].structured_content["status"] == "completed"
+    assert results["audio_reports"].structured_content["count"] == 1

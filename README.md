@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M21: explicit rough-cut approval**. Він установлює
+Проєкт перебуває на етапі **Milestone M23: audio report inspection**. Він установлює
 одноразовий внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -92,6 +92,10 @@ M21 додає локальне явне схвалення draft-плану ч�
 Draft залишається незмінним, approval прив’язаний до SHA-256 його канонічного
 вмісту, а повторне схвалення є idempotent. `apply_supported` залишається
 `false`: схвалення не запускає ResolveBridge і не застосовує монтаж.
+M22 додає read-only перелік bounded plan summaries і повторне відкриття одного
+draft разом із чинним approval. Summary не містить source media paths, а
+детальний запит приймає лише canonical `plan_id` і повторно перевіряє
+контракти та SHA-256.
 
 ## Вимоги
 
@@ -196,10 +200,14 @@ Read-only інструменти:
 
 - `create_rough_cut`.
 - `approve_rough_cut`.
+- `get_rough_cut_plan`.
+- `list_rough_cut_plans`.
 
 Локальний audio-інструмент M6:
 
 - `clean_dialogue_audio`.
+- `get_audio_report`.
+- `list_audio_reports`.
 
 Для Resolve-запитів потрібно запустити `ResolveBridge` з меню Resolve, поки
 MCP-клієнт очікує відповідь. Перед кожною write-операцією bridge експортує
@@ -218,10 +226,20 @@ runtime-директорії. Деталі наведено в
 створює окремий approval record у runtime `plans`. Tool не змінює draft,
 не ставить bridge-команду й завжди повертає `apply_supported=false`.
 
+`list_rough_cut_plans` повертає до 100 summaries без source media paths.
+`get_rough_cut_plan` приймає canonical ID і повертає валідований draft,
+matching approval або `null`, effective status та `apply_supported=false`.
+Обидва інструменти read-only і не використовують ResolveBridge.
+
 `clean_dialogue_audio` працює без Resolve та приймає allowlisted 16-bit PCM
 WAV. Preset виконує детерміноване RMS leveling із peak guard, зберігає
 оригінал і створює derived WAV. RMS dBFS не заявляється як LUFS. Деталі:
 [audio workflow](docs/audio-workflow.md).
+
+`list_audio_reports` повертає до 100 summaries без source/derived paths.
+`get_audio_report` приймає canonical `report_id` і повертає повторно
+валідований before/after report. Обидва інструменти read-only, не обробляють
+медіа та не використовують ResolveBridge.
 
 `resolve_prepare_render_job` використовує лише allowlisted профілі
 `youtube-1080p-h264-v1` і `youtube-2160p-h264-v1`, створює `.drp` backup,

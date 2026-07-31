@@ -392,6 +392,22 @@ class StubRoughCutReviewer:
         }
 
 
+class StubRoughCutInspector:
+    def get_plan(self, plan_id: str) -> dict[str, Any]:
+        return {
+            "plan": {"plan_id": plan_id},
+            "approval": None,
+            "effective_status": "pending_review",
+        }
+
+    def list_plans(self, limit: int = 100) -> dict[str, Any]:
+        return {
+            "plans": [{"plan_id": "a" * 64}],
+            "count": 1,
+            "truncated": limit < 1,
+        }
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -409,6 +425,18 @@ class StubAudioProcessor:
             "status": "completed",
             "source": {"preserved": True},
             "validation": {"target_met": True},
+        }
+
+
+class StubAudioReportInspector:
+    def get_report(self, report_id: str) -> dict[str, Any]:
+        return {"report_id": report_id, "status": "completed"}
+
+    def list_reports(self, limit: int = 100) -> dict[str, Any]:
+        return {
+            "reports": [{"report_id": "b" * 64}],
+            "count": 1,
+            "truncated": limit < 1,
         }
 
 
@@ -669,6 +697,21 @@ def test_application_approves_plan_without_resolve_call() -> None:
     assert resolve.timeouts == []
 
 
+def test_application_inspects_plans_without_resolve_call() -> None:
+    resolve = StubResolveReader()
+    application = AgentApplication(
+        resolve=resolve,
+        rough_cut_inspector=StubRoughCutInspector(),
+    )
+
+    detail = application.get_rough_cut_plan("a" * 64)
+    listing = application.list_rough_cut_plans(limit=10)
+
+    assert detail["effective_status"] == "pending_review"
+    assert listing["count"] == 1
+    assert resolve.timeouts == []
+
+
 def test_application_processes_audio_without_resolve_call() -> None:
     resolve = StubResolveReader()
     media_policy = StubMediaPolicy()
@@ -685,6 +728,21 @@ def test_application_processes_audio_without_resolve_call() -> None:
     assert report["source"]["preserved"] is True
     assert processor.source_file == "normalized:dialogue.wav"
     assert processor.preset == "pcm-dialogue-level-v1"
+    assert resolve.timeouts == []
+
+
+def test_application_inspects_audio_reports_without_resolve_call() -> None:
+    resolve = StubResolveReader()
+    application = AgentApplication(
+        resolve=resolve,
+        audio_report_inspector=StubAudioReportInspector(),
+    )
+
+    detail = application.get_audio_report("b" * 64)
+    listing = application.list_audio_reports(limit=10)
+
+    assert detail["status"] == "completed"
+    assert listing["count"] == 1
     assert resolve.timeouts == []
 
 

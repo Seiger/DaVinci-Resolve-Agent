@@ -499,6 +499,43 @@ command. Existing approval records are returned idempotently only while their
 stored hash matches the current valid draft; post-approval changes are
 rejected.
 
+## M22 rough-cut plan inspection
+
+```text
+MCP list_rough_cut_plans(limit)
+ └─ scan canonical <plan_id>.json files only
+     └─ validate draft and optional hash-bound approval
+         └─ return bounded summaries without media paths
+
+MCP get_rough_cut_plan(plan_id)
+ └─ validate canonical ID, draft, approval, and SHA-256
+     └─ return effective review state without writes
+```
+
+M22 makes persisted review state discoverable after client or process restarts.
+It does not silently skip invalid canonical artifacts: contract or hash
+failures are explicit. Unknown non-canonical JSON filenames and approval files
+are not treated as plans.
+
+## M23 audio report inspection
+
+```text
+MCP list_audio_reports(limit)
+ └─ scan canonical <report_id>.json files only
+     └─ validate each audio-report contract and filename identity
+         └─ return bounded summaries without filesystem paths
+
+MCP get_audio_report(report_id)
+ └─ validate canonical ID, report contract, and filename identity
+     └─ return the stored before/after report without media processing
+```
+
+M23 makes completed audio processing results discoverable after client or
+process restarts. Both tools are local and read-only: they do not instantiate
+the audio processor, queue a bridge command, or modify an artifact. Invalid
+canonical reports fail explicitly; unrelated non-canonical JSON files are
+ignored by listing.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

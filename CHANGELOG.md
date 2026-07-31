@@ -123,3 +123,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   `confirm_review=true`.
 - Immutable draft preservation, SHA-256-bound approval records, tamper
   detection, and idempotent replay while plan application remains unsupported.
+- M22 read-only rough-cut plan listing and canonical plan-detail retrieval.
+- Bounded path-free summaries plus validated approval/hash inspection without
+  changing local artifacts or contacting Resolve.
+- M23 read-only audio report listing and canonical report-detail retrieval.
+- Bounded path-free audio summaries with contract validation and no media
+  processing or Resolve bridge call.

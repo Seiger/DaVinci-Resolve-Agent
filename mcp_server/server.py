@@ -426,6 +426,22 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             confirm_review=confirm_review,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_rough_cut_plan(plan_id: str) -> dict[str, Any]:
+        """Return one stored draft and its matching approval state."""
+        return await asyncio.to_thread(
+            service.get_rough_cut_plan,
+            plan_id,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def list_rough_cut_plans(limit: int = 100) -> dict[str, Any]:
+        """List bounded rough-cut summaries without source media paths."""
+        return await asyncio.to_thread(
+            service.list_rough_cut_plans,
+            limit,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
@@ -436,6 +452,22 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             service.clean_dialogue_audio,
             source_file,
             preset=preset,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_audio_report(report_id: str) -> dict[str, Any]:
+        """Return one stored and validated audio before/after report."""
+        return await asyncio.to_thread(
+            service.get_audio_report,
+            report_id,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def list_audio_reports(limit: int = 100) -> dict[str, Any]:
+        """List bounded audio summaries without local filesystem paths."""
+        return await asyncio.to_thread(
+            service.list_audio_reports,
+            limit,
         )
 
     return server

@@ -67,6 +67,24 @@ M21 не запускає ResolveBridge, не створює timeline і не в
 operations. Застосування залишається заблокованим, доки немає повного
 документованого API для move/trim/split та окремого безпечного apply milestone.
 
+## Повторний перегляд планів
+
+M22 додає два read-only інструменти:
+
+```text
+list_rough_cut_plans(limit=100)
+get_rough_cut_plan(plan_id)
+```
+
+Перший повертає bounded summaries: ID, час створення, назву майбутнього
+timeline, кількість proposed operations, effective review status і час
+схвалення. Source media paths до summary не потрапляють.
+
+Другий повертає повний валідований draft та matching approval для одного
+canonical ID. Якщо approval відсутній, effective status залишається
+`pending_review`; якщо його SHA-256 не відповідає draft, інструмент завершується
+помилкою. Обидва інструменти завжди повідомляють `apply_supported=false`.
+
 ## Деінсталяція
 
 Draft-плани зберігаються за замовчуванням. Для навмисного видалення разом з

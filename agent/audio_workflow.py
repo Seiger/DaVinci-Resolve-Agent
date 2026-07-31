@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,10 +19,11 @@ PRESET_NAME = "pcm-dialogue-level-v1"
 TARGET_RMS_DBFS = -20.0
 MAX_PEAK_DBFS = -1.0
 RMS_TOLERANCE_DB = 0.5
+REPORT_ID_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 
 
 class AudioWorkflowError(ValueError):
-    """Raised when an M6 audio report cannot be produced safely."""
+    """Raised when an audio workflow artifact cannot be handled safely."""
 
 
 class DialogueAudioWorkflow:
@@ -155,6 +157,88 @@ class DialogueAudioWorkflow:
         validate_contract("audio-report", report)
         atomic_write_json(report_path, report)
         return report
+
+
+class AudioReportInspector:
+    """Read validated local audio reports without processing media."""
+
+    def __init__(self, reports_root: Path | None = None) -> None:
+        self._reports_root = (
+            audio_reports_directory()
+            if reports_root is None
+            else reports_root
+        )
+
+    def get_report(self, report_id: str) -> dict[str, Any]:
+        """Return one canonical before/after report."""
+        _validate_report_id(report_id)
+        return _load_report(self._reports_root, report_id)
+
+    def list_reports(self, limit: int = 100) -> dict[str, Any]:
+        """Return bounded summaries without source or derived paths."""
+        if (
+            not isinstance(limit, int)
+            or isinstance(limit, bool)
+            or not 1 <= limit <= 100
+        ):
+            raise AudioWorkflowError(
+                "limit must be an integer from 1 to 100."
+            )
+        if not self._reports_root.is_dir():
+            return {"reports": [], "count": 0, "truncated": False}
+
+        summaries: list[dict[str, Any]] = []
+        for report_path in self._reports_root.glob("*.json"):
+            report_id = report_path.stem
+            if not REPORT_ID_PATTERN.fullmatch(report_id):
+                continue
+            report = _load_report(self._reports_root, report_id)
+            summaries.append(
+                {
+                    "report_id": report_id,
+                    "created_at": report["created_at"],
+                    "status": report["status"],
+                    "preset": report["preset"]["name"],
+                    "before_rms_dbfs": report["before"]["rms_dbfs"],
+                    "after_rms_dbfs": report["after"]["rms_dbfs"],
+                    "after_peak_dbfs": report["after"]["peak_dbfs"],
+                    "target_met": report["validation"]["target_met"],
+                    "warning_count": len(report["warnings"]),
+                }
+            )
+        summaries.sort(
+            key=lambda item: (item["created_at"], item["report_id"]),
+            reverse=True,
+        )
+        total = len(summaries)
+        return {
+            "reports": summaries[:limit],
+            "count": total,
+            "truncated": total > limit,
+        }
+
+
+def _validate_report_id(report_id: str) -> None:
+    if (
+        not isinstance(report_id, str)
+        or not REPORT_ID_PATTERN.fullmatch(report_id)
+    ):
+        raise AudioWorkflowError(
+            "report_id must be exactly 64 lowercase hexadecimal characters."
+        )
+
+
+def _load_report(reports_root: Path, report_id: str) -> dict[str, Any]:
+    report_path = reports_root / f"{report_id}.json"
+    if not report_path.is_file():
+        raise AudioWorkflowError(f"Audio report was not found: {report_id}")
+    report = read_json_object(report_path)
+    validate_contract("audio-report", report)
+    if report.get("report_id") != report_id:
+        raise AudioWorkflowError(
+            "Stored audio report_id does not match its filename."
+        )
+    return report
 
 
 def _utc_now() -> str:

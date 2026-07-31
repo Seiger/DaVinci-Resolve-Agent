@@ -46,6 +46,17 @@ Preset не заявляє denoise, de-reverb, EQ або compression. Він в�
 Інструмент `clean_dialogue_audio` приймає абсолютний allowlisted шлях до PCM
 WAV. Він не звертається до Resolve bridge.
 
+Read-only інструменти:
+
+- `list_audio_reports(limit=100)` повертає bounded summaries без локальних
+  шляхів до source або derived файлів;
+- `get_audio_report(report_id)` приймає рівно 64 lowercase hexadecimal
+  символи та повертає повний повторно валідований report.
+
+Обидва інструменти працюють без Resolve bridge, не аналізують і не змінюють
+медіа. Canonical JSON із валідним іменем, але неправильним контрактом або
+невідповідним `report_id`, спричиняє явну помилку.
+
 Похідний WAV створюється в:
 
 ```text
@@ -58,8 +69,8 @@ WAV. Він не звертається до Resolve bridge.
 %LOCALAPPDATA%\DaVinciResolveAgent\runtime\audio-reports\
 ```
 
-Однаковий SHA-256 джерела й той самий preset повертають наявний report та не
-створюють дубліката.
+Однаковий source path, SHA-256 джерела й той самий preset повертають наявний
+report та не створюють дубліката.
 
 ## Видалення
 

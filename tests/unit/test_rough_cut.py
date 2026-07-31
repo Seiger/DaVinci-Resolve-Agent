@@ -11,6 +11,7 @@ import pytest
 
 from agent.contracts import validate_contract
 from agent.rough_cut import (
+    RoughCutInspector,
     RoughCutPlanner,
     RoughCutPlanningError,
     RoughCutReviewer,
@@ -105,6 +106,29 @@ def test_planner_persists_deterministic_pending_review_plan(
         tmp_path / "plans" / f"{first['plan_id']}.approval.json"
     ).is_file()
 
+    inspector = RoughCutInspector(tmp_path / "plans")
+    detail = inspector.get_plan(first["plan_id"])
+    listing = inspector.list_plans(limit=1)
+
+    assert detail["plan"] == first
+    assert detail["approval"] == approval
+    assert detail["effective_status"] == "approved"
+    assert listing == {
+        "plans": [
+            {
+                "plan_id": first["plan_id"],
+                "created_at": first["created_at"],
+                "timeline_name": "M5 Draft",
+                "proposed_operation_count": 5,
+                "effective_status": "approved",
+                "approved_at": approval["approved_at"],
+                "apply_supported": False,
+            }
+        ],
+        "count": 1,
+        "truncated": False,
+    }
+
     changed_plan = json.loads(plan_path.read_text(encoding="utf-8"))
     changed_plan["warnings"].append("Changed after approval.")
     plan_path.write_text(json.dumps(changed_plan), encoding="utf-8")
@@ -121,3 +145,12 @@ def test_reviewer_requires_canonical_id_and_explicit_confirmation(
         reviewer.approve("../plan", confirm_review=True)
     with pytest.raises(RoughCutPlanningError, match="confirm_review"):
         reviewer.approve("a" * 64, confirm_review=False)
+
+    inspector = RoughCutInspector(tmp_path / "plans")
+    assert inspector.list_plans() == {
+        "plans": [],
+        "count": 0,
+        "truncated": False,
+    }
+    with pytest.raises(RoughCutPlanningError, match="limit"):
+        inspector.list_plans(limit=0)

@@ -32,13 +32,18 @@ Write-інструменти M4:
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
 
-Draft-only інструмент M5:
+Локальні rough-cut інструменти:
 
 - `create_rough_cut`.
+- `approve_rough_cut`.
+- `get_rough_cut_plan`.
+- `list_rough_cut_plans`.
 
 Локальний audio-інструмент M6:
 
 - `clean_dialogue_audio`.
+- `get_audio_report`.
+- `list_audio_reports`.
 
 MCP-адаптер звертається до application service. Він не працює з transport
 runtime безпосередньо та не приймає довільних назв команд, Python, Lua,
@@ -54,10 +59,20 @@ canonical `plan_id`. Окремий approval record прив’язаний до
 має `apply_supported=false`. Tool не викликає Resolve bridge та не застосовує
 запропоновані операції.
 
+`list_rough_cut_plans` повертає до 100 summaries без source media paths.
+`get_rough_cut_plan` повторно валідовує один draft, optional approval і
+SHA-256-зв’язок між ними. Обидва tools read-only, працюють без bridge та
+повертають `apply_supported=false`.
+
 `clean_dialogue_audio` приймає allowlisted 16-bit PCM WAV, створює derived WAV
 і before/after report. Інструмент не викликає Resolve bridge та не приймає
 довільних filter graph, команд або коду. Докладніше:
 [audio-workflow.md](audio-workflow.md).
+
+`list_audio_reports` повертає до 100 summaries без source/derived paths.
+`get_audio_report` приймає canonical `report_id` і повторно валідовує
+збережений report. Обидва tools read-only, не викликають bridge та не
+запускають повторну обробку аудіо.
 
 ## Конфігурація клієнта
 
@@ -82,8 +97,9 @@ canonical `plan_id`. Окремий approval record прив’язаний до
 ## Виконання Resolve-запитів
 
 `video_agent_status` повертає кешований стан bridge одразу.
-`create_rough_cut`, `approve_rough_cut` і `clean_dialogue_audio` також працюють
-без bridge.
+`create_rough_cut`, `approve_rough_cut`, `get_rough_cut_plan`,
+`list_rough_cut_plans`, `clean_dialogue_audio`, `get_audio_report` і
+`list_audio_reports` також працюють без bridge.
 Resolve-інструменти ставлять команду в локальну чергу. Поки клієнт очікує
 відповідь:
 

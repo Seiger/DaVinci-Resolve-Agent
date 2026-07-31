@@ -248,36 +248,22 @@ class RoughCutReviewer:
         confirm_review: bool,
     ) -> dict[str, Any]:
         """Approve one canonical draft while keeping application unsupported."""
-        if not PLAN_ID_PATTERN.fullmatch(plan_id):
-            raise RoughCutPlanningError(
-                "plan_id must be exactly 64 lowercase hexadecimal characters."
-            )
+        _validate_plan_id(plan_id)
         if confirm_review is not True:
             raise RoughCutPlanningError("confirm_review must be true.")
 
-        plan_path = self._plans_root / f"{plan_id}.json"
-        if not plan_path.is_file():
-            raise RoughCutPlanningError(
-                f"Rough-cut plan was not found: {plan_id}"
-            )
-        plan = read_json_object(plan_path)
-        validate_contract("rough-cut-plan", plan)
-        if plan.get("plan_id") != plan_id:
-            raise RoughCutPlanningError(
-                "Stored rough-cut plan_id does not match its filename."
-            )
-        plan_sha256 = _canonical_sha256(plan)
+        _, plan_sha256 = _load_plan(self._plans_root, plan_id)
 
         approval_path = self._plans_root / f"{plan_id}.approval.json"
         if approval_path.is_file():
-            existing = read_json_object(approval_path)
-            validate_contract("rough-cut-approval", existing)
-            if (
-                existing.get("plan_id") != plan_id
-                or existing.get("plan_sha256") != plan_sha256
-            ):
+            existing = _load_approval(
+                self._plans_root,
+                plan_id,
+                plan_sha256,
+            )
+            if existing is None:
                 raise RoughCutPlanningError(
-                    "Stored approval does not match the current draft plan."
+                    "Stored rough-cut approval could not be loaded."
                 )
             return existing
 
@@ -294,6 +280,136 @@ class RoughCutReviewer:
         self._plans_root.mkdir(parents=True, exist_ok=True)
         atomic_write_json(approval_path, approval)
         return approval
+
+
+class RoughCutInspector:
+    """Read validated rough-cut plans and effective review state."""
+
+    def __init__(self, plans_root: Path | None = None) -> None:
+        self._plans_root = (
+            plans_directory()
+            if plans_root is None
+            else plans_root
+        )
+
+    def get_plan(self, plan_id: str) -> dict[str, Any]:
+        """Return one canonical draft and its matching approval, if present."""
+        _validate_plan_id(plan_id)
+        plan, plan_sha256 = _load_plan(self._plans_root, plan_id)
+        approval = _load_approval(
+            self._plans_root,
+            plan_id,
+            plan_sha256,
+        )
+        return {
+            "plan": plan,
+            "approval": approval,
+            "effective_status": (
+                "approved" if approval is not None else "pending_review"
+            ),
+            "apply_supported": False,
+        }
+
+    def list_plans(self, limit: int = 100) -> dict[str, Any]:
+        """Return bounded summaries without exposing source media paths."""
+        if (
+            not isinstance(limit, int)
+            or isinstance(limit, bool)
+            or not 1 <= limit <= 100
+        ):
+            raise RoughCutPlanningError(
+                "limit must be an integer from 1 to 100."
+            )
+        if not self._plans_root.is_dir():
+            return {"plans": [], "count": 0, "truncated": False}
+
+        summaries: list[dict[str, Any]] = []
+        for plan_path in self._plans_root.glob("*.json"):
+            plan_id = plan_path.stem
+            if not PLAN_ID_PATTERN.fullmatch(plan_id):
+                continue
+            plan, plan_sha256 = _load_plan(self._plans_root, plan_id)
+            approval = _load_approval(
+                self._plans_root,
+                plan_id,
+                plan_sha256,
+            )
+            summaries.append(
+                {
+                    "plan_id": plan_id,
+                    "created_at": plan["created_at"],
+                    "timeline_name": plan["timeline"]["name"],
+                    "proposed_operation_count": len(
+                        plan["proposed_operations"]
+                    ),
+                    "effective_status": (
+                        "approved"
+                        if approval is not None
+                        else "pending_review"
+                    ),
+                    "approved_at": (
+                        None
+                        if approval is None
+                        else approval["approved_at"]
+                    ),
+                    "apply_supported": False,
+                }
+            )
+        summaries.sort(
+            key=lambda item: (item["created_at"], item["plan_id"]),
+            reverse=True,
+        )
+        total = len(summaries)
+        return {
+            "plans": summaries[:limit],
+            "count": total,
+            "truncated": total > limit,
+        }
+
+
+def _validate_plan_id(plan_id: str) -> None:
+    if not isinstance(plan_id, str) or not PLAN_ID_PATTERN.fullmatch(plan_id):
+        raise RoughCutPlanningError(
+            "plan_id must be exactly 64 lowercase hexadecimal characters."
+        )
+
+
+def _load_plan(
+    plans_root: Path,
+    plan_id: str,
+) -> tuple[dict[str, Any], str]:
+    plan_path = plans_root / f"{plan_id}.json"
+    if not plan_path.is_file():
+        raise RoughCutPlanningError(
+            f"Rough-cut plan was not found: {plan_id}"
+        )
+    plan = read_json_object(plan_path)
+    validate_contract("rough-cut-plan", plan)
+    if plan.get("plan_id") != plan_id:
+        raise RoughCutPlanningError(
+            "Stored rough-cut plan_id does not match its filename."
+        )
+    return plan, _canonical_sha256(plan)
+
+
+def _load_approval(
+    plans_root: Path,
+    plan_id: str,
+    plan_sha256: str,
+) -> dict[str, Any] | None:
+    approval_path = plans_root / f"{plan_id}.approval.json"
+    if not approval_path.is_file():
+        return None
+    approval = read_json_object(approval_path)
+    validate_contract("rough-cut-approval", approval)
+    if (
+        approval.get("plan_id") != plan_id
+        or approval.get("plan_sha256") != plan_sha256
+    ):
+        raise RoughCutPlanningError(
+            "Stored approval does not match the current draft plan."
+        )
+    return approval
 
 
 def _canonical_sha256(payload: dict[str, Any]) -> str:
