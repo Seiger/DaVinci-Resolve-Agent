@@ -626,6 +626,11 @@
                 "minLength": 1,
                 "maxLength": 128
               },
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
               "profile": {
                 "enum": [
                   "youtube-1080p-h264-v1",

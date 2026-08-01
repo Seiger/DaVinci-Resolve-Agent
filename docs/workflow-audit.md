@@ -10,6 +10,7 @@ M26 поширює observable behavior на локальні MCP operations, я�
 - `clean_dialogue_audio`;
 - `get_audio_report`;
 - `list_audio_reports`.
+- `prepare_finalized_timeline_render` (`delivery`).
 
 Canonical records зберігаються в:
 

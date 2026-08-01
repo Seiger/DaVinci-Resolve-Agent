@@ -382,6 +382,7 @@
     "action": "prepare_render_job",
     "arguments": {
       "custom_name": "Agent Export",
+      "timeline_id": "timeline-1",
       "profile": "youtube-1080p-h264-v1"
     },
     "safety": {"allow_destructive": false, "create_backup": true}

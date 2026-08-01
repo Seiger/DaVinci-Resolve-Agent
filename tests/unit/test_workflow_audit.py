@@ -152,6 +152,24 @@ def test_workflow_audit_records_compaction_finalize_as_rough_cut(
     assert "timeline_id" not in str(record)
 
 
+def test_workflow_audit_records_finalized_render_as_delivery(
+    tmp_path: Path,
+) -> None:
+    audit = WorkflowAuditLog(tmp_path, FixedClock())
+
+    audit.run(
+        "prepare_finalized_timeline_render",
+        lambda: {"job_id": "private"},
+    )
+    record = read_json_object(
+        next((tmp_path / "workflow").glob("*.json"))
+    )
+
+    assert record["operation"] == "prepare_finalized_timeline_render"
+    assert record["category"] == "delivery"
+    assert "job_id" not in str(record)
+
+
 def test_workflow_audit_rejects_unknown_operation_before_callback(
     tmp_path: Path,
 ) -> None:

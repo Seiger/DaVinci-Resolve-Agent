@@ -279,6 +279,7 @@ class StubResolveReader:
         self,
         custom_name: str,
         *,
+        timeline_id: str | None = None,
         profile: str = "youtube-1080p-h264-v1",
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
@@ -488,6 +489,23 @@ class StubPauseCompactionFinalizer:
         }
 
 
+class StubFinalizedRenderPreparer:
+    def prepare(
+        self,
+        *,
+        finalization_receipt_id: str,
+        custom_name: str,
+        profile: str,
+        confirm_prepare: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "status": "applied",
+            "receipt_id": "e" * 64,
+            "operation": {"result": {"job_id": "job-final"}},
+        }
+
+
 class StubAudioProcessor:
     def process(
         self,
@@ -552,6 +570,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         pause_compaction_previewer=StubPauseCompactionPreviewer(),
         pause_compaction_applier=StubPauseCompactionApplier(),
         pause_compaction_finalizer=StubPauseCompactionFinalizer(),
+        finalized_render_preparer=StubFinalizedRenderPreparer(),
         audio_processor=StubAudioProcessor(),
         audio_report_inspector=StubAudioReportInspector(),
         workflow_audit=workflow_audit,
@@ -591,6 +610,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             compaction_apply_annotations = annotations[
                 "apply_synchronized_pause_compaction"
             ]
+            finalized_render_annotations = annotations[
+                "prepare_finalized_timeline_render"
+            ]
             get_audio_annotations = annotations["get_audio_report"]
             list_audio_annotations = annotations["list_audio_reports"]
             render_annotations = annotations["resolve_get_render_options"]
@@ -616,6 +638,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert link_annotations is not None
             assert compaction_annotations is not None
             assert compaction_apply_annotations is not None
+            assert finalized_render_annotations is not None
             assert get_audio_annotations is not None
             assert list_audio_annotations is not None
             assert render_annotations is not None
@@ -639,6 +662,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert link_annotations.read_only_hint is False
             assert compaction_annotations.read_only_hint is True
             assert compaction_apply_annotations.read_only_hint is False
+            assert finalized_render_annotations.read_only_hint is False
             assert get_audio_annotations.read_only_hint is True
             assert list_audio_annotations.read_only_hint is True
             assert render_annotations.read_only_hint is True
@@ -862,6 +886,15 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "confirm_finalize": True,
                     },
                 ),
+                "finalized_render": await client.call_tool(
+                    "prepare_finalized_timeline_render",
+                    {
+                        "finalization_receipt_id": "d" * 64,
+                        "custom_name": "M44 Final",
+                        "profile": "youtube-1080p-h264-v1",
+                        "confirm_prepare": True,
+                    },
+                ),
                 "audio": await client.call_tool(
                     "clean_dialogue_audio",
                     {"source_file": "dialogue.wav"},
@@ -918,6 +951,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "preview_synchronized_pause_compaction",
             "apply_synchronized_pause_compaction",
             "finalize_synchronized_pause_compaction",
+            "prepare_finalized_timeline_render",
             "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",
@@ -997,6 +1031,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["compaction_finalized"].structured_content["status"] == (
         "applied"
     )
+    assert results["finalized_render"].structured_content["status"] == "applied"
     assert results["audio"].structured_content["status"] == "completed"
     assert results["audio_detail"].structured_content["status"] == "completed"
     assert results["audio_reports"].structured_content["count"] == 1
@@ -1011,6 +1046,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "preview_synchronized_pause_compaction",
         "apply_synchronized_pause_compaction",
         "finalize_synchronized_pause_compaction",
+        "prepare_finalized_timeline_render",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

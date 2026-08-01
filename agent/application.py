@@ -13,6 +13,7 @@ from agent.bridge_state import (
     heartbeat_age_seconds,
     load_bridge_state,
 )
+from agent.finalized_render import FinalizedRenderPreparer
 from agent.media import MediaPolicy
 from agent.pause_compaction import PauseCompactionApplier, PauseCompactionPreviewer
 from agent.pause_compaction_finalize import PauseCompactionFinalizer
@@ -266,6 +267,7 @@ class ResolveReader(Protocol):
         self,
         custom_name: str,
         *,
+        timeline_id: str | None = None,
         profile: str = DEFAULT_RENDER_PROFILE,
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
@@ -454,6 +456,21 @@ class PauseCompactionFinalizationWorkflow(Protocol):
         """Propagate approved links and webcam layout to M42 segments."""
 
 
+class FinalizedRenderPreparationWorkflow(Protocol):
+    """Provider-neutral M44 finalized render preparation boundary."""
+
+    def prepare(
+        self,
+        *,
+        finalization_receipt_id: str,
+        custom_name: str,
+        profile: str,
+        confirm_prepare: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Prepare one render job bound to an applied M43 timeline."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -505,6 +522,7 @@ class AgentApplication:
         pause_compaction_previewer: PauseCompactionWorkflow | None = None,
         pause_compaction_applier: PauseCompactionApplyWorkflow | None = None,
         pause_compaction_finalizer: PauseCompactionFinalizationWorkflow | None = None,
+        finalized_render_preparer: FinalizedRenderPreparationWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -522,6 +540,7 @@ class AgentApplication:
         self._pause_compaction_previewer = pause_compaction_previewer
         self._pause_compaction_applier = pause_compaction_applier
         self._pause_compaction_finalizer = pause_compaction_finalizer
+        self._finalized_render_preparer = finalized_render_preparer
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -1002,6 +1021,7 @@ class AgentApplication:
         self,
         custom_name: str,
         *,
+        timeline_id: str | None = None,
         profile: str = DEFAULT_RENDER_PROFILE,
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
@@ -1009,8 +1029,13 @@ class AgentApplication:
         """Prepare one fixed render job without starting rendering."""
         normalized_name = validate_render_name(custom_name)
         normalized_profile = validate_render_profile(profile)
+        if timeline_id is not None and (
+            not timeline_id or len(timeline_id) > 128
+        ):
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
         return self._resolve.prepare_render_job(
             normalized_name,
+            timeline_id=timeline_id,
             profile=normalized_profile.name,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
@@ -1387,6 +1412,42 @@ class AgentApplication:
             return discovered if isinstance(discovered, dict) else {}
 
         return PauseCompactionFinalizer(
+            gateway=self._resolve,
+            capabilities=capabilities,
+        )
+
+    def prepare_finalized_timeline_render(
+        self,
+        *,
+        finalization_receipt_id: str,
+        custom_name: str,
+        profile: str = DEFAULT_RENDER_PROFILE,
+        confirm_prepare: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Prepare a fixed render job for one applied M43 timeline."""
+        return self._run_local_workflow(
+            "prepare_finalized_timeline_render",
+            lambda: self._finalized_render_preparation_service().prepare(
+                finalization_receipt_id=finalization_receipt_id,
+                custom_name=custom_name,
+                profile=profile,
+                confirm_prepare=confirm_prepare,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _finalized_render_preparation_service(
+        self,
+    ) -> FinalizedRenderPreparationWorkflow:
+        if self._finalized_render_preparer is not None:
+            return self._finalized_render_preparer
+
+        def capabilities() -> dict[str, Any]:
+            discovered = self.status()["bridge"].get("capabilities", {})
+            return discovered if isinstance(discovered, dict) else {}
+
+        return FinalizedRenderPreparer(
             gateway=self._resolve,
             capabilities=capabilities,
         )

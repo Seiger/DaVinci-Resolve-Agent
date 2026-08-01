@@ -855,11 +855,21 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
         if set(arguments) not in (
             {"custom_name"},
             {"custom_name", "profile"},
+            {"custom_name", "timeline_id"},
+            {"custom_name", "timeline_id", "profile"},
         ):
             raise ValueError(
-                "prepare_render_job requires custom_name and optional profile."
+                "prepare_render_job requires custom_name and optional "
+                "timeline_id/profile."
             )
         _validate_render_name(arguments["custom_name"])
+        timeline_id = arguments.get("timeline_id")
+        if timeline_id is not None and (
+            not isinstance(timeline_id, str)
+            or not timeline_id
+            or len(timeline_id) > 128
+        ):
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
         _validate_render_profile(
             arguments.get("profile", DEFAULT_RENDER_PROFILE)
         )
@@ -3034,6 +3044,23 @@ def _execute_write_command(
                 "track_type": str(actual_track[0]),
                 "track_index": int(actual_track[1]),
             }
+    elif action == "prepare_render_job" and "timeline_id" in arguments:
+        render_timeline = _find_timeline(project, arguments["timeline_id"])
+        required_project_methods = (
+            "GetCurrentTimeline",
+            "SetCurrentTimeline",
+        )
+        missing = [
+            name
+            for name in required_project_methods
+            if not callable(getattr(project, name, None))
+        ]
+        if missing:
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "The current project cannot select the render timeline.",
+                details={"missing_methods": missing},
+            )
     elif action == "start_render_job":
         job_id = _validate_render_job_arguments(action, arguments)
         required_methods = (
@@ -3750,7 +3777,16 @@ def _execute_write_command(
                     "The current Resolve project cannot prepare render jobs.",
                     details={"missing_methods": missing},
                 )
-            if project.GetCurrentTimeline() is None:
+            if "timeline_id" in arguments and (
+                project.SetCurrentTimeline(render_timeline) is not True
+            ):
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested render timeline.",
+                    retryable=True,
+                )
+            current_timeline = project.GetCurrentTimeline()
+            if current_timeline is None:
                 raise BridgeOperationError(
                     "TIMELINE_NOT_OPEN",
                     "Open a timeline before preparing a render job.",
@@ -3841,6 +3877,8 @@ def _execute_write_command(
                     resolve.OpenPage(previous_page)
             result = {
                 "job_id": job_id,
+                "timeline_id": str(current_timeline.GetUniqueId()),
+                "timeline_name": str(current_timeline.GetName()),
                 "preset": profile_name,
                 "resolve_preset": preset_name,
                 "format": "MP4",

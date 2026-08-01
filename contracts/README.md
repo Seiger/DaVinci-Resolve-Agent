@@ -34,6 +34,9 @@ proven by an M7 preparation receipt. Arbitrary render settings, deletion,
 stopping, upload, and mass-start commands remain outside the contract.
 
 M9 extends `prepare_render_job` with an optional allowlisted `profile`.
+M44 additionally permits an optional bounded `timeline_id`, allowing a
+workflow to bind job creation to a canonical finalized timeline instead of UI
+selection state. The response reports the selected timeline identity.
 Omitting it preserves the 1080p default. The only accepted values are
 `youtube-1080p-h264-v1` and `youtube-2160p-h264-v1`; raw width, height, preset,
 codec, quality, and output path remain outside the command contract.

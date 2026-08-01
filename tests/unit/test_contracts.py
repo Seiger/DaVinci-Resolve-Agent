@@ -185,6 +185,7 @@ def test_prepare_render_job_requires_backup_and_safe_arguments() -> None:
 
     command["arguments"] = {
         "custom_name": "M9 4K Test",
+        "timeline_id": "timeline-final",
         "profile": "youtube-2160p-h264-v1",
     }
     validate_contract("command", command)
@@ -194,6 +195,13 @@ def test_prepare_render_job_requires_backup_and_safe_arguments() -> None:
         "profile": "custom-8k",
     }
     with pytest.raises(ContractValidationError, match="profile"):
+        validate_contract("command", command)
+
+    command["arguments"] = {
+        "custom_name": "M44 Final",
+        "timeline_id": "",
+    }
+    with pytest.raises(ContractValidationError, match="timeline_id"):
         validate_contract("command", command)
 
     command["arguments"] = {"custom_name": ""}

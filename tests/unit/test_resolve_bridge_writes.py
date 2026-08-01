@@ -1519,6 +1519,39 @@ def test_prepare_render_job_is_backed_up_and_replay_safe(
     assert resolve.current_page == "edit"
 
 
+def test_prepare_render_job_selects_and_reports_explicit_timeline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    resolve = FakeResolve()
+    other = resolve.project.media_pool.CreateEmptyTimeline("Other Timeline")
+    target = resolve.project.media_pool.CreateEmptyTimeline("M44 Final")
+    resolve.project.SetCurrentTimeline(other)
+    state = collect_bridge_state(resolve)
+
+    response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "render-explicit-timeline",
+            "prepare_render_job",
+            {
+                "custom_name": "M44 Final",
+                "timeline_id": target.GetUniqueId(),
+                "profile": "youtube-1080p-h264-v1",
+            },
+        ),
+    )
+
+    assert response["status"] == "success"
+    assert response["result"]["timeline_id"] == target.GetUniqueId()
+    assert response["result"]["timeline_name"] == "M44 Final"
+    assert resolve.project.GetCurrentTimeline() is target
+    assert resolve.project_manager.export_count == 1
+
+
 def test_prepare_render_job_supports_verified_fixed_4k_profile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

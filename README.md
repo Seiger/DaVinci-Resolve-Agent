@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M43: compacted timeline finalization**. Він
+Проєкт перебуває на етапі **Milestone M44: finalized render preparation**. Він
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -51,6 +51,13 @@ bounded batch-команди створюють рівно по одному bac
 Live-перевірка у Resolve 21 Free 21.0.3.7 підтвердила 2 незалежні link-групи,
 PIP на 2 webcam segments, 6/6 canonical items, рівно 2 backups і replay без
 нового запису.
+M44 додає `prepare_finalized_timeline_render`: tool приймає лише applied M43
+receipt, явно вибирає його timeline і створює один allowlisted 1080p або 4K
+MP4/H.264 job. Окреме `confirm_prepare=true` не запускає render; durable receipt
+і provider idempotency блокують дублювання job під час replay.
+Live-перевірка у Resolve 21 Free 21.0.3.7 підготувала 1080p job саме для M42
+timeline, залишила його у `Ready`, створила один backup і не додала нового job
+або backup під час replay.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -314,6 +321,7 @@ Read-only інструменти:
 - `preview_synchronized_pause_compaction`.
 - `apply_synchronized_pause_compaction`.
 - `finalize_synchronized_pause_compaction`.
+- `prepare_finalized_timeline_render`.
 
 Локальний audio-інструмент M6:
 

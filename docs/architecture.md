@@ -832,6 +832,20 @@ The two batch primitives keep backup count constant as cut count grows. The
 Resolve adapter maps only to documented `Timeline.SetClipsLinked`,
 `TimelineItem.SetProperty`, `GetProperty`, and `GetLinkedItems` methods.
 
+## M44 finalized render preparation
+
+```text
+MCP prepare_finalized_timeline_render(confirm_prepare=true)
+ ├─ validate one applied M43 receipt
+ ├─ derive exact finalized timeline ID
+ ├─ select timeline through Project.SetCurrentTimeline
+ ├─ one backup + fixed prepare_render_job
+ └─ verify timeline/profile/resolution and started=false
+```
+
+M44 creates no output file and does not start rendering. Its durable receipt
+and the provider command receipt make interrupted preparation replay-safe.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

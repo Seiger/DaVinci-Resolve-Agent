@@ -288,3 +288,29 @@ ResolveBridge ручний сценарій має зафіксувати:
   the second segment used source frame 53, confirming a non-zero ranged insert;
 - result: `verified` on this exact environment. Screen video/audio segment
   linking and webcam picture-in-picture propagation are not part of M42.
+
+### M43 compacted timeline finalization evidence
+
+- UTC execution date: `2026-08-01`;
+- M43 receipt:
+  `2daf23ae6a33d75f015cc9d13decca545af8410ec744979c6e3f163ccb87df32`;
+- target: M42 timeline `7e430372-841d-4f6f-99ac-8647f6d75a31`;
+- result: two independent screen V1/A1 link groups, two webcam PIP transforms,
+  and 6/6 canonical item identities verified;
+- backups: 42 to 44; immediate replay remained at 44.
+
+### M44 finalized render preparation evidence
+
+- UTC execution: `2026-08-01T16:59Z`;
+- input: applied M43 receipt
+  `2daf23ae6a33d75f015cc9d13decca545af8410ec744979c6e3f163ccb87df32`;
+- M44 receipt:
+  `5d03b799bdaa588b20e080f7b59dbc9ae47e617ec6a1c6f50bfbedf0c3b730c5`;
+- prepared job: `926b8633-a03b-4a25-a572-f1d18680c3e5`;
+- queue binding: `M42 Pause Compaction Apply`, canonical timeline ID
+  `7e430372-841d-4f6f-99ac-8647f6d75a31`;
+- profile: `youtube-1080p-h264-v1`, MP4/H.264, 1920×1080;
+- status: `Ready`, zero percent, `rendering_in_progress=false`;
+- backups: 44 to 45; immediate replay remained at 45 and returned the same
+  receipt without adding another job;
+- result: `verified` preparation only. Render was intentionally not started.

@@ -45,6 +45,7 @@ Write-інструменти M4:
 - `preview_synchronized_pause_compaction`.
 - `apply_synchronized_pause_compaction`.
 - `finalize_synchronized_pause_compaction`.
+- `prepare_finalized_timeline_render`.
 - `preview_rough_cut_apply`.
 - `apply_rough_cut`.
 
@@ -331,3 +332,8 @@ M42 compaction, M39 PIP та M40 link, а також `confirm_finalize=true`. Ca
 передає TimelineItem IDs або raw properties: workflow виводить їх із receipts,
 робить два bounded batch writes і звіряє mutual links, exact transform та
 canonical item identity. Replay завершеного receipt не виконує нових writes.
+
+`prepare_finalized_timeline_render` приймає applied M43 receipt, `custom_name`,
+allowlisted `profile` і `confirm_prepare=true`. Tool сам дістає timeline ID з
+receipt, створює один backed-up MP4/H.264 job і перевіряє timeline/profile/
+resolution readback. Він завжди повертає `started=false` і не запускає render.

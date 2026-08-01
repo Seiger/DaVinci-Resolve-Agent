@@ -238,6 +238,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
             },
             "prepare_render_job": {
                 "job_id": "job-1",
+                "timeline_id": "timeline-1",
                 "preset": "youtube-2160p-h264-v1",
                 "started": False,
             },
@@ -369,6 +370,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     )["frame"] == 0
     assert client.prepare_render_job(
         "M7 Test",
+        timeline_id="timeline-1",
         profile="youtube-2160p-h264-v1",
         idempotency_key="stable-key",
     )["started"] is False

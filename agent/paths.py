@@ -97,6 +97,13 @@ def pause_compaction_finalizations_directory(
     return runtime_directory(environment) / "pause-compaction-finalizations"
 
 
+def finalized_render_preparations_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for finalized timeline render preparation."""
+    return runtime_directory(environment) / "finalized-render-preparations"
+
+
 def audio_reports_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

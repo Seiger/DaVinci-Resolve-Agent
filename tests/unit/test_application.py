@@ -302,6 +302,7 @@ class StubResolveReader:
         self,
         custom_name: str,
         *,
+        timeline_id: str | None = None,
         profile: str = "youtube-1080p-h264-v1",
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
@@ -590,6 +591,29 @@ class StubPauseCompactionFinalizer:
             "timeout_seconds": timeout_seconds,
         }
         return {"status": "applied", "link_groups": [["v", "a"]]}
+
+
+class StubFinalizedRenderPreparer:
+    def __init__(self) -> None:
+        self.arguments: dict[str, Any] = {}
+
+    def prepare(
+        self,
+        *,
+        finalization_receipt_id: str,
+        custom_name: str,
+        profile: str,
+        confirm_prepare: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.arguments = {
+            "finalization_receipt_id": finalization_receipt_id,
+            "custom_name": custom_name,
+            "profile": profile,
+            "confirm_prepare": confirm_prepare,
+            "timeout_seconds": timeout_seconds,
+        }
+        return {"status": "applied", "operation": {"result": {"job_id": "j"}}}
 
 
 class StubAudioProcessor:
@@ -1102,6 +1126,34 @@ def test_application_finalizes_synchronized_pause_compaction() -> None:
         "timeout_seconds": 45,
     }
     assert audit.operations == ["finalize_synchronized_pause_compaction"]
+
+
+def test_application_prepares_finalized_timeline_render() -> None:
+    preparer = StubFinalizedRenderPreparer()
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        finalized_render_preparer=preparer,
+        workflow_audit=audit,
+    )
+
+    result = application.prepare_finalized_timeline_render(
+        finalization_receipt_id="a" * 64,
+        custom_name="M44 Final",
+        profile="youtube-1080p-h264-v1",
+        confirm_prepare=True,
+        timeout_seconds=45,
+    )
+
+    assert result["status"] == "applied"
+    assert preparer.arguments == {
+        "finalization_receipt_id": "a" * 64,
+        "custom_name": "M44 Final",
+        "profile": "youtube-1080p-h264-v1",
+        "confirm_prepare": True,
+        "timeout_seconds": 45,
+    }
+    assert audit.operations == ["prepare_finalized_timeline_render"]
 
 
 def test_application_processes_audio_without_resolve_call() -> None:

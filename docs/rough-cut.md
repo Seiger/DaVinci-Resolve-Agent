@@ -153,6 +153,20 @@ Live M43 receipt `2daf23ae6a33d75f015cc9d13decca545af8410ec744979c6e3f163ccb87df
 підтвердив 2 link-групи, 2 webcam transforms, 6/6 items і backup count 42→44;
 повтор повернув той самий receipt без нового backup.
 
+## M44: prepare finalized render
+
+`prepare_finalized_timeline_render` приймає applied M43 receipt, безпечний
+filename stem, один allowlisted 1080p/4K profile і `confirm_prepare=true`.
+Timeline ID не надходить від caller: workflow бере його з M43, а bridge явно
+вибирає цей timeline перед документованим `AddRenderJob()`. Результат повинен
+повернути ту саму timeline identity, profile, resolution і `started=false`.
+Replay використовує durable receipt та не додає другий job. Старт render
+залишається окремою підтверджуваною операцією наступного етапу.
+Live M44 receipt `5d03b799bdaa588b20e080f7b59dbc9ae47e617ec6a1c6f50bfbedf0c3b730c5`
+створив job `926b8633-a03b-4a25-a572-f1d18680c3e5` для canonical M42 timeline.
+Queue readback: `Ready`, 1920×1080, MP4/H.264, `rendering_in_progress=false`;
+backup count 44→45, replay залишив 45.
+
 ## Деінсталяція
 
 Draft-плани зберігаються за замовчуванням. Для навмисного видалення разом з

@@ -9,6 +9,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M44 `prepare_finalized_timeline_render` workflow that binds one fixed 1080p
+  or 4K MP4/H.264 job to an applied M43 timeline with explicit confirmation,
+  durable replay, and no automatic render start.
+- Optional explicit `timeline_id` for `prepare_render_job`, with documented
+  Resolve timeline selection and timeline identity in the provider readback.
+- Resolve 21 Free 21.0.3.7 live M44 preparation of one Ready 1080p MP4/H.264
+  job for the exact M43 timeline, one backup, no render start, and replay
+  without another job or backup.
 - M43 `finalize_synchronized_pause_compaction` workflow that propagates the
   approved M39 webcam PIP and M40 screen links to every M42 segment with two
   bounded backed-up batches, durable replay, and exact readback verification.

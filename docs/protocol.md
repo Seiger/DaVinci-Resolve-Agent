@@ -192,6 +192,16 @@ creates one project backup for the entire batch. The workflow derives all item
 IDs from M42, verifies mutual links and exact Pan/Tilt/Zoom readback, and stores
 a resumable finalization receipt; it exposes no arbitrary Resolve property.
 
+## M44 finalized render preparation
+
+`prepare_finalized_timeline_render` loads one applied M43 receipt and derives
+the exact target timeline ID. The existing `prepare_render_job` command now
+accepts that optional bounded ID; the Resolve adapter selects the documented
+timeline before applying the fixed MP4/H.264 settings and `AddRenderJob()`.
+The returned timeline identity, profile, dimensions, and `started=false` must
+match before the durable M44 receipt becomes applied. Render start remains a
+separate guarded operation.
+
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
 YouTube 1080p or 2160p preset, verifies the matching documented MP4/H264

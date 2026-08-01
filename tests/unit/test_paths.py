@@ -6,6 +6,7 @@ from agent.paths import (
     audio_reports_directory,
     config_directory,
     diagnostics_directory,
+    finalized_render_preparations_directory,
     picture_in_picture_directory,
     plans_directory,
     processed_audio_directory,
@@ -52,6 +53,9 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     )
     assert synchronized_links_directory(first_environment) == (
         first_runtime / "synchronized-links"
+    )
+    assert finalized_render_preparations_directory(first_environment) == (
+        first_runtime / "finalized-render-preparations"
     )
     assert audio_reports_directory(first_environment) == (
         first_runtime / "audio-reports"

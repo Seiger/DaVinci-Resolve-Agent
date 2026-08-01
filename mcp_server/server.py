@@ -379,6 +379,7 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
     @server.tool(annotations=WRITE_TOOL)
     async def resolve_prepare_render_job(
         custom_name: str,
+        timeline_id: str | None = None,
         profile: str = DEFAULT_RENDER_PROFILE,
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
@@ -387,6 +388,7 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         return await asyncio.to_thread(
             service.resolve_prepare_render_job,
             custom_name,
+            timeline_id=timeline_id,
             profile=profile,
             timeout_seconds=timeout_seconds,
             idempotency_key=idempotency_key,
@@ -621,6 +623,24 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             picture_in_picture_receipt_id=picture_in_picture_receipt_id,
             synchronized_link_receipt_id=synchronized_link_receipt_id,
             confirm_finalize=confirm_finalize,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def prepare_finalized_timeline_render(
+        finalization_receipt_id: str,
+        custom_name: str,
+        profile: str = DEFAULT_RENDER_PROFILE,
+        confirm_prepare: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Prepare a fixed render job for one applied M43 timeline."""
+        return await asyncio.to_thread(
+            service.prepare_finalized_timeline_render,
+            finalization_receipt_id=finalization_receipt_id,
+            custom_name=custom_name,
+            profile=profile,
+            confirm_prepare=confirm_prepare,
             timeout_seconds=timeout_seconds,
         )
 

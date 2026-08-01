@@ -45,6 +45,7 @@
         "preview_synchronized_pause_compaction",
         "apply_synchronized_pause_compaction",
         "finalize_synchronized_pause_compaction",
+        "prepare_finalized_timeline_render",
         "sync_screen_and_webcam",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
@@ -54,7 +55,7 @@
       ]
     },
     "category": {
-      "enum": ["rough_cut", "editing", "audio"]
+      "enum": ["rough_cut", "editing", "audio", "delivery"]
     },
     "status": {
       "enum": ["running", "success", "error"]
@@ -130,6 +131,16 @@
       },
       "then": {
         "properties": {"category": {"const": "audio"}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {"const": "prepare_finalized_timeline_render"}
+        }
+      },
+      "then": {
+        "properties": {"category": {"const": "delivery"}}
       }
     },
     {

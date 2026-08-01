@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/finalized-render-preparation.schema.json",
+  "title": "DaVinci Resolve Agent M44 finalized render preparation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["render_preparation_version", "receipt_id", "status", "inputs", "target", "operation"],
+  "properties": {
+    "render_preparation_version": {"const": "1.0"},
+    "receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "status": {"enum": ["in_progress", "applied"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finalization_receipt_id", "custom_name", "profile"],
+      "properties": {
+        "finalization_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "custom_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "profile": {"enum": ["youtube-1080p-h264-v1", "youtube-2160p-h264-v1"]}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "timeline_name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "status", "result"],
+      "properties": {
+        "operation": {"const": "prepare_render_job"},
+        "status": {"enum": ["pending", "applied"]},
+        "result": {"type": ["object", "null"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "applied"}}},
+      "then": {
+        "properties": {
+          "operation": {
+            "properties": {
+              "status": {"const": "applied"},
+              "result": {"type": "object"}
+            }
+          }
+        }
+      }
+    }
+  ]
+}
