@@ -80,6 +80,24 @@ def test_workflow_audit_records_sync_without_asset_ids(
     assert "private" not in str(record)
 
 
+def test_workflow_audit_records_synchronized_link_as_editing(
+    tmp_path: Path,
+) -> None:
+    audit = WorkflowAuditLog(tmp_path, FixedClock())
+
+    audit.run(
+        "link_synchronized_screen_pair",
+        lambda: {"timeline_item_id": "private"},
+    )
+    record = read_json_object(
+        next((tmp_path / "workflow").glob("*.json"))
+    )
+
+    assert record["operation"] == "link_synchronized_screen_pair"
+    assert record["category"] == "editing"
+    assert "timeline_item_id" not in str(record)
+
+
 def test_workflow_audit_rejects_unknown_operation_before_callback(
     tmp_path: Path,
 ) -> None:

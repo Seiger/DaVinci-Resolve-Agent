@@ -41,6 +41,7 @@ Write-інструменти M4:
 - `list_rough_cut_plans`.
 - `sync_screen_and_webcam`.
 - `compose_webcam_picture_in_picture`.
+- `link_synchronized_screen_pair`.
 - `preview_rough_cut_apply`.
 - `apply_rough_cut`.
 
@@ -299,3 +300,10 @@ primitives. Він вимагає `confirm_sync=true`, двох різних can
 змінює лише webcam V2, створює один backup-backed transform і перевіряє exact
 Pan/Tilt/Zoom readback. Raw property names, crop, masks, Fusion, keyframes і
 довільний код не приймаються.
+
+`link_synchronized_screen_pair` приймає тільки applied SHA-256 receipt від
+`sync_screen_and_webcam` та `confirm_link=true`. Application service дістає з
+receipt canonical IDs screen V1/A1 і не дозволяє caller передати довільні
+TimelineItem IDs. Workflow вимагає verified `clip.link`, створює один
+backup-backed link, перевіряє взаємні IDs через `GetLinkedItems()` і зберігає
+durable receipt. Webcam item та інші clips не входять до операції.

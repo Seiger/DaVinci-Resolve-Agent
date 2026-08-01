@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M39: webcam picture-in-picture**. Він
+Проєкт перебуває на етапі **Milestone M40: synchronized screen linking**. Він
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -31,6 +31,10 @@ receipt M38, читає live resolution timeline і переводить нор�
 Fusion і довільні Resolve properties не входять до цього етапу.
 Live-перевірка у Resolve 21 Free 21.0.3.7 підтвердила 1920×1080 metadata,
 Pan/Tilt `614.4/-345.6`, Zoom `0.25`, один backup і replay без нової зміни.
+M40 додає `link_synchronized_screen_pair`: workflow бере canonical screen V1
+і A1 тільки з applied M38 receipt, зв’язує їх документованим Resolve API та
+перевіряє взаємні IDs. Live-перевірка підтвердила capability у Resolve 21 Free,
+а replay не створив нового backup.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -290,6 +294,7 @@ Read-only інструменти:
 - `list_rough_cut_plans`.
 - `sync_screen_and_webcam`.
 - `compose_webcam_picture_in_picture`.
+- `link_synchronized_screen_pair`.
 
 Локальний audio-інструмент M6:
 
@@ -336,6 +341,11 @@ M38, `size_percent` від 10 до 50, координати центру `center
 transform лише до canonical webcam item V2 і вимагає exact property readback.
 Default 25/82/82 дає компактну розкладку праворуч унизу; кругла маска,
 рамка, crop і Fusion поки не реалізовані.
+
+`link_synchronized_screen_pair` приймає лише canonical applied receipt M38 і
+`confirm_link=true`. Workflow витягує з нього рівно screen video V1 та screen
+audio A1, викликає bounded `set_clips_linked` і вимагає, щоб кожен item у
+readback містив ID іншого. Webcam V2, інші clips і доріжки не змінюються.
 
 `clean_dialogue_audio` працює без Resolve та приймає allowlisted 16-bit PCM
 WAV. Preset виконує детерміноване RMS leveling із peak guard, зберігає

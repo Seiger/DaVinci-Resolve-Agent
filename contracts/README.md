@@ -59,6 +59,11 @@ webcam layout to one completed M38 receipt, stores target timeline resolution,
 the derived Pan/Tilt/Zoom transform and the allowlisted primitive result. It
 does not add a bridge command or expose raw Resolve properties.
 
+M40 adds `synchronized-link-result.schema.json`. It binds exactly one screen
+video/audio pair from an applied M38 receipt to the existing allowlisted
+`set_clips_linked` primitive and records mutual canonical-ID readback. It
+cannot address webcam or arbitrary timeline items.
+
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.

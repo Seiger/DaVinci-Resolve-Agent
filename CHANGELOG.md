@@ -9,6 +9,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M40 provider-neutral `link_synchronized_screen_pair` workflow bound to one
+  applied M38 receipt, explicit confirmation, mutual canonical-ID readback,
+  durable receipt, and stable replay.
+- Resolve 21 Free 21.0.3.7 live verification of documented screen V1/A1
+  linking, `clip.link=true`, and replay without a second backup.
 - M39 provider-neutral `compose_webcam_picture_in_picture` workflow over one
   completed M38 receipt, normalized frame coordinates, bounded 10–50% zoom,
   explicit confirmation, exact Resolve property readback, and durable replay.

@@ -768,6 +768,22 @@ This boundary remains usable by future editor providers. M39 does not claim
 visual masking, cropping, borders, Fusion composition, or source-aspect-aware
 collision avoidance.
 
+## M40 synchronized screen link
+
+```text
+MCP link_synchronized_screen_pair
+ └─ load and validate one applied M38 receipt
+     ├─ recover exactly the screen V1 and screen A1 canonical item IDs
+     ├─ require verified clip.link capability and explicit confirmation
+     ├─ call the provider-neutral set_clips_linked primitive
+     └─ verify each selected item reports the other canonical peer ID
+```
+
+The workflow does not infer clips from track position or names. Its durable
+receipt and the transport idempotency receipt protect replay at both workflow
+and provider boundaries. The existing Resolve adapter remains solely
+responsible for documented API calls, lock checks, backup, and live readback.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

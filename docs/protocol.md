@@ -147,6 +147,16 @@ webcam item. A SHA-256 layout receipt records the resolution, transform and
 exact property readback for stable replay. Raw Resolve properties, crop,
 masks, Fusion, keyframes, expressions and arbitrary code remain unavailable.
 
+## M40 synchronized screen link
+
+`link_synchronized_screen_pair` is an application workflow over the existing
+documented `set_clips_linked` primitive. It accepts only an applied M38 receipt
+and explicit confirmation, recovers exactly the canonical screen V1/A1 IDs,
+and requires verified `clip.link` capability. Success requires each selected
+item's `GetLinkedItems()` readback to contain the other selected ID. A durable
+SHA-256 receipt prevents repeated provider writes. The workflow cannot accept
+arbitrary item IDs, infer a track-wide selection, or include webcam V2.
+
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
 YouTube 1080p or 2160p preset, verifies the matching documented MP4/H264

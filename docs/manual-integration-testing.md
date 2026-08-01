@@ -221,3 +221,21 @@ ResolveBridge ручний сценарій має зафіксувати:
 - replay: backup count remained 37 before and after, with the identical receipt;
 - result: `verified` on this exact environment; masks, crop, borders, Fusion,
   and other Resolve versions/editions remain outside verified scope.
+
+### M40 synchronized screen link evidence
+
+- UTC execution: `2026-08-01T14:25:08Z` through `2026-08-01T14:30:38Z`;
+- platform: Windows 10 build 19045, Python 3.12.10;
+- Resolve: DaVinci Resolve 21.0.3.7 Free, edition operator-confirmed;
+- source: applied M38 receipt `09e1cdece4e1d2b8f848059422691bec6cabb9952cf351706148d9e26f048b2a`;
+- target: screen video V1 `c24dbed9-da23-4333-8796-047c3d865642` and screen
+  audio A1 `606cfc81-73a7-4a66-a2d7-cc57bd7c63e6`;
+- primitive probe: previous links were empty, then each item reported the
+  other's canonical ID and capability changed to `clip.link=true`;
+- workflow: applied receipt
+  `9a17e91ea9650d5ed4e3e15b78e577d03fbb252c0de0c444b0e9a78b94ab99de`;
+- safety: one `.drp` backup for the primitive probe and one for the first
+  workflow invocation; webcam V2 and all other timeline items were untouched;
+- replay: backup count remained 39 before and after, with the identical receipt;
+- result: `verified` on this exact environment; future move/trim/split behavior
+  over linked items remains outside verified scope.

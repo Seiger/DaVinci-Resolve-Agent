@@ -559,6 +559,20 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def link_synchronized_screen_pair(
+        synchronized_pair_receipt_id: str,
+        confirm_link: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Link the canonical screen video/audio items from an M38 receipt."""
+        return await asyncio.to_thread(
+            service.link_synchronized_screen_pair,
+            synchronized_pair_receipt_id=synchronized_pair_receipt_id,
+            confirm_link=confirm_link,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
         preset: str = "pcm-dialogue-level-v1",

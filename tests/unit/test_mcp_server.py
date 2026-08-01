@@ -417,6 +417,23 @@ class StubPictureInPictureComposer:
         }
 
 
+class StubSynchronizedScreenLinker:
+    def link(
+        self,
+        *,
+        synchronized_pair_receipt_id: str,
+        confirm_link: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "status": "applied",
+            "inputs": {
+                "synchronized_pair_receipt_id": synchronized_pair_receipt_id,
+                "confirm_link": confirm_link,
+            },
+        }
+
+
 class StubAudioProcessor:
     def process(
         self,
@@ -477,6 +494,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         rough_cut_inspector=StubRoughCutInspector(),
         synchronized_pair_assembler=StubSynchronizedPairAssembler(),
         picture_in_picture_composer=StubPictureInPictureComposer(),
+        synchronized_screen_linker=StubSynchronizedScreenLinker(),
         audio_processor=StubAudioProcessor(),
         audio_report_inspector=StubAudioReportInspector(),
         workflow_audit=workflow_audit,
@@ -507,6 +525,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             pip_annotations = annotations[
                 "compose_webcam_picture_in_picture"
             ]
+            link_annotations = annotations[
+                "link_synchronized_screen_pair"
+            ]
             get_audio_annotations = annotations["get_audio_report"]
             list_audio_annotations = annotations["list_audio_reports"]
             render_annotations = annotations["resolve_get_render_options"]
@@ -529,6 +550,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert audio_annotations is not None
             assert sync_annotations is not None
             assert pip_annotations is not None
+            assert link_annotations is not None
             assert get_audio_annotations is not None
             assert list_audio_annotations is not None
             assert render_annotations is not None
@@ -549,6 +571,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert audio_annotations.read_only_hint is False
             assert sync_annotations.read_only_hint is False
             assert pip_annotations.read_only_hint is False
+            assert link_annotations.read_only_hint is False
             assert get_audio_annotations.read_only_hint is True
             assert list_audio_annotations.read_only_hint is True
             assert render_annotations.read_only_hint is True
@@ -739,6 +762,13 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "confirm_layout": True,
                     },
                 ),
+                "screen_linked": await client.call_tool(
+                    "link_synchronized_screen_pair",
+                    {
+                        "synchronized_pair_receipt_id": "a" * 64,
+                        "confirm_link": True,
+                    },
+                ),
                 "audio": await client.call_tool(
                     "clean_dialogue_audio",
                     {"source_file": "dialogue.wav"},
@@ -791,6 +821,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "apply_rough_cut",
             "sync_screen_and_webcam",
             "compose_webcam_picture_in_picture",
+            "link_synchronized_screen_pair",
             "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",
@@ -864,6 +895,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["rough_cut_plans"].structured_content["count"] == 1
     assert results["synced"].structured_content["status"] == "applied"
     assert results["composed"].structured_content["transform"]["zoom"] == 0.25
+    assert results["screen_linked"].structured_content["status"] == "applied"
     assert results["audio"].structured_content["status"] == "completed"
     assert results["audio_detail"].structured_content["status"] == "completed"
     assert results["audio_reports"].structured_content["count"] == 1
@@ -874,6 +906,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "list_rough_cut_plans",
         "sync_screen_and_webcam",
         "compose_webcam_picture_in_picture",
+        "link_synchronized_screen_pair",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

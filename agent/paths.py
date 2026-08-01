@@ -76,6 +76,13 @@ def picture_in_picture_directory(
     return runtime_directory(environment) / "picture-in-picture"
 
 
+def synchronized_links_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for synchronized screen link workflows."""
+    return runtime_directory(environment) / "synchronized-links"
+
+
 def audio_reports_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

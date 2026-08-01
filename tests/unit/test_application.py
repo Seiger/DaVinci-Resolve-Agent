@@ -506,6 +506,25 @@ class StubPictureInPictureComposer:
         return {"status": "applied", "transform": {"zoom": 0.25}}
 
 
+class StubSynchronizedScreenLinker:
+    def __init__(self) -> None:
+        self.arguments: dict[str, Any] = {}
+
+    def link(
+        self,
+        *,
+        synchronized_pair_receipt_id: str,
+        confirm_link: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.arguments = {
+            "synchronized_pair_receipt_id": synchronized_pair_receipt_id,
+            "confirm_link": confirm_link,
+            "timeout_seconds": timeout_seconds,
+        }
+        return {"status": "applied", "operation": {"status": "applied"}}
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -910,6 +929,30 @@ def test_application_runs_picture_in_picture_workflow() -> None:
         "timeout_seconds": 45,
     }
     assert audit.operations == ["compose_webcam_picture_in_picture"]
+
+
+def test_application_runs_synchronized_screen_link_workflow() -> None:
+    linker = StubSynchronizedScreenLinker()
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        synchronized_screen_linker=linker,
+        workflow_audit=audit,
+    )
+
+    result = application.link_synchronized_screen_pair(
+        synchronized_pair_receipt_id="a" * 64,
+        confirm_link=True,
+        timeout_seconds=45,
+    )
+
+    assert result["status"] == "applied"
+    assert linker.arguments == {
+        "synchronized_pair_receipt_id": "a" * 64,
+        "confirm_link": True,
+        "timeout_seconds": 45,
+    }
+    assert audit.operations == ["link_synchronized_screen_pair"]
 
 
 def test_application_processes_audio_without_resolve_call() -> None:

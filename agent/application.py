@@ -28,6 +28,7 @@ from agent.rough_cut import (
     RoughCutReviewer,
 )
 from agent.rough_cut_apply import RoughCutApplier
+from agent.synchronized_link import SynchronizedScreenLinker
 from agent.synchronized_pair import SynchronizedPairAssembler
 from providers.resolve import ResolveProviderClient
 
@@ -363,6 +364,19 @@ class PictureInPictureWorkflow(Protocol):
         """Apply one normalized picture-in-picture webcam layout."""
 
 
+class SynchronizedLinkWorkflow(Protocol):
+    """Provider-neutral synchronized screen link boundary."""
+
+    def link(
+        self,
+        *,
+        synchronized_pair_receipt_id: str,
+        confirm_link: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Link canonical screen video/audio items from one M38 receipt."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -410,6 +424,7 @@ class AgentApplication:
         rough_cut_applier: RoughCutPlanApplier | None = None,
         synchronized_pair_assembler: SynchronizedPairWorkflow | None = None,
         picture_in_picture_composer: PictureInPictureWorkflow | None = None,
+        synchronized_screen_linker: SynchronizedLinkWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -423,6 +438,7 @@ class AgentApplication:
         self._rough_cut_applier = rough_cut_applier
         self._synchronized_pair_assembler = synchronized_pair_assembler
         self._picture_in_picture_composer = picture_in_picture_composer
+        self._synchronized_screen_linker = synchronized_screen_linker
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -1148,6 +1164,33 @@ class AgentApplication:
         if self._picture_in_picture_composer is not None:
             return self._picture_in_picture_composer
         return PictureInPictureComposer(
+            gateway=self._resolve,
+            capabilities=lambda: self.status()["bridge"].get(
+                "capabilities", {}
+            ),
+        )
+
+    def link_synchronized_screen_pair(
+        self,
+        *,
+        synchronized_pair_receipt_id: str,
+        confirm_link: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Link the screen video/audio items created by M38."""
+        return self._run_local_workflow(
+            "link_synchronized_screen_pair",
+            lambda: self._synchronized_link_service().link(
+                synchronized_pair_receipt_id=synchronized_pair_receipt_id,
+                confirm_link=confirm_link,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _synchronized_link_service(self) -> SynchronizedLinkWorkflow:
+        if self._synchronized_screen_linker is not None:
+            return self._synchronized_screen_linker
+        return SynchronizedScreenLinker(
             gateway=self._resolve,
             capabilities=lambda: self.status()["bridge"].get(
                 "capabilities", {}
