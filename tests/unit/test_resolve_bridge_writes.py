@@ -1044,6 +1044,85 @@ def test_clip_links_are_backed_up_read_back_and_replay_safe(
     assert state["capabilities"]["clip.link"] is True
 
 
+def test_clip_link_groups_are_independent_with_one_backup(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M43 Links")
+    resolve.project.SetCurrentTimeline(timeline)
+    items = [
+        FakeTimelineItem(f"item-{index}", "source.mkv")
+        for index in range(4)
+    ]
+    timeline.items.extend(items)
+    state = collect_bridge_state(resolve)
+    command = _command(
+        "group-links",
+        "set_clip_link_groups",
+        {
+            "timeline_id": timeline.GetUniqueId(),
+            "groups": [["item-0", "item-1"], ["item-2", "item-3"]],
+            "linked": True,
+        },
+        idempotency_key="stable-group-links",
+    )
+
+    first = _run_command(tmp_path, resolve, state, command)
+    replay = _run_command(tmp_path, resolve, state, command)
+
+    assert first["status"] == "success"
+    assert first["result"] == replay["result"]
+    assert first["result"]["groups"][0]["items"][0][
+        "linked_item_ids"
+    ] == ["item-1"]
+    assert first["result"]["groups"][1]["items"][0][
+        "linked_item_ids"
+    ] == ["item-3"]
+    assert resolve.project_manager.export_count == 1
+
+
+def test_clip_transforms_batch_uses_one_backup_and_replays(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M43 PIP")
+    resolve.project.SetCurrentTimeline(timeline)
+    items = [
+        FakeTimelineItem(f"webcam-{index}", "webcam.mkv")
+        for index in range(2)
+    ]
+    timeline.items.extend(items)
+    state = collect_bridge_state(resolve)
+    command = _command(
+        "batch-transform",
+        "set_clip_transforms",
+        {
+            "timeline_id": timeline.GetUniqueId(),
+            "items": [
+                {
+                    "timeline_item_id": item.GetUniqueId(),
+                    "position_x": 614.4,
+                    "position_y": -345.6,
+                    "zoom": 0.25,
+                }
+                for item in items
+            ],
+        },
+        idempotency_key="stable-batch-transform",
+    )
+
+    first = _run_command(tmp_path, resolve, state, command)
+    replay = _run_command(tmp_path, resolve, state, command)
+
+    assert first["status"] == "success"
+    assert first["result"] == replay["result"]
+    assert [item["properties"]["ZoomX"] for item in first["result"]["items"]] == [
+        0.25,
+        0.25,
+    ]
+    assert resolve.project_manager.export_count == 1
+
+
 def test_timeline_items_are_discovered_with_bounded_metadata(
     tmp_path: Path,
 ) -> None:

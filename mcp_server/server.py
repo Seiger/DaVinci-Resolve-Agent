@@ -607,6 +607,24 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def finalize_synchronized_pause_compaction(
+        pause_compaction_receipt_id: str,
+        picture_in_picture_receipt_id: str,
+        synchronized_link_receipt_id: str,
+        confirm_finalize: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Propagate approved screen links and webcam layout to M42 segments."""
+        return await asyncio.to_thread(
+            service.finalize_synchronized_pause_compaction,
+            pause_compaction_receipt_id=pause_compaction_receipt_id,
+            picture_in_picture_receipt_id=picture_in_picture_receipt_id,
+            synchronized_link_receipt_id=synchronized_link_receipt_id,
+            confirm_finalize=confirm_finalize,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
         preset: str = "pcm-dialogue-level-v1",

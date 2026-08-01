@@ -23,6 +23,8 @@ WRITE_ACTIONS = {
     "set_clip_enabled",
     "set_clips_linked",
     "set_clip_transform",
+    "set_clip_link_groups",
+    "set_clip_transforms",
     "delete_clip",
     "add_marker",
     "prepare_render_job",

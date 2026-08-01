@@ -36,7 +36,9 @@ class StubCommandClient:
             "insert_clips",
             "set_clip_enabled",
             "set_clips_linked",
+            "set_clip_link_groups",
             "set_clip_transform",
+            "set_clip_transforms",
             "delete_clip",
             "add_marker",
             "prepare_render_job",
@@ -214,6 +216,15 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                     "ZoomY": 0.5,
                 },
             },
+            "set_clip_link_groups": {
+                "timeline_id": "timeline-1",
+                "linked": True,
+                "groups": [{"group_index": 0, "items": []}],
+            },
+            "set_clip_transforms": {
+                "timeline_id": "timeline-1",
+                "items": [{"timeline_item_id": "item-1"}],
+            },
             "delete_clip": {
                 "timeline_id": "timeline-1",
                 "timeline_item_id": "item-1",
@@ -330,6 +341,17 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         zoom=0.5,
         idempotency_key="stable-key",
     )["properties"]["ZoomX"] == 0.5
+    assert client.set_clip_link_groups(
+        "timeline-1",
+        [["video-1", "audio-1"]],
+        True,
+        idempotency_key="stable-key",
+    )["linked"] is True
+    assert client.set_clip_transforms(
+        "timeline-1",
+        [{"timeline_item_id": "item-1", "zoom": 0.5}],
+        idempotency_key="stable-key",
+    )["items"][0]["timeline_item_id"] == "item-1"
     assert client.delete_clip(
         "timeline-1",
         "item-1",
@@ -378,6 +400,8 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "set_clip_enabled",
         "set_clips_linked",
         "set_clip_transform",
+        "set_clip_link_groups",
+        "set_clip_transforms",
         "delete_clip",
         "add_marker",
         "prepare_render_job",

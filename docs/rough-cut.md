@@ -141,6 +141,18 @@ timeline. V1/A1/V2 placements передаються одним bounded batch in
 вже завершений запит. Після вставки workflow звіряє canonical item IDs і frame
 bounds через `list_timeline_items`. Вихідний timeline не модифікується.
 
+## M43: finalize compacted timeline
+
+`finalize_synchronized_pause_compaction` звіряє applied receipts M42, M39 та
+M40 через спільний M38 receipt. Ідентифікатори цільових clips виводяться лише з
+M42 placements і insert readback. Кожна screen V1/A1 пара зв'язується окремою
+групою в одному backed-up batch, а approved M39 Pan/Tilt/Zoom застосовується до
+всіх webcam V2 другим backed-up batch. Workflow перевіряє mutual links, exact
+transform і присутність усіх canonical IDs, після чого зберігає durable receipt.
+Live M43 receipt `2daf23ae6a33d75f015cc9d13decca545af8410ec744979c6e3f163ccb87df32`
+підтвердив 2 link-групи, 2 webcam transforms, 6/6 items і backup count 42→44;
+повтор повернув той самий receipt без нового backup.
+
 ## Деінсталяція
 
 Draft-плани зберігаються за замовчуванням. Для навмисного видалення разом з

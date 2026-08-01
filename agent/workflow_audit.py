@@ -21,6 +21,7 @@ WORKFLOW_CATEGORIES = {
     "list_rough_cut_plans": "rough_cut",
     "preview_synchronized_pause_compaction": "rough_cut",
     "apply_synchronized_pause_compaction": "rough_cut",
+    "finalize_synchronized_pause_compaction": "rough_cut",
     "sync_screen_and_webcam": "editing",
     "compose_webcam_picture_in_picture": "editing",
     "link_synchronized_screen_pair": "editing",

@@ -569,6 +569,29 @@ class StubPauseCompactionApplier:
         return {"status": "applied", "placement_count": 6}
 
 
+class StubPauseCompactionFinalizer:
+    def __init__(self) -> None:
+        self.arguments: dict[str, Any] = {}
+
+    def finalize(
+        self,
+        *,
+        pause_compaction_receipt_id: str,
+        picture_in_picture_receipt_id: str,
+        synchronized_link_receipt_id: str,
+        confirm_finalize: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.arguments = {
+            "pause_compaction_receipt_id": pause_compaction_receipt_id,
+            "picture_in_picture_receipt_id": picture_in_picture_receipt_id,
+            "synchronized_link_receipt_id": synchronized_link_receipt_id,
+            "confirm_finalize": confirm_finalize,
+            "timeout_seconds": timeout_seconds,
+        }
+        return {"status": "applied", "link_groups": [["v", "a"]]}
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -1051,6 +1074,34 @@ def test_application_applies_synchronized_pause_compaction() -> None:
         "timeout_seconds": 45,
     }
     assert audit.operations == ["apply_synchronized_pause_compaction"]
+
+
+def test_application_finalizes_synchronized_pause_compaction() -> None:
+    finalizer = StubPauseCompactionFinalizer()
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        pause_compaction_finalizer=finalizer,
+        workflow_audit=audit,
+    )
+
+    result = application.finalize_synchronized_pause_compaction(
+        pause_compaction_receipt_id="a" * 64,
+        picture_in_picture_receipt_id="b" * 64,
+        synchronized_link_receipt_id="c" * 64,
+        confirm_finalize=True,
+        timeout_seconds=45,
+    )
+
+    assert result["status"] == "applied"
+    assert finalizer.arguments == {
+        "pause_compaction_receipt_id": "a" * 64,
+        "picture_in_picture_receipt_id": "b" * 64,
+        "synchronized_link_receipt_id": "c" * 64,
+        "confirm_finalize": True,
+        "timeout_seconds": 45,
+    }
+    assert audit.operations == ["finalize_synchronized_pause_compaction"]
 
 
 def test_application_processes_audio_without_resolve_call() -> None:

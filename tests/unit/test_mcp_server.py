@@ -471,6 +471,23 @@ class StubPauseCompactionApplier:
         }
 
 
+class StubPauseCompactionFinalizer:
+    def finalize(
+        self,
+        *,
+        pause_compaction_receipt_id: str,
+        picture_in_picture_receipt_id: str,
+        synchronized_link_receipt_id: str,
+        confirm_finalize: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "status": "applied",
+            "receipt_id": "d" * 64,
+            "confirm_finalize": confirm_finalize,
+        }
+
+
 class StubAudioProcessor:
     def process(
         self,
@@ -534,6 +551,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         synchronized_screen_linker=StubSynchronizedScreenLinker(),
         pause_compaction_previewer=StubPauseCompactionPreviewer(),
         pause_compaction_applier=StubPauseCompactionApplier(),
+        pause_compaction_finalizer=StubPauseCompactionFinalizer(),
         audio_processor=StubAudioProcessor(),
         audio_report_inspector=StubAudioReportInspector(),
         workflow_audit=workflow_audit,
@@ -835,6 +853,15 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "confirm_apply": True,
                     },
                 ),
+                "compaction_finalized": await client.call_tool(
+                    "finalize_synchronized_pause_compaction",
+                    {
+                        "pause_compaction_receipt_id": "a" * 64,
+                        "picture_in_picture_receipt_id": "b" * 64,
+                        "synchronized_link_receipt_id": "c" * 64,
+                        "confirm_finalize": True,
+                    },
+                ),
                 "audio": await client.call_tool(
                     "clean_dialogue_audio",
                     {"source_file": "dialogue.wav"},
@@ -890,6 +917,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "link_synchronized_screen_pair",
             "preview_synchronized_pause_compaction",
             "apply_synchronized_pause_compaction",
+            "finalize_synchronized_pause_compaction",
             "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",
@@ -966,6 +994,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["screen_linked"].structured_content["status"] == "applied"
     assert results["compaction"].structured_content["status"] == "preview"
     assert results["compaction_apply"].structured_content["status"] == "applied"
+    assert results["compaction_finalized"].structured_content["status"] == (
+        "applied"
+    )
     assert results["audio"].structured_content["status"] == "completed"
     assert results["audio_detail"].structured_content["status"] == "completed"
     assert results["audio_reports"].structured_content["count"] == 1
@@ -979,6 +1010,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "link_synchronized_screen_pair",
         "preview_synchronized_pause_compaction",
         "apply_synchronized_pause_compaction",
+        "finalize_synchronized_pause_compaction",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

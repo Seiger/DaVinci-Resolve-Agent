@@ -389,6 +389,30 @@ class ResolveProviderClient:
         )
         return self._object_value("set_clips_linked", result)
 
+    def set_clip_link_groups(
+        self,
+        timeline_id: str,
+        groups: list[list[str]],
+        linked: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply bounded independent link groups in one backed-up operation."""
+        result = self._client.request(
+            provider="resolve",
+            action="set_clip_link_groups",
+            arguments={
+                "timeline_id": timeline_id,
+                "groups": groups,
+                "linked": linked,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("set_clip_link_groups", result)
+
     def set_clip_transform(
         self,
         timeline_id: str,
@@ -425,6 +449,25 @@ class ResolveProviderClient:
             create_backup=True,
         )
         return self._object_value("set_clip_transform", result)
+
+    def set_clip_transforms(
+        self,
+        timeline_id: str,
+        items: list[dict[str, Any]],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply bounded transforms in one backed-up provider operation."""
+        result = self._client.request(
+            provider="resolve",
+            action="set_clip_transforms",
+            arguments={"timeline_id": timeline_id, "items": items},
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("set_clip_transforms", result)
 
     def delete_clip(
         self,

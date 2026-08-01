@@ -182,6 +182,16 @@ source bounds, and a shared timeline origin are checked before a separate
 `list_timeline_items` persistence readback. Three step-level keys plus the
 provider receipt make replay resumable without editing the source timeline.
 
+## M43 compacted timeline finalization
+
+`finalize_synchronized_pause_compaction` binds applied M42, M39, and M40
+receipts to one M38 synchronized pair. The provider-neutral
+`set_clip_link_groups` action accepts bounded exact pairs, while
+`set_clip_transforms` accepts only the fixed transform allowlist. Each action
+creates one project backup for the entire batch. The workflow derives all item
+IDs from M42, verifies mutual links and exact Pan/Tilt/Zoom readback, and stores
+a resumable finalization receipt; it exposes no arbitrary Resolve property.
+
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
 YouTube 1080p or 2160p preset, verifies the matching documented MP4/H264

@@ -64,7 +64,9 @@
         "insert_clips",
         "set_clip_enabled",
         "set_clips_linked",
+        "set_clip_link_groups",
         "set_clip_transform",
+        "set_clip_transforms",
         "delete_clip",
         "add_marker",
         "prepare_render_job",
@@ -463,6 +465,84 @@
       "if": {
         "properties": {
           "action": {
+            "const": "set_clip_link_groups"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": ["timeline_id", "groups", "linked"],
+            "properties": {
+              "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+              "groups": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1001,
+                "items": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "uniqueItems": true,
+                  "items": {"type": "string", "minLength": 1, "maxLength": 128}
+                }
+              },
+              "linked": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "set_clip_transforms"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": ["timeline_id", "items"],
+            "properties": {
+              "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1001,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["timeline_item_id"],
+                  "properties": {
+                    "timeline_item_id": {"type": "string", "minLength": 1, "maxLength": 128},
+                    "position_x": {"type": "number", "minimum": -32768, "maximum": 32768},
+                    "position_y": {"type": "number", "minimum": -32768, "maximum": 32768},
+                    "zoom": {"type": "number", "minimum": 0, "maximum": 100},
+                    "rotation_degrees": {"type": "number", "minimum": -360, "maximum": 360},
+                    "opacity_percent": {"type": "number", "minimum": 0, "maximum": 100}
+                  },
+                  "anyOf": [
+                    {"required": ["position_x"]},
+                    {"required": ["position_y"]},
+                    {"required": ["zoom"]},
+                    {"required": ["rotation_degrees"]},
+                    {"required": ["opacity_percent"]}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
             "const": "delete_clip"
           }
         }
@@ -832,7 +912,9 @@
               "insert_clips",
               "set_clip_enabled",
               "set_clips_linked",
+              "set_clip_link_groups",
               "set_clip_transform",
+              "set_clip_transforms",
               "delete_clip",
               "add_marker",
               "prepare_render_job",

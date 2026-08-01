@@ -44,6 +44,7 @@ Write-інструменти M4:
 - `link_synchronized_screen_pair`.
 - `preview_synchronized_pause_compaction`.
 - `apply_synchronized_pause_compaction`.
+- `finalize_synchronized_pause_compaction`.
 - `preview_rough_cut_apply`.
 - `apply_rough_cut`.
 
@@ -324,3 +325,9 @@ timeline. Жоден timeline, clip або backup не створюється.
 kept ranges. Workflow зберігає durable progress receipt, а фінальний readback
 має знайти кожен canonical TimelineItem ID з тими самими track/source/timeline
 bounds. Source M38 timeline не змінюється.
+
+`finalize_synchronized_pause_compaction` вимагає три applied SHA-256 receipts:
+M42 compaction, M39 PIP та M40 link, а також `confirm_finalize=true`. Caller не
+передає TimelineItem IDs або raw properties: workflow виводить їх із receipts,
+робить два bounded batch writes і звіряє mutual links, exact transform та
+canonical item identity. Replay завершеного receipt не виконує нових writes.

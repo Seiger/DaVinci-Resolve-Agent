@@ -66,6 +66,7 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "link_synchronized_screen_pair",
         "preview_synchronized_pause_compaction",
         "apply_synchronized_pause_compaction",
+        "finalize_synchronized_pause_compaction",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

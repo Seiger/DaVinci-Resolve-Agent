@@ -90,6 +90,13 @@ def pause_compactions_directory(
     return runtime_directory(environment) / "pause-compactions"
 
 
+def pause_compaction_finalizations_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for compacted timeline finalization."""
+    return runtime_directory(environment) / "pause-compaction-finalizations"
+
+
 def audio_reports_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/pause-compaction-finalization.schema.json",
+  "title": "DaVinci Resolve Agent M43 pause compaction finalization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["finalization_version", "receipt_id", "status", "inputs", "target", "link_groups", "webcam_item_ids", "transform", "operations", "readback"],
+  "properties": {
+    "finalization_version": {"const": "1.0"},
+    "receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "status": {"enum": ["in_progress", "applied"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pause_compaction_receipt_id", "picture_in_picture_receipt_id", "synchronized_link_receipt_id"],
+      "properties": {
+        "pause_compaction_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "picture_in_picture_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "synchronized_link_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["synchronized_pair_receipt_id", "timeline_id", "timeline_name"],
+      "properties": {
+        "synchronized_pair_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "link_groups": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1001,
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "uniqueItems": true,
+        "items": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "webcam_item_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1001,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    },
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position_x", "position_y", "zoom"],
+      "properties": {
+        "position_x": {"type": "number", "minimum": -32768, "maximum": 32768},
+        "position_y": {"type": "number", "minimum": -32768, "maximum": 32768},
+        "zoom": {"type": "number", "exclusiveMinimum": 0, "maximum": 100}
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation", "status", "result"],
+        "properties": {
+          "operation": {"enum": ["set_clip_link_groups", "set_clip_transforms"]},
+          "status": {"enum": ["pending", "applied"]},
+          "result": {"type": ["object", "null"]}
+        }
+      }
+    },
+    "readback": {"type": ["object", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "applied"}}},
+      "then": {
+        "properties": {
+          "operations": {
+            "items": {
+              "properties": {
+                "status": {"const": "applied"},
+                "result": {"type": "object"}
+              }
+            }
+          },
+          "readback": {"type": "object"}
+        }
+      }
+    }
+  ]
+}

@@ -9,6 +9,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M43 `finalize_synchronized_pause_compaction` workflow that propagates the
+  approved M39 webcam PIP and M40 screen links to every M42 segment with two
+  bounded backed-up batches, durable replay, and exact readback verification.
+- Provider-neutral `set_clip_link_groups` and `set_clip_transforms` commands
+  mapped only to documented Resolve timeline-link and item-property APIs.
+- Resolve 21 Free 21.0.3.7 live M43 finalization of two screen link groups and
+  two webcam PIP segments with six-item identity readback, exactly two new
+  backups, and mutation-free replay.
 - M42 confirmed `apply_synchronized_pause_compaction` workflow that rebuilds
   approved kept ranges on a new V1/A1/V2 timeline with a durable receipt,
   explicit confirmation, and final canonical-ID readback.

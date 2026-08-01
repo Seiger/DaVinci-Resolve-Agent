@@ -15,6 +15,7 @@ from agent.bridge_state import (
 )
 from agent.media import MediaPolicy
 from agent.pause_compaction import PauseCompactionApplier, PauseCompactionPreviewer
+from agent.pause_compaction_finalize import PauseCompactionFinalizer
 from agent.picture_in_picture import PictureInPictureComposer
 from agent.rendering import (
     DEFAULT_RENDER_PROFILE,
@@ -200,6 +201,17 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Link or unlink a bounded group of timeline items."""
 
+    def set_clip_link_groups(
+        self,
+        timeline_id: str,
+        groups: list[list[str]],
+        linked: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply bounded independent link groups in one operation."""
+
     def set_clip_transform(
         self,
         timeline_id: str,
@@ -214,6 +226,16 @@ class ResolveReader(Protocol):
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Apply one bounded provider-neutral video clip transform."""
+
+    def set_clip_transforms(
+        self,
+        timeline_id: str,
+        items: list[dict[str, Any]],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply bounded video transforms in one provider operation."""
 
     def delete_clip(
         self,
@@ -417,6 +439,21 @@ class PauseCompactionApplyWorkflow(Protocol):
         """Create one new timeline from approved kept ranges."""
 
 
+class PauseCompactionFinalizationWorkflow(Protocol):
+    """Provider-neutral M42 segment finalization boundary."""
+
+    def finalize(
+        self,
+        *,
+        pause_compaction_receipt_id: str,
+        picture_in_picture_receipt_id: str,
+        synchronized_link_receipt_id: str,
+        confirm_finalize: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Propagate approved links and webcam layout to M42 segments."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -467,6 +504,7 @@ class AgentApplication:
         synchronized_screen_linker: SynchronizedLinkWorkflow | None = None,
         pause_compaction_previewer: PauseCompactionWorkflow | None = None,
         pause_compaction_applier: PauseCompactionApplyWorkflow | None = None,
+        pause_compaction_finalizer: PauseCompactionFinalizationWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -483,6 +521,7 @@ class AgentApplication:
         self._synchronized_screen_linker = synchronized_screen_linker
         self._pause_compaction_previewer = pause_compaction_previewer
         self._pause_compaction_applier = pause_compaction_applier
+        self._pause_compaction_finalizer = pause_compaction_finalizer
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -1314,6 +1353,42 @@ class AgentApplication:
             gateway=self._resolve,
             capabilities=capabilities,
             previewer=previewer,
+        )
+
+    def finalize_synchronized_pause_compaction(
+        self,
+        *,
+        pause_compaction_receipt_id: str,
+        picture_in_picture_receipt_id: str,
+        synchronized_link_receipt_id: str,
+        confirm_finalize: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Propagate approved link and layout state to compacted segments."""
+        return self._run_local_workflow(
+            "finalize_synchronized_pause_compaction",
+            lambda: self._pause_compaction_finalization_service().finalize(
+                pause_compaction_receipt_id=pause_compaction_receipt_id,
+                picture_in_picture_receipt_id=picture_in_picture_receipt_id,
+                synchronized_link_receipt_id=synchronized_link_receipt_id,
+                confirm_finalize=confirm_finalize,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _pause_compaction_finalization_service(
+        self,
+    ) -> PauseCompactionFinalizationWorkflow:
+        if self._pause_compaction_finalizer is not None:
+            return self._pause_compaction_finalizer
+
+        def capabilities() -> dict[str, Any]:
+            discovered = self.status()["bridge"].get("capabilities", {})
+            return discovered if isinstance(discovered, dict) else {}
+
+        return PauseCompactionFinalizer(
+            gateway=self._resolve,
+            capabilities=capabilities,
         )
 
     def _rough_cut_apply_service(self) -> RoughCutPlanApplier:

@@ -817,6 +817,21 @@ transport interruption. The source M38 timeline remains unchanged; a failed
 apply can leave only the new disposable target timeline, with project backups
 available before each write step.
 
+## M43 compacted timeline finalization
+
+```text
+MCP finalize_synchronized_pause_compaction(confirm_finalize=true)
+ ├─ bind applied M42 + M39 + M40 receipts to one M38 pair
+ ├─ derive per-segment screen V1/A1 and webcam V2 IDs
+ ├─ one backup + set_clip_link_groups for all screen pairs
+ ├─ one backup + set_clip_transforms for all webcam segments
+ └─ verify mutual links, exact transform and canonical item identity
+```
+
+The two batch primitives keep backup count constant as cut count grows. The
+Resolve adapter maps only to documented `Timeline.SetClipsLinked`,
+`TimelineItem.SetProperty`, `GetProperty`, and `GetLinkedItems` methods.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.
