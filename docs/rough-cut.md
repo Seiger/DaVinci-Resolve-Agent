@@ -120,6 +120,17 @@ asset IDs, signed offset і `confirm_sync=true`.
 документованих trim/split/move mappings. M38 не оголошує весь plan
 `apply_supported=true` і не додає webcam audio.
 
+## M41: preview compacted timeline
+
+`preview_synchronized_pause_compaction` розблоковує безпечний шлях до
+pause removal без недокументованих split/trim. Він бере approved M5 plan та
+applied M38 receipt, звіряє їхній offset і source filenames, а `proposed_cuts`
+перетворює на kept half-open intervals. Для кожного interval створюються точні
+майбутні placements screen video V1, screen audio A1 і webcam video V2.
+Source bounds використовують FPS asset, record positions — FPS target timeline.
+M41 нічого не застосовує; write, backup, resumable receipt і readback належать
+окремому M42.
+
 ## Деінсталяція
 
 Draft-плани зберігаються за замовчуванням. Для навмисного видалення разом з

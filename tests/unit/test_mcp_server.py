@@ -434,6 +434,24 @@ class StubSynchronizedScreenLinker:
         }
 
 
+class StubPauseCompactionPreviewer:
+    def preview(
+        self,
+        *,
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "status": "preview",
+            "apply_supported": False,
+            "plan_id": plan_id,
+            "synchronized_pair_receipt_id": synchronized_pair_receipt_id,
+            "target_timeline_name": target_timeline_name,
+        }
+
+
 class StubAudioProcessor:
     def process(
         self,
@@ -495,6 +513,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         synchronized_pair_assembler=StubSynchronizedPairAssembler(),
         picture_in_picture_composer=StubPictureInPictureComposer(),
         synchronized_screen_linker=StubSynchronizedScreenLinker(),
+        pause_compaction_previewer=StubPauseCompactionPreviewer(),
         audio_processor=StubAudioProcessor(),
         audio_report_inspector=StubAudioReportInspector(),
         workflow_audit=workflow_audit,
@@ -528,6 +547,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             link_annotations = annotations[
                 "link_synchronized_screen_pair"
             ]
+            compaction_annotations = annotations[
+                "preview_synchronized_pause_compaction"
+            ]
             get_audio_annotations = annotations["get_audio_report"]
             list_audio_annotations = annotations["list_audio_reports"]
             render_annotations = annotations["resolve_get_render_options"]
@@ -551,6 +573,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert sync_annotations is not None
             assert pip_annotations is not None
             assert link_annotations is not None
+            assert compaction_annotations is not None
             assert get_audio_annotations is not None
             assert list_audio_annotations is not None
             assert render_annotations is not None
@@ -572,6 +595,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert sync_annotations.read_only_hint is False
             assert pip_annotations.read_only_hint is False
             assert link_annotations.read_only_hint is False
+            assert compaction_annotations.read_only_hint is True
             assert get_audio_annotations.read_only_hint is True
             assert list_audio_annotations.read_only_hint is True
             assert render_annotations.read_only_hint is True
@@ -769,6 +793,14 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "confirm_link": True,
                     },
                 ),
+                "compaction": await client.call_tool(
+                    "preview_synchronized_pause_compaction",
+                    {
+                        "plan_id": "a" * 64,
+                        "synchronized_pair_receipt_id": "b" * 64,
+                        "target_timeline_name": "M41 Preview",
+                    },
+                ),
                 "audio": await client.call_tool(
                     "clean_dialogue_audio",
                     {"source_file": "dialogue.wav"},
@@ -822,6 +854,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "sync_screen_and_webcam",
             "compose_webcam_picture_in_picture",
             "link_synchronized_screen_pair",
+            "preview_synchronized_pause_compaction",
             "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",
@@ -896,6 +929,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["synced"].structured_content["status"] == "applied"
     assert results["composed"].structured_content["transform"]["zoom"] == 0.25
     assert results["screen_linked"].structured_content["status"] == "applied"
+    assert results["compaction"].structured_content["status"] == "preview"
     assert results["audio"].structured_content["status"] == "completed"
     assert results["audio_detail"].structured_content["status"] == "completed"
     assert results["audio_reports"].structured_content["count"] == 1
@@ -907,6 +941,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "sync_screen_and_webcam",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
+        "preview_synchronized_pause_compaction",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

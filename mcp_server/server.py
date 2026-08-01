@@ -572,6 +572,22 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             timeout_seconds=timeout_seconds,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_synchronized_pause_compaction(
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Preview a kept-range synchronized rebuild without editing Resolve."""
+        return await asyncio.to_thread(
+            service.preview_synchronized_pause_compaction,
+            plan_id=plan_id,
+            synchronized_pair_receipt_id=synchronized_pair_receipt_id,
+            target_timeline_name=target_timeline_name,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,

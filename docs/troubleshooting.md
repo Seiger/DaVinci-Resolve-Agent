@@ -79,6 +79,14 @@ Inspect the safe error in `state\bridge.json` and the structured log in
 `logs\bridge.jsonl`. Do not enable external scripting or network access as a
 workaround. The M1 bridge must run from inside Resolve.
 
+If the error reports Windows access denial while replacing `bridge.json`,
+install the latest bridge and restart it once. The bridge uses a unique
+temporary file and bounded retries for transient readers. If a heartbeat still
+cannot replace the state file, the persistent bridge records
+`state_publish_deferred` and retries on the next heartbeat instead of exiting.
+A denial that persists across later heartbeats indicates an external lock or
+directory permission problem that must be resolved instead of bypassed.
+
 A direct `DaVinciResolveScript` import may be unavailable even inside a menu
 script. The bridge therefore checks the injected internal Resolve/Fusion
 context before trying the documented module fallback.

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/pause-compaction-preview.schema.json",
+  "title": "DaVinci Resolve Agent M41 pause compaction preview",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["preview_version", "status", "apply_supported", "plan_id", "plan_sha256", "synchronized_pair_receipt_id", "target_timeline_name", "timeline", "cuts", "kept_intervals", "placements", "required_capabilities", "unsupported_capabilities"],
+  "properties": {
+    "preview_version": {"const": "1.0"},
+    "status": {"const": "preview"},
+    "apply_supported": {"const": false},
+    "plan_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "plan_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "synchronized_pair_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "target_timeline_name": {"type": "string", "minLength": 1, "maxLength": 128},
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_rate", "source_duration_ms", "removed_duration_ms", "output_duration_ms", "output_duration_frames"],
+      "properties": {
+        "frame_rate": {"type": "number", "exclusiveMinimum": 0},
+        "source_duration_ms": {"type": "integer", "minimum": 1},
+        "removed_duration_ms": {"type": "integer", "minimum": 0},
+        "output_duration_ms": {"type": "integer", "minimum": 1},
+        "output_duration_frames": {"type": "integer", "minimum": 1, "maximum": 2147483647}
+      }
+    },
+    "cuts": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {"$ref": "#/$defs/timeRange"}
+    },
+    "kept_intervals": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1001,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["start_ms", "end_ms", "duration_ms", "output_start_ms"],
+        "properties": {
+          "start_ms": {"type": "integer", "minimum": 0},
+          "end_ms": {"type": "integer", "minimum": 1},
+          "duration_ms": {"type": "integer", "minimum": 1},
+          "output_start_ms": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "placements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3003,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["segment_index", "role", "asset_id", "track_type", "track_index", "source_start_frame", "source_end_frame", "position_frames", "source_frame_rate"],
+        "properties": {
+          "segment_index": {"type": "integer", "minimum": 0, "maximum": 1000},
+          "role": {"enum": ["screen_video", "screen_audio", "webcam_video"]},
+          "asset_id": {"type": "string", "minLength": 1, "maxLength": 128},
+          "track_type": {"enum": ["video", "audio"]},
+          "track_index": {"type": "integer", "minimum": 1, "maximum": 2},
+          "source_start_frame": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+          "source_end_frame": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+          "position_frames": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+          "source_frame_rate": {"type": "number", "exclusiveMinimum": 0}
+        }
+      }
+    },
+    "required_capabilities": {
+      "type": "array",
+      "const": ["clip.insert", "timeline.create", "timeline.track.create"]
+    },
+    "unsupported_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["clip.insert", "timeline.create", "timeline.track.create"]}
+    }
+  },
+  "$defs": {
+    "timeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_ms", "end_ms", "duration_ms"],
+      "properties": {
+        "start_ms": {"type": "integer", "minimum": 0},
+        "end_ms": {"type": "integer", "minimum": 1},
+        "duration_ms": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

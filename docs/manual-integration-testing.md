@@ -239,3 +239,26 @@ ResolveBridge ручний сценарій має зафіксувати:
 - replay: backup count remained 39 before and after, with the identical receipt;
 - result: `verified` on this exact environment; future move/trim/split behavior
   over linked items remains outside verified scope.
+
+### M41 pause compaction preview evidence
+
+- UTC execution: `2026-08-01T14:36Z`;
+- platform: Windows 10 build 19045, Python 3.12.10;
+- Resolve: DaVinci Resolve 21.0.3.7 Free, edition operator-confirmed;
+- inputs: approved M5 plan
+  `c0d5d8a6bb6ce60fd085faceb9ad8a9a69290dac1cec07a15bf2c064dd548793`
+  and applied M38 receipt
+  `09e1cdece4e1d2b8f848059422691bec6cabb9952cf351706148d9e26f048b2a`;
+- metadata: target 24 FPS, both source assets 60 FPS, bounded source duration
+  7,455,000 ms;
+- cut: half-open `320..880 ms`, removed duration 560 ms;
+- output preview: 7,454,440 ms / 178,907 target frames, two kept intervals,
+  six exact V1/A1/V2 placements;
+- readiness: no unsupported future apply capabilities reported;
+- safety: backup count remained 39 before and after; no timeline or item was
+  created, modified, or deleted;
+- bridge reliability: after installing the M41 bridge, 2,000 concurrent state
+  reads completed and the bridge remained `ready`; the following online
+  `verify.ps1` reported a 0.3 s heartbeat age;
+- result: `verified` read-only preview on this exact environment; actual
+  compacted timeline creation remains intentionally unsupported until M42.

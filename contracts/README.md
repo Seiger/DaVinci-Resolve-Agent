@@ -64,6 +64,11 @@ video/audio pair from an applied M38 receipt to the existing allowlisted
 `set_clips_linked` primitive and records mutual canonical-ID readback. It
 cannot address webcam or arbitrary timeline items.
 
+M41 adds `pause-compaction-preview.schema.json`. It binds an approved M5 plan
+to one applied M38 receipt and records bounded cuts, kept intervals, target
+duration, and exact future V1/A1/V2 insert arguments. The preview is read-only
+and keeps `apply_supported=false` until a separate write milestone.
+
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.

@@ -98,6 +98,24 @@ def test_workflow_audit_records_synchronized_link_as_editing(
     assert "timeline_item_id" not in str(record)
 
 
+def test_workflow_audit_records_compaction_preview_as_rough_cut(
+    tmp_path: Path,
+) -> None:
+    audit = WorkflowAuditLog(tmp_path, FixedClock())
+
+    audit.run(
+        "preview_synchronized_pause_compaction",
+        lambda: {"asset_id": "private"},
+    )
+    record = read_json_object(
+        next((tmp_path / "workflow").glob("*.json"))
+    )
+
+    assert record["operation"] == "preview_synchronized_pause_compaction"
+    assert record["category"] == "rough_cut"
+    assert "asset_id" not in str(record)
+
+
 def test_workflow_audit_rejects_unknown_operation_before_callback(
     tmp_path: Path,
 ) -> None:

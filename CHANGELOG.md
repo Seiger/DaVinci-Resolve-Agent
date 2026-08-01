@@ -9,6 +9,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M41 read-only `preview_synchronized_pause_compaction` workflow that converts
+  approved millisecond cuts into bounded kept V1/A1/V2 source-frame ranges
+  without undocumented split or trim APIs.
+- Resolve 21 Free 21.0.3.7 live preview of one 560 ms cut, two kept intervals,
+  six planned placements, and no project backup or mutation.
+- Unique bridge state temporary files, bounded Windows `PermissionError`
+  retries, and deferred heartbeat publication after repeated live `bridge.json`
+  replacement sharing violations.
 - M40 provider-neutral `link_synchronized_screen_pair` workflow bound to one
   applied M38 receipt, explicit confirmation, mutual canonical-ID readback,
   durable receipt, and stable replay.

@@ -157,6 +157,17 @@ item's `GetLinkedItems()` readback to contain the other selected ID. A durable
 SHA-256 receipt prevents repeated provider writes. The workflow cannot accept
 arbitrary item IDs, infer a track-wide selection, or include webcam V2.
 
+## M41 pause compaction preview
+
+`preview_synchronized_pause_compaction` avoids inventing split or trim APIs,
+which are absent from the documented Resolve 21 scripting surface. It validates
+one approved M5 plan against one applied M38 receipt, checks synchronization
+offset and bounded source names, then complements ordered half-open cuts into
+kept intervals. Each interval is mapped independently into source frames using
+the asset FPS and record frames using target timeline FPS. The canonical
+preview contract is bounded to 1000 cuts and 3003 placements, performs no
+Resolve write, and keeps `apply_supported=false` for M42.
+
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
 YouTube 1080p or 2160p preset, verifies the matching documented MP4/H264

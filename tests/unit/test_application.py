@@ -525,6 +525,27 @@ class StubSynchronizedScreenLinker:
         return {"status": "applied", "operation": {"status": "applied"}}
 
 
+class StubPauseCompactionPreviewer:
+    def __init__(self) -> None:
+        self.arguments: dict[str, Any] = {}
+
+    def preview(
+        self,
+        *,
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.arguments = {
+            "plan_id": plan_id,
+            "synchronized_pair_receipt_id": synchronized_pair_receipt_id,
+            "target_timeline_name": target_timeline_name,
+            "timeout_seconds": timeout_seconds,
+        }
+        return {"status": "preview", "apply_supported": False}
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -953,6 +974,32 @@ def test_application_runs_synchronized_screen_link_workflow() -> None:
         "timeout_seconds": 45,
     }
     assert audit.operations == ["link_synchronized_screen_pair"]
+
+
+def test_application_previews_synchronized_pause_compaction() -> None:
+    previewer = StubPauseCompactionPreviewer()
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        pause_compaction_previewer=previewer,
+        workflow_audit=audit,
+    )
+
+    result = application.preview_synchronized_pause_compaction(
+        plan_id="a" * 64,
+        synchronized_pair_receipt_id="b" * 64,
+        target_timeline_name="M41 Preview",
+        timeout_seconds=45,
+    )
+
+    assert result == {"status": "preview", "apply_supported": False}
+    assert previewer.arguments == {
+        "plan_id": "a" * 64,
+        "synchronized_pair_receipt_id": "b" * 64,
+        "target_timeline_name": "M41 Preview",
+        "timeout_seconds": 45,
+    }
+    assert audit.operations == ["preview_synchronized_pause_compaction"]
 
 
 def test_application_processes_audio_without_resolve_call() -> None:

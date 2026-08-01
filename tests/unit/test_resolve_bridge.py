@@ -6,7 +6,11 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
+from bridges.resolve import ResolveBridge as resolve_bridge
 from bridges.resolve.ResolveBridge import (
+    atomic_write_json,
     collect_bridge_state,
     command_result,
     ensure_runtime_directories,
@@ -14,6 +18,93 @@ from bridges.resolve.ResolveBridge import (
     process_pending_commands,
     run_persistent_bridge,
 )
+
+
+def test_bridge_atomic_write_retries_transient_permission_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    destination = tmp_path / "bridge.json"
+    original_replace = Path.replace
+    attempts = 0
+
+    def replace_with_transient_denial(source: Path, target: Path) -> Path:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError("simulated Windows sharing violation")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", replace_with_transient_denial)
+
+    atomic_write_json(
+        destination,
+        {"status": "ready"},
+        retry_delay_seconds=0,
+    )
+
+    assert attempts == 3
+    assert json.loads(destination.read_text(encoding="utf-8")) == {
+        "status": "ready"
+    }
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_bridge_atomic_write_cleans_temporary_file_after_final_denial(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def always_deny(source: Path, target: Path) -> Path:
+        raise PermissionError("persistent Windows sharing violation")
+
+    monkeypatch.setattr(Path, "replace", always_deny)
+
+    with pytest.raises(PermissionError, match="persistent Windows"):
+        atomic_write_json(
+            tmp_path / "bridge.json",
+            {"status": "ready"},
+            attempts=2,
+            retry_delay_seconds=0,
+        )
+
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_persistent_bridge_survives_deferred_state_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directories = ensure_runtime_directories(tmp_path)
+    original_writer = resolve_bridge.atomic_write_json
+    calls = 0
+
+    def deny_first_two_writes(path: Path, payload: dict[str, object]) -> None:
+        nonlocal calls
+        calls += 1
+        if calls <= 2:
+            raise PermissionError("simulated continuous reader")
+        original_writer(path, payload)
+
+    monkeypatch.setattr(
+        resolve_bridge,
+        "atomic_write_json",
+        deny_first_two_writes,
+    )
+
+    state, processed = run_persistent_bridge(
+        FakeResolve(FakeProject()),
+        directories,
+        sleep=lambda _: None,
+        max_iterations=2,
+    )
+
+    assert processed == 0
+    assert state["status"] == "ready"
+    assert json.loads(
+        (directories["state"] / "bridge.json").read_text(encoding="utf-8")
+    )["status"] == "ready"
+    log = (directories["logs"] / "bridge.jsonl").read_text(encoding="utf-8")
+    assert log.count('"event": "state_publish_deferred"') == 2
 
 
 class FakeTimeline:

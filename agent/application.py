@@ -14,6 +14,7 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.media import MediaPolicy
+from agent.pause_compaction import PauseCompactionPreviewer
 from agent.picture_in_picture import PictureInPictureComposer
 from agent.rendering import (
     DEFAULT_RENDER_PROFILE,
@@ -377,6 +378,20 @@ class SynchronizedLinkWorkflow(Protocol):
         """Link canonical screen video/audio items from one M38 receipt."""
 
 
+class PauseCompactionWorkflow(Protocol):
+    """Provider-neutral pause-removal rebuild preview boundary."""
+
+    def preview(
+        self,
+        *,
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return kept-range V1/A1/V2 placements without editing Resolve."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -425,6 +440,7 @@ class AgentApplication:
         synchronized_pair_assembler: SynchronizedPairWorkflow | None = None,
         picture_in_picture_composer: PictureInPictureWorkflow | None = None,
         synchronized_screen_linker: SynchronizedLinkWorkflow | None = None,
+        pause_compaction_previewer: PauseCompactionWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -439,6 +455,7 @@ class AgentApplication:
         self._synchronized_pair_assembler = synchronized_pair_assembler
         self._picture_in_picture_composer = picture_in_picture_composer
         self._synchronized_screen_linker = synchronized_screen_linker
+        self._pause_compaction_previewer = pause_compaction_previewer
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -1194,6 +1211,38 @@ class AgentApplication:
             gateway=self._resolve,
             capabilities=lambda: self.status()["bridge"].get(
                 "capabilities", {}
+            ),
+        )
+
+    def preview_synchronized_pause_compaction(
+        self,
+        *,
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Preview rebuilding a synchronized timeline from kept ranges."""
+        return self._run_local_workflow(
+            "preview_synchronized_pause_compaction",
+            lambda: self._pause_compaction_service().preview(
+                plan_id=plan_id,
+                synchronized_pair_receipt_id=synchronized_pair_receipt_id,
+                target_timeline_name=target_timeline_name,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _pause_compaction_service(self) -> PauseCompactionWorkflow:
+        if self._pause_compaction_previewer is not None:
+            return self._pause_compaction_previewer
+        return PauseCompactionPreviewer(
+            gateway=self._resolve,
+            capabilities=self.status()["bridge"].get("capabilities", {}),
+            inspector=(
+                None
+                if self._rough_cut_inspector is None
+                else self._rough_cut_inspector
             ),
         )
 

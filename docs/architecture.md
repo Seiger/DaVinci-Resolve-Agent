@@ -784,6 +784,23 @@ receipt and the transport idempotency receipt protect replay at both workflow
 and provider boundaries. The existing Resolve adapter remains solely
 responsible for documented API calls, lock checks, backup, and live readback.
 
+## M41 pause compaction preview
+
+```text
+MCP preview_synchronized_pause_compaction
+ ├─ validate approved M5 plan SHA-256
+ ├─ bind it to one applied M38 receipt by offset and source names
+ ├─ read bounded target/source FPS and durations
+ ├─ complement proposed cuts into kept half-open time intervals
+ └─ map every kept interval to future V1/A1/V2 source and record frames
+```
+
+Resolve 21 exposes no documented split or trim TimelineItem operation. M41
+therefore plans a non-destructive rebuild through the existing documented
+insert primitive instead of emulating unsupported edits. The preview performs
+no writes and intentionally reports `apply_supported=false`; M42 will own the
+separate confirmation, durable progress receipt, writes, and final readback.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

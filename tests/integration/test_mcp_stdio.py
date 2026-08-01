@@ -64,6 +64,7 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "sync_screen_and_webcam",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
+        "preview_synchronized_pause_compaction",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

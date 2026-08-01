@@ -13,6 +13,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
+from uuid import uuid4
 
 BRIDGE_VERSION = "0.1.0"
 PROTOCOL_VERSION = "1.0"
@@ -153,15 +154,38 @@ def ensure_runtime_directories(root: Path) -> dict[str, Path]:
     return directories
 
 
-def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    """Write a JSON object atomically."""
-    temporary_path = path.with_name(f"{path.name}.tmp")
+def atomic_write_json(
+    path: Path,
+    payload: dict[str, Any],
+    *,
+    attempts: int = 25,
+    retry_delay_seconds: float = 0.02,
+) -> None:
+    """Write JSON atomically with bounded Windows replace retries."""
+    if attempts < 1:
+        raise ValueError("attempts must be greater than zero.")
+    if retry_delay_seconds < 0:
+        raise ValueError("retry_delay_seconds must not be negative.")
+    temporary_path = path.with_name(
+        f"{path.name}.{uuid4().hex}.tmp"
+    )
     with temporary_path.open("w", encoding="utf-8", newline="\n") as output:
         json.dump(payload, output, ensure_ascii=False, indent=2, sort_keys=True)
         output.write("\n")
         output.flush()
         os.fsync(output.fileno())
-    temporary_path.replace(path)
+    try:
+        for attempt in range(attempts):
+            try:
+                temporary_path.replace(path)
+                return
+            except PermissionError:
+                if attempt + 1 == attempts:
+                    raise
+                time.sleep(retry_delay_seconds)
+    finally:
+        if temporary_path.is_file():
+            temporary_path.unlink()
 
 
 def append_log(log_path: Path, level: str, event: str, **fields: Any) -> None:
@@ -176,6 +200,26 @@ def append_log(log_path: Path, level: str, event: str, **fields: Any) -> None:
     with log_path.open("a", encoding="utf-8", newline="\n") as log_file:
         log_file.write(json.dumps(record, ensure_ascii=False, sort_keys=True))
         log_file.write("\n")
+
+
+def publish_bridge_state(
+    state_path: Path,
+    state: dict[str, Any],
+    log_path: Path,
+) -> bool:
+    """Publish heartbeat state without ending the loop on a transient lock."""
+    try:
+        atomic_write_json(state_path, state)
+    except PermissionError:
+        append_log(
+            log_path,
+            "WARNING",
+            "state_publish_deferred",
+            error_code="WINDOWS_SHARING_VIOLATION",
+            retryable=True,
+        )
+        return False
+    return True
 
 
 def _is_resolve_application(candidate: Any) -> bool:
@@ -3464,7 +3508,7 @@ def run_persistent_bridge(
     while max_iterations is None or iterations < max_iterations:
         state = collect_bridge_state(resolve)
         _apply_verified_capabilities(state, directories["state"])
-        atomic_write_json(state_path, state)
+        publish_bridge_state(state_path, state, log_path)
         processed_total += process_pending_commands(
             directories,
             state,
@@ -3478,7 +3522,7 @@ def run_persistent_bridge(
             lifecycle = state["lifecycle"]
             if isinstance(lifecycle, dict):
                 lifecycle["mode"] = "stopped"
-            atomic_write_json(state_path, state)
+            publish_bridge_state(state_path, state, log_path)
             append_log(
                 log_path,
                 "INFO",
@@ -3486,7 +3530,7 @@ def run_persistent_bridge(
                 commands=processed_total,
             )
             return state, processed_total
-        atomic_write_json(state_path, state)
+        publish_bridge_state(state_path, state, log_path)
         iterations += 1
         sleep(POLL_INTERVAL_SECONDS)
     return state, processed_total
