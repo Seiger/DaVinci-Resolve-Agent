@@ -168,3 +168,17 @@ ResolveBridge ручний сценарій має зафіксувати:
 - durable capability: `timeline.track.create=true` after verified execution;
 - result: `verified` on this exact environment; other Resolve versions and
   editions remain pending.
+
+### M37 target timeline frame-rate evidence
+
+- UTC readback: `2026-08-01T08:49:18Z`;
+- platform: Windows 10 build 19045, Python 3.12.10;
+- Resolve: DaVinci Resolve 21.0.3.7 Free, edition operator-confirmed;
+- target: `M36 Track Preparation Probe`, canonical timeline ID
+  `454dd6ad-0114-425f-ab51-53364fcc0c32`;
+- bounded timeline result: two video tracks, one audio track, `24.0` FPS;
+- bounded source result: `447300` frames at `60.0` FPS;
+- safety: read-only MCP operation, no new `.drp` backup, latest backup remained
+  the M36 write from `2026-07-31T18:44:07Z`;
+- result: `verified` and confirms that source FPS cannot be assumed to equal
+  target timeline FPS; other Resolve versions and editions remain pending.

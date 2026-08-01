@@ -59,6 +59,7 @@ class StubResolveReader:
                 "timeline_id": timeline_id,
                 "video_track_count": 1,
                 "audio_track_count": 1,
+                "frame_rate": 60.0,
             },
             "assets": [
                 {
@@ -734,6 +735,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["editing_metadata"].structured_content["assets"][0][
         "duration_frames"
     ] == 240
+    assert results["editing_metadata"].structured_content["timeline"][
+        "frame_rate"
+    ] == 60.0
     assert results["snapshot"].structured_content["project"]["name"] == (
         "Test Project"
     )

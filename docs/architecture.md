@@ -725,6 +725,12 @@ counts. Resolve-specific `AddTrack` calls stay in the bridge, and new audio
 tracks use the fixed `stereo` subtype. Existing tracks are never removed or
 retyped, while stable receipts prevent duplicate work on replay.
 
+M37 extends the same bounded read model with the target timeline frame rate.
+This keeps millisecond-to-frame conversion in the future provider-neutral
+composition layer grounded in live metadata rather than a project-default or
+source-FPS assumption. Only the named `timelineFrameRate` setting is queried;
+raw timeline settings remain outside the contract.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

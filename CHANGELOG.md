@@ -9,6 +9,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M37 documented target timeline frame-rate discovery in bounded editing
+  metadata, without exposing raw timeline settings.
+- Resolve 21 Free 21.0.3.7 live verification of a 24 FPS target timeline and
+  60 FPS source asset with no backup or project mutation.
 - M36 bounded, backup-backed timeline track preparation through documented
   `GetTrackCount` and `AddTrack`, with 1–8 targets and stereo audio additions.
 - Exact per-track readback, durable capability evidence, and idempotent replay

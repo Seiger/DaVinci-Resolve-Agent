@@ -244,8 +244,9 @@ Live discovery у Resolve 21 Free 21.0.3.7 повернув п'ять items у `
 Він приймає canonical `timeline_id` і від 1 до 100 явних `asset_ids`, читає
 лише bounded `MediaPoolItem.GetClipProperty("Frames")` та
 `GetClipProperty("FPS")`, а також `Timeline.GetTrackCount("video"|"audio")`.
-Відповідь повертає нормалізовані `duration_frames: int` і
-`frame_rate: float` разом із кількістю target tracks. Raw clip-property snapshots,
+Відповідь повертає нормалізований FPS цільового timeline, кількість його
+tracks, а для assets — `duration_frames: int` і `frame_rate: float`. Raw
+timeline settings і clip-property snapshots,
 файлові шляхи, Resolve handles і будь-які write-операції не входять до
 контракту; backup не створюється. Live readback у Resolve 21 Free 21.0.3.7
 підтвердив обидва синхронні MKV assets як 60 FPS із різними frame counts.

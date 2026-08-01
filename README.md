@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M36: bounded track preparation**. Він
+Проєкт перебуває на етапі **Milestone M37: timeline timing metadata**. Він
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -17,6 +17,10 @@ Milestone M35: interactive editing session переводить вручну з�
 Нові audio tracks створюються лише як `stereo`; видалення або зміна типу
 наявних доріжок не підтримуються. Створення V2, точний readback 2V/1A і replay
 без другої зміни перевірено у Resolve 21 Free 21.0.3.7.
+M37 додає до bounded editing metadata фактичний FPS цільового timeline, щоб
+майбутня синхронна розкладка переводила мілісекунди у frames без припущень.
+Live readback у Resolve 21 Free 21.0.3.7 підтвердив 24 FPS для target timeline
+і 60 FPS для source asset без backup або зміни проєкту.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -389,7 +393,8 @@ read-only, не створює backup, не читає файлові шляхи
 
 `resolve_get_editing_metadata` приймає один `timeline_id` та 1–100 унікальних
 `asset_id`. Він повертає кількість video/audio tracks і лише потрібні для
-placement значення `Frames` та `FPS`; raw property snapshot і файлові шляхи
+placement значення: FPS цільового timeline, а для asset — `Frames` та `FPS`;
+raw property snapshot і файлові шляхи
 не повертаються. Capability стає підтвердженою лише після успішного live
 readback.
 

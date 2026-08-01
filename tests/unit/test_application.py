@@ -68,6 +68,7 @@ class StubResolveReader:
                 "timeline_id": timeline_id,
                 "video_track_count": 1,
                 "audio_track_count": 1,
+                "frame_rate": 60.0,
             },
             "assets": [
                 {
@@ -531,9 +532,11 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
     assert application.resolve_list_media_pool_items(37)["items"][0][
         "asset_id"
     ] == "asset-1"
-    assert application.resolve_get_editing_metadata(
+    editing_metadata = application.resolve_get_editing_metadata(
         "timeline-1", ["asset-1"], 37.5
-    )["assets"][0]["frame_rate"] == 60.0
+    )
+    assert editing_metadata["assets"][0]["frame_rate"] == 60.0
+    assert editing_metadata["timeline"]["frame_rate"] == 60.0
     assert application.resolve_get_workspace_snapshot(38)["project"]["name"] == (
         "Test Project"
     )

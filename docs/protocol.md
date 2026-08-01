@@ -109,6 +109,12 @@ increment readback after every documented `Timeline.AddTrack` call. Added
 audio tracks use the fixed `stereo` subtype. The action cannot remove tracks,
 change existing track types, or accept raw Resolve options.
 
+`get_editing_metadata` reads the documented target
+`Timeline.GetSetting("timelineFrameRate")` in addition to bounded track counts
+and requested asset `Frames`/`FPS`. It normalizes the target frame rate to a
+positive float, including the documented drop-frame suffix, and never returns
+a raw setting snapshot.
+
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
 YouTube 1080p or 2160p preset, verifies the matching documented MP4/H264

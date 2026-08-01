@@ -1071,15 +1071,26 @@ def _editing_metadata(
     _, project, media_pool = _require_project(resolve)
     timeline = _find_timeline(project, timeline_id)
     get_track_count = getattr(timeline, "GetTrackCount", None)
-    if not callable(get_track_count):
+    get_setting = getattr(timeline, "GetSetting", None)
+    missing_timeline_methods = [
+        name
+        for name, method in (
+            ("GetTrackCount", get_track_count),
+            ("GetSetting", get_setting),
+        )
+        if not callable(method)
+    ]
+    if missing_timeline_methods:
         raise BridgeOperationError(
             "UNSUPPORTED_CAPABILITY",
-            "The timeline cannot report track counts.",
-            details={"missing_methods": ["GetTrackCount"]},
+            "The timeline cannot report placement metadata.",
+            details={"missing_methods": missing_timeline_methods},
         )
+    get_track_count_call = cast(Callable[[str], Any], get_track_count)
+    get_setting_call = cast(Callable[[str], Any], get_setting)
     tracks: dict[str, int] = {}
     for track_type in ("video", "audio"):
-        count = get_track_count(track_type)
+        count = get_track_count_call(track_type)
         if not isinstance(count, int) or isinstance(count, bool) or count < 0:
             raise BridgeOperationError(
                 "INVALID_RESOLVE_RESPONSE",
@@ -1087,6 +1098,15 @@ def _editing_metadata(
                 details={"track_type": track_type},
             )
         tracks[track_type] = count
+    try:
+        timeline_frame_rate = _positive_frame_rate_setting(
+            get_setting_call("timelineFrameRate")
+        )
+    except ValueError:
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "Timeline.GetSetting() returned an invalid timelineFrameRate.",
+        ) from None
 
     requested = set(asset_ids)
     found: dict[str, Any] = {}
@@ -1197,6 +1217,7 @@ def _editing_metadata(
             "name": str(timeline.GetName()),
             "video_track_count": tracks["video"],
             "audio_track_count": tracks["audio"],
+            "frame_rate": timeline_frame_rate,
         },
         "assets": assets,
     }
@@ -1218,6 +1239,16 @@ def _positive_number_property(value: Any) -> float:
     if not math.isfinite(number) or number <= 0:
         raise ValueError("Clip property must be finite and positive.")
     return number
+
+
+def _positive_frame_rate_setting(value: Any) -> float:
+    """Normalize a documented Resolve timeline frame-rate setting."""
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized.upper().endswith(" DF"):
+            normalized = normalized[:-3].strip()
+        value = normalized
+    return _positive_number_property(value)
 
 
 def _positive_integer_property(value: Any) -> int:

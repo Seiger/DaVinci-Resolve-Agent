@@ -11,6 +11,7 @@ import pytest
 
 from bridges.resolve.ResolveBridge import (
     _apply_verified_capabilities,
+    _positive_frame_rate_setting,
     _positive_integer_property,
     _positive_number_property,
     collect_bridge_state,
@@ -39,6 +40,7 @@ def test_clip_metadata_numeric_properties_are_strictly_normalized() -> None:
     assert _positive_integer_property(240.0) == 240
     assert _positive_number_property("59.94") == 59.94
     assert _positive_number_property(60) == 60.0
+    assert _positive_frame_rate_setting("29.97 DF") == 29.97
 
     for invalid in (True, 0, -1, float("inf"), "unknown", ""):
         with pytest.raises(ValueError):
@@ -185,6 +187,7 @@ class FakeTimeline:
         settings = {
             "timelineResolutionWidth": "1920",
             "timelineResolutionHeight": "1080",
+            "timelineFrameRate": "60",
         }
         return settings[name]
 
@@ -1092,6 +1095,7 @@ def test_editing_metadata_is_bounded_read_only_discovery(
             "name": "sMailer M5 Draft",
             "video_track_count": 1,
             "audio_track_count": 1,
+            "frame_rate": 60.0,
         },
         "assets": [
             {

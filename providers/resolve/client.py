@@ -110,7 +110,7 @@ class ResolveProviderClient:
         *,
         timeout_seconds: float = 30,
     ) -> dict[str, Any]:
-        """Return bounded frame count/FPS and target timeline track counts."""
+        """Return bounded source and target timeline placement metadata."""
         result = self._client.request(
             provider="resolve",
             action="get_editing_metadata",

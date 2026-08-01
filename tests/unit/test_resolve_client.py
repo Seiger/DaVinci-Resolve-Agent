@@ -105,6 +105,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                     "timeline_id": "timeline-1",
                     "video_track_count": 1,
                     "audio_track_count": 1,
+                    "frame_rate": 60.0,
                 },
                 "assets": [
                     {
@@ -244,9 +245,9 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "timeline_item_id"
     ] == "item-1"
     assert client.media_pool_items()["items"][0]["asset_id"] == "asset-1"
-    assert client.editing_metadata("timeline-1", ["asset-1"])["assets"][0][
-        "frame_rate"
-    ] == 60.0
+    editing_metadata = client.editing_metadata("timeline-1", ["asset-1"])
+    assert editing_metadata["assets"][0]["frame_rate"] == 60.0
+    assert editing_metadata["timeline"]["frame_rate"] == 60.0
     assert client.workspace_snapshot()["project"]["name"] == "Test Project"
     assert client.render_environment()["current"]["format"] == "mp4"
     assert client.import_media(
