@@ -22,6 +22,7 @@ from agent.paths import (
     synchronized_links_directory,
     synchronized_pairs_directory,
     transcription_models_directory,
+    visual_treatments_directory,
 )
 
 
@@ -82,6 +83,9 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     )
     assert editing_recipe_runs_directory(first_environment) == (
         first_runtime / "editing-recipe-runs"
+    )
+    assert visual_treatments_directory(first_environment) == (
+        first_runtime / "visual-treatments"
     )
     assert transcription_models_directory(first_environment) == (
         first_runtime / "models" / "faster-whisper"

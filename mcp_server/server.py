@@ -362,6 +362,26 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             idempotency_key=idempotency_key,
         )
 
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_insert_title(
+        timeline_id: str,
+        title_name: str,
+        timecode: str,
+        confirm_insert: bool = False,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert an installed standard title at a confirmed exact timecode."""
+        return await asyncio.to_thread(
+            service.resolve_insert_title,
+            timeline_id,
+            title_name,
+            timecode,
+            confirm_insert=confirm_insert,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
     @server.tool(annotations=DESTRUCTIVE_WRITE_TOOL)
     async def resolve_delete_clip(
         timeline_id: str,
@@ -619,6 +639,38 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             recipe_id,
             inputs,
             confirm_execute=confirm_execute,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_visual_treatment(
+        timeline_id: str,
+        transforms: list[dict[str, Any]],
+        titles: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Preview exact standard-title and static reframing operations."""
+        return await asyncio.to_thread(
+            service.preview_visual_treatment,
+            timeline_id,
+            transforms,
+            titles,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def apply_visual_treatment(
+        timeline_id: str,
+        transforms: list[dict[str, Any]],
+        titles: list[dict[str, Any]],
+        confirm_apply: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply a confirmed visual treatment with durable replay."""
+        return await asyncio.to_thread(
+            service.apply_visual_treatment,
+            timeline_id,
+            transforms,
+            titles,
+            confirm_apply=confirm_apply,
             timeout_seconds=timeout_seconds,
         )
 

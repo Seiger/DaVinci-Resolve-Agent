@@ -39,6 +39,7 @@ from agent.rough_cut_apply import RoughCutApplier
 from agent.subtitles import SubtitleGenerator
 from agent.synchronized_link import SynchronizedScreenLinker
 from agent.synchronized_pair import SynchronizedPairAssembler
+from agent.visual_treatment import VisualTreatmentWorkflow
 from providers.resolve import ResolveProviderClient
 from providers.transcription import FasterWhisperTranscriber
 
@@ -179,6 +180,18 @@ class ResolveReader(Protocol):
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Append an asset to a timeline."""
+
+    def insert_title(
+        self,
+        timeline_id: str,
+        title_name: str,
+        timecode: str,
+        *,
+        confirm_insert: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one installed standard title at an exact timecode."""
 
     def append_subtitle_file(
         self,
@@ -645,6 +658,26 @@ class EditingRecipeWorkflow(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class VisualTreatmentService(Protocol):
+    """Bounded title and static reframing workflow boundary."""
+
+    def preview(
+        self,
+        timeline_id: str,
+        transforms: list[dict[str, Any]],
+        titles: list[dict[str, Any]],
+    ) -> dict[str, Any]: ...
+
+    def apply(
+        self,
+        timeline_id: str,
+        transforms: list[dict[str, Any]],
+        titles: list[dict[str, Any]],
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -671,6 +704,7 @@ class AgentApplication:
         audio_report_inspector: AudioReportReader | None = None,
         subtitle_generator: SubtitleGenerationWorkflow | None = None,
         editing_recipe_runner: EditingRecipeWorkflow | None = None,
+        visual_treatment_service: VisualTreatmentService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -694,6 +728,7 @@ class AgentApplication:
         self._audio_report_inspector = audio_report_inspector
         self._subtitle_generator = subtitle_generator
         self._editing_recipe_runner = editing_recipe_runner
+        self._visual_treatment = visual_treatment_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -923,6 +958,32 @@ class AgentApplication:
         return self._resolve.append_clip(
             timeline_id,
             asset_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_insert_title(
+        self,
+        timeline_id: str,
+        title_name: str,
+        timecode: str,
+        *,
+        confirm_insert: bool = False,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one installed standard Resolve title after confirmation."""
+        if not 1 <= len(timeline_id) <= 128:
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        if not 1 <= len(title_name) <= 128:
+            raise ValueError("title_name must contain 1 to 128 characters.")
+        if confirm_insert is not True:
+            raise ValueError("confirm_insert must be true.")
+        return self._resolve.insert_title(
+            timeline_id,
+            title_name,
+            timecode,
+            confirm_insert=True,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )
@@ -1506,6 +1567,54 @@ class AgentApplication:
             return discovered if isinstance(discovered, dict) else {}
 
         return EditingRecipeRunner(actions=self, capabilities=capabilities)
+
+    def preview_visual_treatment(
+        self,
+        timeline_id: str,
+        transforms: list[dict[str, Any]],
+        titles: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Preview exact M49 title and static reframing operations."""
+        return self._run_local_workflow(
+            "preview_visual_treatment",
+            lambda: self._visual_treatment_service().preview(
+                timeline_id, transforms, titles
+            ),
+        )
+
+    def apply_visual_treatment(
+        self,
+        timeline_id: str,
+        transforms: list[dict[str, Any]],
+        titles: list[dict[str, Any]],
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply a confirmed M49 visual treatment with durable replay."""
+        return self._run_local_workflow(
+            "apply_visual_treatment",
+            lambda: self._visual_treatment_service().apply(
+                timeline_id,
+                transforms,
+                titles,
+                confirm_apply=confirm_apply,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _visual_treatment_service(self) -> VisualTreatmentService:
+        if self._visual_treatment is not None:
+            return self._visual_treatment
+
+        def capabilities() -> dict[str, Any]:
+            discovered = self.status()["bridge"].get("capabilities", {})
+            return discovered if isinstance(discovered, dict) else {}
+
+        return VisualTreatmentWorkflow(
+            gateway=self._resolve,
+            capabilities=capabilities,
+        )
 
     def compose_webcam_picture_in_picture(
         self,

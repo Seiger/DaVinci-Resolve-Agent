@@ -380,6 +380,26 @@ def test_set_clip_transform_requires_allowlisted_bounded_values() -> None:
         validate_contract("command", command)
 
 
+def test_insert_title_requires_exact_timecode_confirmation_and_backup() -> None:
+    command = _valid_command()
+    command["action"] = "insert_title"
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "title_name": "Text",
+        "timecode": "01:00:05:00",
+        "confirm_insert": True,
+    }
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"]["timecode"] = "five seconds"
+    with pytest.raises(ContractValidationError, match="timecode"):
+        validate_contract("command", command)
+
+
 def test_batch_link_and_transform_commands_are_bounded() -> None:
     command = _valid_command()
     command["action"] = "set_clip_link_groups"

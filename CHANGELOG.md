@@ -9,6 +9,24 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M49 `resolve_insert_title` over documented standard-title insertion with
+  exact timecode, explicit confirmation, project backup, playhead restoration,
+  canonical item readback and capability promotion only after live success.
+- Provider-neutral `preview_visual_treatment` and `apply_visual_treatment` for
+  bounded static zoom/reframing plus standard-title insertion, with capability
+  gates, durable per-operation recovery and idempotent replay.
+- Explicit Resolve Free safety boundary excluding Studio/AI `SmartReframe`,
+  undocumented title-text mutation, Fusion controls, keyframes and tracking.
+- Generated-item timeline readback with explicit `source_type` and nullable
+  source bounds, preventing inserted standard titles from breaking discovery
+  while retaining strict source bounds for Media Pool clips.
+- Append-only standard-title safety preflight for integer-FPS timelines, plus
+  exact new-item and unchanged-existing-item post-write verification after live
+  testing showed that occupied placement can split existing Resolve items.
+- Resolve 21 Free live M49 acceptance: occupied placement rejected without a
+  backup, one exact append-only generated title at frame 88200, unchanged prior
+  item bounds, ZoomX/ZoomY 1.16 readback, and identical replay with backups
+  stable at 70.
 - M48 packaged declarative editing recipe contracts, bounded discovery and
   read-only capability-aware preview tools.
 - Confirmed `run_editing_recipe` execution for the allowlisted synchronized

@@ -61,6 +61,7 @@ class FakeTimelineItem:
         source_end: int = 0,
         track_type: str = "video",
         track_index: int = 1,
+        generated: bool = False,
     ) -> None:
         self._item_id = item_id
         self._name = name
@@ -70,6 +71,7 @@ class FakeTimelineItem:
         self._source_end = source_end
         self._track_type = track_type
         self._track_index = track_index
+        self._generated = generated
         self._enabled = True
         self._linked_items: list[FakeTimelineItem] = []
         self._properties: dict[str, bool | float] = {
@@ -105,6 +107,9 @@ class FakeTimelineItem:
 
     def GetSourceEndFrame(self) -> int:
         return self._source_end
+
+    def GetMediaPoolItem(self) -> object | None:
+        return None if self._generated else object()
 
     def GetTrackTypeAndIndex(self) -> list[str | int]:
         return [self._track_type, self._track_index]
@@ -208,6 +213,25 @@ class FakeTimeline:
     def SetCurrentTimecode(self, timecode: str) -> bool:
         self.current_timecode = timecode
         return True
+
+    def InsertTitleIntoTimeline(self, title_name: str) -> FakeTimelineItem:
+        hours, minutes, seconds, frames = (
+            int(part) for part in self.current_timecode.split(":")
+        )
+        timeline_start = (
+            ((hours * 60 + minutes) * 60 + seconds) * 60 + frames
+        )
+        item = FakeTimelineItem(
+            f"title-{len(self.items) + 1}",
+            title_name,
+            timeline_start=timeline_start,
+            timeline_end=timeline_start + 120,
+            track_type="video",
+            track_index=1,
+            generated=True,
+        )
+        self.items.append(item)
+        return item
 
     def GetTrackCount(self, track_type: str) -> int:
         assert track_type in {"video", "audio", "subtitle"}
@@ -686,6 +710,71 @@ def test_create_subtitles_uses_fixed_policy_backup_and_readback(
     }
     assert resolve.project_manager.export_count == 1
     assert state["capabilities"]["subtitle.auto_caption"] is True
+
+
+def test_standard_title_insert_is_confirmed_backed_up_and_replay_safe(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Title Test")
+    resolve.project.current_timeline = timeline
+    state = collect_bridge_state(resolve)
+    command = _command(
+        "command-title",
+        "insert_title",
+        {
+            "timeline_id": timeline.GetUniqueId(),
+            "title_name": "Text",
+            "timecode": "01:00:05:00",
+            "confirm_insert": True,
+        },
+    )
+
+    first = _run_command(tmp_path, resolve, state, command)
+    replay = _run_command(tmp_path, resolve, state, command)
+
+    assert first["status"] == "success"
+    assert replay["result"] == first["result"]
+    assert first["result"]["item"]["name"] == "Text"
+    assert first["result"]["requested_timecode"] == "01:00:05:00"
+    assert timeline.GetCurrentTimecode() == "01:00:10:00"
+    assert resolve.project_manager.export_count == 1
+    assert state["capabilities"]["title.insert"] is True
+
+    list_command = _command(
+        "list-title-items",
+        "list_timeline_items",
+        {"timeline_id": timeline.GetUniqueId()},
+    )
+    list_command["safety"]["create_backup"] = False
+    listed = _run_command(tmp_path, resolve, state, list_command)
+    title = next(
+        item
+        for item in listed["result"]["items"]
+        if item["timeline_item_id"] == first["result"]["item"]["timeline_item_id"]
+    )
+    assert title["source_type"] == "generated"
+    assert title["source_start_frame"] is None
+    assert title["source_end_frame"] is None
+
+    occupied = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "occupied-title",
+            "insert_title",
+            {
+                "timeline_id": timeline.GetUniqueId(),
+                "title_name": "Text",
+                "timecode": "01:00:01:00",
+                "confirm_insert": True,
+            },
+        ),
+    )
+    assert occupied["status"] == "error"
+    assert occupied["error"]["code"] == "TITLE_APPEND_ONLY"
+    assert resolve.project_manager.export_count == 1
 
 
 def test_append_subtitle_file_uses_import_receipt_and_append_frame(
@@ -1352,10 +1441,11 @@ def test_timeline_items_are_discovered_with_bounded_metadata(
     assert response["result"]["items"] == [
         {
             "timeline_item_id": "video-1",
-            "name": "screen.mkv",
-            "track_type": "video",
-            "track_index": 1,
-            "duration_frames": 240,
+                "name": "screen.mkv",
+                "track_type": "video",
+                "track_index": 1,
+                "source_type": "media",
+                "duration_frames": 240,
             "timeline_start_frame": 86400,
             "timeline_end_frame": 86640,
             "source_start_frame": 0,
@@ -1363,10 +1453,11 @@ def test_timeline_items_are_discovered_with_bounded_metadata(
         },
         {
             "timeline_item_id": "audio-1",
-            "name": "screen.mkv",
-            "track_type": "audio",
-            "track_index": 1,
-            "duration_frames": 240,
+                "name": "screen.mkv",
+                "track_type": "audio",
+                "track_index": 1,
+                "source_type": "media",
+                "duration_frames": 240,
             "timeline_start_frame": 86400,
             "timeline_end_frame": 86640,
             "source_start_frame": 0,

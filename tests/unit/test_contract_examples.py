@@ -18,6 +18,7 @@ WRITE_ACTIONS = {
     "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
+    "insert_title",
     "append_subtitle_file",
     "insert_clip",
     "insert_clips",

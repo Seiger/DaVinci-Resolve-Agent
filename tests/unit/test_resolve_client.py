@@ -32,6 +32,7 @@ class StubCommandClient:
             "duplicate_timeline",
             "set_current_timeline",
             "append_clip",
+            "insert_title",
             "append_subtitle_file",
             "insert_clip",
             "insert_clips",
@@ -204,6 +205,11 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 "timeline_id": "timeline-1",
                 "asset_id": "asset-1",
             },
+            "insert_title": {
+                "timeline_id": "timeline-1",
+                "title_name": "Text",
+                "item": {"timeline_item_id": "title-1"},
+            },
             "insert_clip": {
                 "timeline_id": "timeline-1",
                 "asset_id": "asset-1",
@@ -333,6 +339,13 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "asset-1",
         idempotency_key="stable-key",
     )["asset_id"] == "asset-1"
+    assert client.insert_title(
+        "timeline-1",
+        "Text",
+        "01:00:05:00",
+        confirm_insert=True,
+        idempotency_key="stable-key",
+    )["item"]["timeline_item_id"] == "title-1"
     assert client.append_subtitle_file(
         "timeline-1",
         "asset-1",
@@ -441,6 +454,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "duplicate_timeline",
         "set_current_timeline",
         "append_clip",
+        "insert_title",
         "append_subtitle_file",
         "insert_clip",
         "insert_clips",

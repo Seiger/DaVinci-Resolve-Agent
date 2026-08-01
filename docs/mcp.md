@@ -19,6 +19,7 @@ Read-only інструменти:
 - `list_editing_recipes`.
 - `get_editing_recipe`.
 - `preview_editing_recipe`.
+- `preview_visual_treatment`.
 
 Write-інструменти M4:
 
@@ -32,6 +33,7 @@ Write-інструменти M4:
 - `resolve_set_clip_enabled`;
 - `resolve_set_clips_linked`;
 - `resolve_set_clip_transform`;
+- `resolve_insert_title`;
 - `resolve_delete_clip`;
 - `resolve_add_marker`.
 - `resolve_create_subtitles_from_audio`.
@@ -39,6 +41,7 @@ Write-інструменти M4:
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
 - `run_editing_recipe`.
+- `apply_visual_treatment`.
 
 Локальні rough-cut інструменти:
 
@@ -398,3 +401,15 @@ canonical `pcm-dialogue-limit-v2` report і `confirm_apply=true`. Caller не
 звіряє extraction range з WAV duration, вставляє один processed item на A2,
 вимикає лише source A1 та підтверджує linked source video як enabled. Durable
 receipt робить replay без повторних writes.
+
+`resolve_insert_title` вставляє лише встановлений standard title за exact
+timecode після `confirm_insert=true` і backup. Tool не приймає текст, шрифт,
+Fusion controls або довільні властивості. Placement є append-only: integer-FPS
+timecode має бути не раніше поточного timeline end, а existing video item bounds
+після insertion повинні лишитися незмінними.
+
+`preview_visual_treatment` є read-only: він нормалізує bounded static transforms
+і title insertions та повертає `clip.transform`/`title.insert` gates.
+`apply_visual_treatment` вимагає ідентичний plan і `confirm_apply=true`, виконує
+один transform batch та окремі confirmed title inserts із durable replay.
+`SmartReframe`, keyframes, tracking і animated titles не входять до M49.

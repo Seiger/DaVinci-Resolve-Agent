@@ -211,6 +211,25 @@ class StubResolveReader:
         self.timeouts.append(timeout_seconds)
         return {"timeline_id": timeline_id, "asset_id": asset_id}
 
+    def insert_title(
+        self,
+        timeline_id: str,
+        title_name: str,
+        timecode: str,
+        *,
+        confirm_insert: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        assert confirm_insert is True
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "title_name": title_name,
+            "requested_timecode": timecode,
+            "item": {"timeline_item_id": "title-1"},
+        }
+
     def append_subtitle_file(
         self,
         timeline_id: str,
@@ -976,6 +995,13 @@ def test_application_exposes_validated_write_methods() -> None:
         "asset-1",
         timeout_seconds=30,
     )
+    title = application.resolve_insert_title(
+        "timeline-1",
+        "Text",
+        "01:00:05:00",
+        confirm_insert=True,
+        timeout_seconds=32,
+    )
     inserted = application.resolve_insert_clip(
         "timeline-1",
         "asset-1",
@@ -1041,6 +1067,7 @@ def test_application_exposes_validated_write_methods() -> None:
     assert duplicated["timeline"]["name"] == "Agent Draft"
     assert selected["timeline"]["timeline_id"] == "timeline-1"
     assert appended["asset_id"] == "asset-1"
+    assert title["item"]["timeline_item_id"] == "title-1"
     assert inserted["item"]["source_end_frame"] == 240
     assert inserted["item"]["track_type"] == "video"
     assert disabled["timeline_item_id"] == "item-1"
@@ -1064,6 +1091,7 @@ def test_application_exposes_validated_write_methods() -> None:
         22,
         25,
         30,
+        32,
         35,
         37,
         37.5,

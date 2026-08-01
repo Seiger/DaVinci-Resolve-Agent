@@ -964,3 +964,21 @@ completed underlying workflow receipts replay.
 Resolve-specific imports and object handling remain within the Resolve adapter.
 An FFmpeg or Premiere provider can implement the same provider-neutral contracts
 without changing the agent core.
+
+## M49 visual treatment boundary
+
+```text
+MCP preview_visual_treatment
+ └─ normalize transforms/titles + inspect clip.transform/title.insert
+
+MCP apply_visual_treatment(confirm_apply=true)
+ ├─ one backed-up set_clip_transforms batch when requested
+ ├─ one backed-up insert_title per requested standard title
+ ├─ persist every completed operation atomically
+ └─ replay only pending operations
+```
+
+The core knows only provider-neutral transforms and installed title names. The
+Resolve adapter alone maps transforms to documented TimelineItem properties and
+maps title insertion to `Timeline.InsertTitleIntoTimeline`. Smart Reframe,
+Fusion input mutation and animation/keyframe authoring are outside M49.

@@ -170,6 +170,13 @@ def editing_recipe_runs_directory(
     return runtime_directory(environment) / "editing-recipe-runs"
 
 
+def visual_treatments_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for confirmed title and reframing workflows."""
+    return runtime_directory(environment) / "visual-treatments"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

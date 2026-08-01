@@ -29,7 +29,10 @@
   canonical subtitle readback.
 - **M48 — завершено** — пакетовані allowlisted MCP editing recipes,
   capability-aware preview, confirmed execution і durable per-step replay.
-- **M49** — керовані титри, zoom та reframing.
+- **M49 — завершено** — confirmed append-only standard-title
+  insertion за exact timecode та provider-neutral static zoom/reframing із
+  preview, capability gates, unchanged-item verification і durable replay;
+  Smart Reframe/Fusion виключені.
 - **M50** — baseline end-to-end монтаж і QA.
 - **M51** — B-roll planning, review та bounded application.
 - **M52** — складні анімації й reusable templates.

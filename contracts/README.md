@@ -122,3 +122,9 @@ audio has already been cleaned or integrated back into the timeline.
 It binds one completed extraction to one validated limiter-v2 report, records
 the fixed A2 insertion and the exact source A1/V1 enable-state operations, and
 does not accept caller-supplied timeline item IDs or arbitrary processing data.
+
+`visual-treatment-result.schema.json` defines the durable M49 receipt for one
+normalized static transform batch and bounded standard-title insertions. The
+bridge command accepts only installed title name, exact timecode and explicit
+confirmation; title text, Fusion controls, Smart Reframe and arbitrary
+properties are outside the contract.

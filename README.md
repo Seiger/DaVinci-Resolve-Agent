@@ -10,10 +10,19 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 [документації транскрипції](docs/transcription.md).
 Опис M48 наведено в
 [документації editing recipes](docs/editing-recipes.md).
+Опис M49 наведено в
+[документації visual treatment](docs/visual-treatment.md).
 
-Проєкт виконує **Milestone M48: декларативні editing recipes**. Пакетований
+Проєкт виконує **Milestone M49: керовані титри, zoom і reframing**. Новий
+preview/apply workflow поєднує лише документовані статичні clip transforms і
+вставку встановленого стандартного title за exact timecode. Він не викликає
+Studio-only Smart Reframe, не змінює Fusion controls і не приймає довільних
+Resolve properties. M48 пакетований
 allowlisted recipe можна list/get/preview без змін Resolve і виконати лише з
 явним confirmation, live capability gates та durable покроковим receipt.
+Live M49 acceptance у Resolve 21 Free 21.0.3.7 підтвердив append-only guard,
+рівно один generated title на exact frame, незмінність попередніх clips,
+статичний zoom readback і replay без додаткових backups.
 M47 read-only discovery
 перевіряє документований Resolve auto-caption API та bounded subtitle items, а
 окремий confirmed write-tool запускає лише fixed-policy `AUTO` captioning після
@@ -328,6 +337,7 @@ Read-only інструменти:
 - `list_editing_recipes`.
 - `get_editing_recipe`.
 - `preview_editing_recipe`.
+- `preview_visual_treatment`.
 
 Безпечні write-інструменти:
 
@@ -342,6 +352,7 @@ Read-only інструменти:
 - `resolve_set_clip_enabled`;
 - `resolve_set_clips_linked`;
 - `resolve_set_clip_transform`;
+- `resolve_insert_title`;
 - `resolve_delete_clip`;
 - `resolve_add_marker`.
 - `resolve_create_subtitles_from_audio`.
@@ -349,6 +360,7 @@ Read-only інструменти:
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
 - `run_editing_recipe`.
+- `apply_visual_treatment`.
 
 Локальні rough-cut інструменти:
 
@@ -507,6 +519,17 @@ video/audio доріжок від 1 до 8. Bridge лише додає відс�
 Tool не приймає raw Resolve property names, keyframes, expressions або
 довільний код.
 
+`resolve_insert_title` приймає exact timeline, bounded ім'я встановленого
+standard title, timecode `HH:MM:SS:FF` і `confirm_insert=true`. Bridge створює
+backup, тимчасово переміщує playhead, викликає документований title insertion,
+відновлює playhead та звіряє canonical item. Зміна тексту, Fusion controls і
+Smart Reframe у M49 не підтримуються. Title дозволений лише на integer-FPS
+timeline і лише на вільному хвості, не раніше `GetEndFrame`; bridge відхиляє
+overlap до backup/write і перевіряє незмінність усіх попередніх video items.
+Для статичних пакетних zoom/reframing та
+title insertion використовуй `preview_visual_treatment`, а потім той самий plan
+через `apply_visual_treatment(confirm_apply=true)`.
+
 `resolve_delete_clip` приймає лише IDs одного TimelineItem і явне
 `confirm_delete=true`. MCP позначає його destructive; transport встановлює
 `allow_destructive=true`, bridge створює backup, викликає non-ripple delete і
@@ -515,7 +538,9 @@ Tool не приймає raw Resolve property names, keyframes, expressions аб
 
 `resolve_list_timeline_items` приймає `timeline_id` і повертає канонічні
 `timeline_item_id` для video/audio tracks, їхні назви, track index,
-timeline/source frame bounds та duration. Tool read-only, не створює backup і
+timeline/source frame bounds та duration. Поле `source_type` розрізняє media і
+generated items; для standard title source bounds дорівнюють `null`, оскільки
+він не має Media Pool source. Tool read-only, не створює backup і
 не повертає raw Resolve objects або довільні clip properties.
 
 `resolve_list_media_pool_items` без аргументів рекурсивно перелічує поточний
@@ -553,6 +578,7 @@ py -3.12 -m venv .venv
 [архітектуру](docs/architecture.md), [MCP](docs/mcp.md) та
 [rough cut](docs/rough-cut.md), [audio workflow](docs/audio-workflow.md),
 [editing recipes](docs/editing-recipes.md),
+[visual treatment](docs/visual-treatment.md),
 [rollback](docs/rollback.md).
 Основні вимоги продукту зафіксовані в
 [SPECIFICATION.md](SPECIFICATION.md).

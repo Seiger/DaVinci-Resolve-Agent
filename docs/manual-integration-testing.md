@@ -405,3 +405,41 @@ ResolveBridge ручний сценарій має зафіксувати:
 - underlying M39/M40 receipts were reused, so Resolve backups stayed `64 → 64`;
 - result: packaged recipe discovery, read-only preview, confirmed execution and
   idempotent replay are `verified` through the MCP server on this environment.
+
+### M49 standard-title and static reframing acceptance
+
+1. Перезапусти встановлений `ResolveBridge` після оновлення його source.
+2. На disposable timeline вибери один video item і виклич
+   `preview_visual_treatment` з малим статичним zoom та одним title `Text`.
+3. До першої title-вставки preview має показати `title.insert` як unverified.
+4. Виклич `resolve_insert_title` із `confirm_insert=true` на безпечному
+   timecode; перевір canonical item, backup і повернення playhead.
+5. Повтори preview: `title.insert` має бути verified і `ready=true`.
+6. Виклич `apply_visual_treatment(confirm_apply=true)`, звір transform/title
+   у Resolve, потім повтори exact request і переконайся, що receipt і кількість
+   backups не змінилися.
+
+Зафіксуй Resolve edition/version, timeline/item IDs, timecode, receipt ID,
+backup count до/після та exact readback. Не використовуй `SmartReframe`, Fusion
+controls або production timeline для першої acceptance-перевірки.
+
+### M49 live evidence
+
+- UTC execution date: `2026-08-01`;
+- environment: Resolve 21 Free 21.0.3.7, Windows 10, Python 3.12.10;
+- disposable timeline: `M34 Disposable Duplicate Probe`, ID
+  `07fce28c-00ee-487d-9935-ff701405d48d`;
+- occupied `01:00:02:00` placement returned `TITLE_APPEND_ONLY`; item map and
+  backup count stayed unchanged at 68;
+- confirmed visual-treatment receipt:
+  `bd62161bf24bdcd05cc5ca58bb1727a647a63f592a1f13ffd9a8c30e64790877`;
+- transform readback: `ZoomGang=true`, `ZoomX=1.16`, `ZoomY=1.16`;
+- standard `Text` requested at `01:01:15:00`, absolute frame 88200; exactly one
+  generated video item `fbe0c09d-fa5e-432e-9701-8379ea10348b` appeared at
+  frames `88200..88320`, with null source bounds and duration 120 frames;
+- all prior video item start/end/duration/track snapshots remained unchanged;
+- confirmed apply created two backups `68 → 70`; exact replay returned the same
+  receipt and item map with backups stable at 70;
+- result: append-only standard-title insertion plus static zoom/reframing is
+  `verified` on this Resolve 21 Free environment. Smart Reframe, title-text
+  mutation, Fusion controls and animated templates remain outside M49.

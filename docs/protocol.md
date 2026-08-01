@@ -399,3 +399,29 @@ The external client writes a command atomically and polls only for the matching
 response file. If no response appears before the configured deadline, it raises
 a structured timeout and the CLI exits with code `3`. The command remains in
 the queue as local evidence and expires according to its envelope.
+
+## M49 title and static reframing protocol
+
+`insert_title` is a fixed write action with `timeline_id`, bounded
+`title_name`, `timecode` and `confirm_insert=true`. It always requests a project
+backup. The Resolve adapter temporarily selects the requested playhead, invokes
+documented `InsertTitleIntoTimeline`, restores the previous playhead and returns
+canonical item identity plus track/frame readback. It does not accept title
+text, Fusion inputs, expressions, scripts or arbitrary properties.
+
+The Resolve adapter accepts this write only for integer-FPS timelines and a
+requested absolute non-drop timecode at or after `Timeline.GetEndFrame()`.
+Before backup/write it rejects occupied placement. After insertion exactly one
+new video item must start at the requested frame and every previous video-item
+snapshot must remain unchanged.
+
+Static zoom/reframing reuses `set_clip_transforms`; the high-level visual
+treatment remains application orchestration and never becomes executable bridge
+data. A SHA-256 receipt binds normalized inputs and persists each completed
+operation for replay.
+
+`list_timeline_items` reports `source_type=media` with integer source bounds
+for Media Pool clips. A documented generated item such as a standard title has
+`source_type=generated` and null source bounds; its timeline bounds remain
+mandatory integers. A media-backed item with invalid source bounds still fails
+instead of being silently reclassified.

@@ -343,6 +343,32 @@ class ResolveProviderClient:
         )
         return self._object_value("append_clip", result)
 
+    def insert_title(
+        self,
+        timeline_id: str,
+        title_name: str,
+        timecode: str,
+        *,
+        confirm_insert: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one installed standard title at an exact timecode."""
+        result = self._client.request(
+            provider="resolve",
+            action="insert_title",
+            arguments={
+                "timeline_id": timeline_id,
+                "title_name": title_name,
+                "timecode": timecode,
+                "confirm_insert": confirm_insert,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("insert_title", result)
+
     def append_subtitle_file(
         self,
         timeline_id: str,

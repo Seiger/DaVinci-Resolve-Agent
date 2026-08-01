@@ -69,6 +69,7 @@ ALLOWED_ACTIONS = {
     "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
+    "insert_title",
     "append_subtitle_file",
     "insert_clip",
     "insert_clips",
@@ -90,6 +91,7 @@ WRITE_ACTIONS = {
     "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
+    "insert_title",
     "append_subtitle_file",
     "insert_clip",
     "insert_clips",
@@ -117,6 +119,7 @@ CAPABILITY_BY_ACTION = {
     "duplicate_timeline": "timeline.duplicate",
     "set_current_timeline": "timeline.select",
     "append_clip": "clip.insert",
+    "insert_title": "title.insert",
     "append_subtitle_file": "subtitle.import",
     "insert_clip": "clip.range_insert",
     "insert_clips": "clip.range_insert",
@@ -358,6 +361,7 @@ def collect_bridge_state(
         "clip.enable": "unknown",
         "clip.link": "unknown",
         "clip.transform": "unknown",
+        "title.insert": "unknown",
         "clip.delete": "unknown",
         "marker.create": "unknown",
         "render.configure": "unknown",
@@ -600,6 +604,27 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
         for field in ("timeline_id", "asset_id"):
             if not isinstance(arguments[field], str) or not arguments[field]:
                 raise ValueError(f"{field} must be a non-empty string.")
+        return
+    if action == "insert_title":
+        if set(arguments) != {
+            "timeline_id",
+            "title_name",
+            "timecode",
+            "confirm_insert",
+        }:
+            raise ValueError("insert_title fields do not match the contract.")
+        for field in ("timeline_id", "title_name"):
+            value = arguments[field]
+            if not isinstance(value, str) or not 1 <= len(value) <= 128:
+                raise ValueError(f"{field} must contain 1 to 128 characters.")
+        timecode = arguments["timecode"]
+        if (
+            not isinstance(timecode, str)
+            or re.fullmatch(r"\d{2,3}:\d{2}:\d{2}:\d{2}", timecode) is None
+        ):
+            raise ValueError("timecode must use HH:MM:SS:FF format.")
+        if arguments["confirm_insert"] is not True:
+            raise ValueError("confirm_insert must be true.")
         return
     if action == "append_subtitle_file":
         expected = {
@@ -1539,6 +1564,7 @@ def _list_timeline_items(
         "GetEnd",
         "GetSourceStartFrame",
         "GetSourceEndFrame",
+        "GetMediaPoolItem",
         "GetTrackTypeAndIndex",
     )
     for track_type in ("video", "audio"):
@@ -1585,20 +1611,41 @@ def _list_timeline_items(
                         "INVALID_RESOLVE_RESPONSE",
                         "TimelineItem track readback does not match enumeration.",
                     )
-                numeric_values = {
+                timeline_values = {
                     "duration_frames": item.GetDuration(False),
                     "timeline_start_frame": item.GetStart(False),
                     "timeline_end_frame": item.GetEnd(False),
-                    "source_start_frame": item.GetSourceStartFrame(),
-                    "source_end_frame": item.GetSourceEndFrame(),
                 }
                 if any(
                     not isinstance(value, int) or isinstance(value, bool)
-                    for value in numeric_values.values()
+                    for value in timeline_values.values()
                 ):
                     raise BridgeOperationError(
                         "INVALID_RESOLVE_RESPONSE",
-                        "TimelineItem frame readback is invalid.",
+                        "TimelineItem timeline-frame readback is invalid.",
+                    )
+                media_pool_item = item.GetMediaPoolItem()
+                source_start = item.GetSourceStartFrame()
+                source_end = item.GetSourceEndFrame()
+                if media_pool_item is None:
+                    source_type = "generated"
+                    source_values: dict[str, int | None] = {
+                        "source_start_frame": None,
+                        "source_end_frame": None,
+                    }
+                elif all(
+                    isinstance(value, int) and not isinstance(value, bool)
+                    for value in (source_start, source_end)
+                ):
+                    source_type = "media"
+                    source_values = {
+                        "source_start_frame": int(source_start),
+                        "source_end_frame": int(source_end),
+                    }
+                else:
+                    raise BridgeOperationError(
+                        "INVALID_RESOLVE_RESPONSE",
+                        "Media TimelineItem source-frame readback is invalid.",
                     )
                 discovered.append(
                     {
@@ -1606,7 +1653,9 @@ def _list_timeline_items(
                         "name": str(item.GetName()),
                         "track_type": track_type,
                         "track_index": track_index,
-                        **numeric_values,
+                        "source_type": source_type,
+                        **timeline_values,
+                        **source_values,
                     }
                 )
     return {
@@ -1614,6 +1663,78 @@ def _list_timeline_items(
         "name": str(timeline.GetName()),
         "items": discovered,
     }
+
+
+def _video_item_snapshots(timeline: Any) -> dict[str, dict[str, int]]:
+    """Return strict identity and timeline bounds for every video item."""
+    track_count = timeline.GetTrackCount("video")
+    if not isinstance(track_count, int) or isinstance(track_count, bool):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "Timeline.GetTrackCount() returned an invalid video count.",
+        )
+    snapshots: dict[str, dict[str, int]] = {}
+    for track_index in range(1, track_count + 1):
+        items = timeline.GetItemListInTrack("video", track_index)
+        if not isinstance(items, list):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Timeline.GetItemListInTrack() returned an invalid value.",
+            )
+        for item in items:
+            required = ("GetUniqueId", "GetStart", "GetEnd", "GetDuration")
+            missing = [
+                name
+                for name in required
+                if not callable(getattr(item, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "A video item cannot report title-safety bounds.",
+                    details={"missing_methods": missing},
+                )
+            values = {
+                "timeline_start_frame": item.GetStart(False),
+                "timeline_end_frame": item.GetEnd(False),
+                "duration_frames": item.GetDuration(False),
+                "track_index": track_index,
+            }
+            if any(
+                not isinstance(value, int) or isinstance(value, bool)
+                for value in values.values()
+            ):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "A video item returned invalid title-safety bounds.",
+                )
+            item_id = str(item.GetUniqueId())
+            if not item_id or item_id in snapshots:
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Video item identity is empty or duplicated.",
+                )
+            snapshots[item_id] = values
+    return snapshots
+
+
+def _non_drop_timecode_frame(timecode: str, frame_rate: float) -> int:
+    """Convert bounded non-drop timecode to an absolute timeline frame."""
+    rounded_rate = round(frame_rate)
+    if not math.isclose(frame_rate, rounded_rate, rel_tol=0.0, abs_tol=1e-9):
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "Safe standard-title placement currently requires integer FPS.",
+            details={"timeline_frame_rate": frame_rate},
+        )
+    hours, minutes, seconds, frames = (int(part) for part in timecode.split(":"))
+    if minutes >= 60 or seconds >= 60 or frames >= rounded_rate:
+        raise BridgeOperationError(
+            "TIMECODE_INVALID",
+            "The requested title timecode is invalid for the timeline FPS.",
+            details={"timecode": timecode, "timeline_frame_rate": frame_rate},
+        )
+    return ((hours * 60 + minutes) * 60 + seconds) * rounded_rate + frames
 
 
 def _subtitle_environment(
@@ -2910,6 +3031,7 @@ def _execute_write_command(
     elif action in {
         "ensure_timeline_tracks",
         "append_clip",
+        "insert_title",
         "append_subtitle_file",
         "insert_clip",
         "insert_clips",
@@ -2982,6 +3104,68 @@ def _execute_write_command(
                 resolve,
                 arguments["timeline_id"],
             )
+        if action == "insert_title":
+            insert_title = getattr(timeline, "InsertTitleIntoTimeline", None)
+            get_timecode = getattr(timeline, "GetCurrentTimecode", None)
+            set_timecode = getattr(timeline, "SetCurrentTimecode", None)
+            missing = [
+                name
+                for name, method in (
+                    ("InsertTitleIntoTimeline", insert_title),
+                    ("GetCurrentTimecode", get_timecode),
+                    ("SetCurrentTimecode", set_timecode),
+                    ("GetEndFrame", getattr(timeline, "GetEndFrame", None)),
+                    ("GetSetting", getattr(timeline, "GetSetting", None)),
+                    ("GetTrackCount", getattr(timeline, "GetTrackCount", None)),
+                    (
+                        "GetItemListInTrack",
+                        getattr(timeline, "GetItemListInTrack", None),
+                    ),
+                    (
+                        "SetCurrentTimeline",
+                        getattr(project, "SetCurrentTimeline", None),
+                    ),
+                )
+                if not callable(method)
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot insert a standard title at an exact timecode.",
+                    details={"missing_methods": missing},
+                )
+            previous_timecode = get_timecode()
+            if not isinstance(previous_timecode, str) or not previous_timecode:
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Timeline.GetCurrentTimecode() returned an invalid value.",
+                )
+            timeline_end_frame = timeline.GetEndFrame()
+            if (
+                not isinstance(timeline_end_frame, int)
+                or isinstance(timeline_end_frame, bool)
+            ):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Timeline.GetEndFrame() returned an invalid value.",
+                )
+            timeline_frame_rate = _positive_frame_rate_setting(
+                timeline.GetSetting("timelineFrameRate")
+            )
+            requested_title_frame = _non_drop_timecode_frame(
+                arguments["timecode"], timeline_frame_rate
+            )
+            if requested_title_frame < timeline_end_frame:
+                raise BridgeOperationError(
+                    "TITLE_APPEND_ONLY",
+                    "Standard titles may be inserted only at or after "
+                    "the timeline end.",
+                    details={
+                        "requested_frame": requested_title_frame,
+                        "timeline_end_frame": timeline_end_frame,
+                    },
+                )
+            previous_video_items = _video_item_snapshots(timeline)
         if action == "ensure_timeline_tracks":
             required_track_methods = ("GetTrackCount", "AddTrack")
             missing = [
@@ -3789,6 +3973,109 @@ def _execute_write_command(
                     }
                     for item in appended
                 ],
+                "backup_path": backup_path,
+            }
+        elif action == "insert_title":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested title timeline.",
+                    retryable=True,
+                )
+            if timeline.SetCurrentTimecode(arguments["timecode"]) is not True:
+                raise BridgeOperationError(
+                    "TIMECODE_SELECT_FAILED",
+                    "Resolve could not select the requested title timecode.",
+                    details={"timecode": arguments["timecode"]},
+                )
+            try:
+                title_item = timeline.InsertTitleIntoTimeline(
+                    arguments["title_name"]
+                )
+            finally:
+                timeline.SetCurrentTimecode(previous_timecode)
+            if title_item is None:
+                raise BridgeOperationError(
+                    "TITLE_INSERT_FAILED",
+                    "Resolve did not insert the requested installed standard title.",
+                    retryable=True,
+                    details={"title_name": arguments["title_name"]},
+                )
+            required_item_methods = (
+                "GetUniqueId",
+                "GetName",
+                "GetStart",
+                "GetEnd",
+                "GetDuration",
+                "GetTrackTypeAndIndex",
+            )
+            missing = [
+                name
+                for name in required_item_methods
+                if not callable(getattr(title_item, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "TITLE_READBACK_FAILED",
+                    "The inserted title cannot report canonical metadata.",
+                    details={"missing_methods": missing},
+                )
+            actual_video_items = _video_item_snapshots(timeline)
+            returned_title_id = str(title_item.GetUniqueId())
+            new_item_ids = sorted(
+                set(actual_video_items).difference(previous_video_items)
+            )
+            changed_existing_ids = sorted(
+                item_id
+                for item_id, snapshot in previous_video_items.items()
+                if actual_video_items.get(item_id) != snapshot
+            )
+            inserted_snapshot = actual_video_items.get(returned_title_id)
+            if (
+                new_item_ids != [returned_title_id]
+                or changed_existing_ids
+                or inserted_snapshot is None
+                or inserted_snapshot["timeline_start_frame"]
+                != requested_title_frame
+            ):
+                raise BridgeOperationError(
+                    "TITLE_INSERT_READBACK_FAILED",
+                    "Resolve changed unexpected video items during title insertion.",
+                    details={
+                        "returned_title_id": returned_title_id,
+                        "new_item_ids": new_item_ids,
+                        "changed_existing_ids": changed_existing_ids,
+                        "requested_frame": requested_title_frame,
+                        "inserted_snapshot": inserted_snapshot,
+                    },
+                )
+            track = title_item.GetTrackTypeAndIndex()
+            if (
+                not isinstance(track, (list, tuple))
+                or len(track) != 2
+                or track[0] != "video"
+                or not isinstance(track[1], int)
+                or isinstance(track[1], bool)
+            ):
+                raise BridgeOperationError(
+                    "TITLE_READBACK_FAILED",
+                    "The inserted title did not report a video track.",
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "title_name": arguments["title_name"],
+                "requested_timecode": arguments["timecode"],
+                "requested_frame": requested_title_frame,
+                "previous_timecode": previous_timecode,
+                "item": {
+                    "timeline_item_id": returned_title_id,
+                    "name": str(title_item.GetName()),
+                    "track_type": "video",
+                    "track_index": int(track[1]),
+                    "timeline_start_frame": int(title_item.GetStart(False)),
+                    "timeline_end_frame": int(title_item.GetEnd(False)),
+                    "duration_frames": int(title_item.GetDuration(False)),
+                },
                 "backup_path": backup_path,
             }
         elif action == "append_subtitle_file":

@@ -36,6 +36,8 @@ WORKFLOW_CATEGORIES = {
     "get_editing_recipe": "editing",
     "preview_editing_recipe": "editing",
     "run_editing_recipe": "editing",
+    "preview_visual_treatment": "editing",
+    "apply_visual_treatment": "editing",
     "clean_dialogue_audio": "audio",
     "get_audio_report": "audio",
     "list_audio_reports": "audio",
