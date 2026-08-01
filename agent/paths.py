@@ -104,6 +104,13 @@ def finalized_render_preparations_directory(
     return runtime_directory(environment) / "finalized-render-preparations"
 
 
+def finalized_render_executions_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for finalized timeline render execution."""
+    return runtime_directory(environment) / "finalized-render-executions"
+
+
 def audio_reports_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

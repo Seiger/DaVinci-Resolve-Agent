@@ -14,6 +14,7 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.finalized_render import FinalizedRenderPreparer
+from agent.finalized_render_execution import FinalizedRenderExecutor
 from agent.media import MediaPolicy
 from agent.pause_compaction import PauseCompactionApplier, PauseCompactionPreviewer
 from agent.pause_compaction_finalize import PauseCompactionFinalizer
@@ -471,6 +472,27 @@ class FinalizedRenderPreparationWorkflow(Protocol):
         """Prepare one render job bound to an applied M43 timeline."""
 
 
+class FinalizedRenderExecutionWorkflow(Protocol):
+    """Provider-neutral M45 render start and inspection boundary."""
+
+    def start(
+        self,
+        *,
+        preparation_receipt_id: str,
+        confirm_render: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Start one applied M44 render job exactly once."""
+
+    def status(
+        self,
+        execution_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return live render and managed output validation."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -523,6 +545,7 @@ class AgentApplication:
         pause_compaction_applier: PauseCompactionApplyWorkflow | None = None,
         pause_compaction_finalizer: PauseCompactionFinalizationWorkflow | None = None,
         finalized_render_preparer: FinalizedRenderPreparationWorkflow | None = None,
+        finalized_render_executor: FinalizedRenderExecutionWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -541,6 +564,7 @@ class AgentApplication:
         self._pause_compaction_applier = pause_compaction_applier
         self._pause_compaction_finalizer = pause_compaction_finalizer
         self._finalized_render_preparer = finalized_render_preparer
+        self._finalized_render_executor = finalized_render_executor
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -1448,6 +1472,53 @@ class AgentApplication:
             return discovered if isinstance(discovered, dict) else {}
 
         return FinalizedRenderPreparer(
+            gateway=self._resolve,
+            capabilities=capabilities,
+        )
+
+    def start_finalized_timeline_render(
+        self,
+        *,
+        preparation_receipt_id: str,
+        confirm_render: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Start exactly one render job prepared by M44."""
+        return self._run_local_workflow(
+            "start_finalized_timeline_render",
+            lambda: self._finalized_render_execution_service().start(
+                preparation_receipt_id=preparation_receipt_id,
+                confirm_render=confirm_render,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def get_finalized_timeline_render_status(
+        self,
+        execution_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Inspect one M45 render and verify its managed MP4 output."""
+        return self._run_local_workflow(
+            "get_finalized_timeline_render_status",
+            lambda: self._finalized_render_execution_service().status(
+                execution_receipt_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _finalized_render_execution_service(
+        self,
+    ) -> FinalizedRenderExecutionWorkflow:
+        if self._finalized_render_executor is not None:
+            return self._finalized_render_executor
+
+        def capabilities() -> dict[str, Any]:
+            discovered = self.status()["bridge"].get("capabilities", {})
+            return discovered if isinstance(discovered, dict) else {}
+
+        return FinalizedRenderExecutor(
             gateway=self._resolve,
             capabilities=capabilities,
         )

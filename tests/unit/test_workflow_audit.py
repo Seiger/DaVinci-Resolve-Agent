@@ -170,6 +170,32 @@ def test_workflow_audit_records_finalized_render_as_delivery(
     assert "job_id" not in str(record)
 
 
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "start_finalized_timeline_render",
+        "get_finalized_timeline_render_status",
+    ],
+)
+def test_workflow_audit_records_m45_as_delivery(
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    audit = WorkflowAuditLog(tmp_path, FixedClock())
+
+    audit.run(operation, lambda: {"job_id": "private"})
+    records = list((tmp_path / "workflow").glob("*.json"))
+    completed = [
+        read_json_object(path)
+        for path in records
+        if read_json_object(path)["status"] == "success"
+    ]
+
+    assert completed[0]["operation"] == operation
+    assert completed[0]["category"] == "delivery"
+    assert "job_id" not in str(completed[0])
+
+
 def test_workflow_audit_rejects_unknown_operation_before_callback(
     tmp_path: Path,
 ) -> None:

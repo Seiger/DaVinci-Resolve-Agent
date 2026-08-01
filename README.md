@@ -4,7 +4,10 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M44: finalized render preparation**. Він
+Канонічна межа v1 та послідовність наступних етапів зафіксовані в
+[roadmap](docs/roadmap.md).
+
+Проєкт перебуває на етапі **Milestone M45: finalized render execution**. Він
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -58,6 +61,13 @@ MP4/H.264 job. Окреме `confirm_prepare=true` не запускає render;
 Live-перевірка у Resolve 21 Free 21.0.3.7 підготувала 1080p job саме для M42
 timeline, залишила його у `Ready`, створила один backup і не додала нового job
 або backup під час replay.
+M45 додає підтверджений `start_finalized_timeline_render` і read-only
+`get_finalized_timeline_render_status`. Старт приймає лише applied M44 receipt,
+перевіряє exact job/timeline/profile, `Ready` state та відсутність старого
+output. Status tool не стартує job і перевіряє completed managed MP4.
+Live-перевірка у Resolve 21 Free 21.0.3.7 завершила exact M44 job зі статусом
+`Complete`/100%, підтвердила managed MP4 розміром 2 094 070 933 байти та replay
+без повторного старту або нового backup.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -322,6 +332,8 @@ Read-only інструменти:
 - `apply_synchronized_pause_compaction`.
 - `finalize_synchronized_pause_compaction`.
 - `prepare_finalized_timeline_render`.
+- `start_finalized_timeline_render`.
+- `get_finalized_timeline_render_status`.
 
 Локальний audio-інструмент M6:
 

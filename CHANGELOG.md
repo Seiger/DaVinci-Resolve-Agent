@@ -9,6 +9,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M45 guarded `start_finalized_timeline_render` workflow bound to one applied
+  M44 receipt, explicit confirmation, exact live job preflight, one-start
+  durable replay, and no overwrite of an existing managed output.
+- Read-only `get_finalized_timeline_render_status` with live queue identity and
+  managed non-empty MP4 verification.
+- Resolve 21 Free 21.0.3.7 live M45 completion of the exact M44 job at 100%,
+  validation of a 2,094,070,933-byte managed MP4, and replay without another
+  render start or backup.
 - M44 `prepare_finalized_timeline_render` workflow that binds one fixed 1080p
   or 4K MP4/H.264 job to an applied M43 timeline with explicit confirmation,
   durable replay, and no automatic render start.

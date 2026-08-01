@@ -616,6 +616,38 @@ class StubFinalizedRenderPreparer:
         return {"status": "applied", "operation": {"result": {"job_id": "j"}}}
 
 
+class StubFinalizedRenderExecutor:
+    def __init__(self) -> None:
+        self.start_arguments: dict[str, Any] = {}
+        self.status_arguments: dict[str, Any] = {}
+
+    def start(
+        self,
+        *,
+        preparation_receipt_id: str,
+        confirm_render: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.start_arguments = {
+            "preparation_receipt_id": preparation_receipt_id,
+            "confirm_render": confirm_render,
+            "timeout_seconds": timeout_seconds,
+        }
+        return {"status": "started", "receipt_id": "b" * 64}
+
+    def status(
+        self,
+        execution_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.status_arguments = {
+            "execution_receipt_id": execution_receipt_id,
+            "timeout_seconds": timeout_seconds,
+        }
+        return {"output": {"validation": {"passed": True}}}
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -1154,6 +1186,42 @@ def test_application_prepares_finalized_timeline_render() -> None:
         "timeout_seconds": 45,
     }
     assert audit.operations == ["prepare_finalized_timeline_render"]
+
+
+def test_application_starts_and_inspects_finalized_render() -> None:
+    executor = StubFinalizedRenderExecutor()
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        finalized_render_executor=executor,
+        workflow_audit=audit,
+    )
+
+    started = application.start_finalized_timeline_render(
+        preparation_receipt_id="a" * 64,
+        confirm_render=True,
+        timeout_seconds=45,
+    )
+    status = application.get_finalized_timeline_render_status(
+        "b" * 64,
+        timeout_seconds=20,
+    )
+
+    assert started["status"] == "started"
+    assert status["output"]["validation"]["passed"] is True
+    assert executor.start_arguments == {
+        "preparation_receipt_id": "a" * 64,
+        "confirm_render": True,
+        "timeout_seconds": 45,
+    }
+    assert executor.status_arguments == {
+        "execution_receipt_id": "b" * 64,
+        "timeout_seconds": 20,
+    }
+    assert audit.operations == [
+        "start_finalized_timeline_render",
+        "get_finalized_timeline_render_status",
+    ]
 
 
 def test_application_processes_audio_without_resolve_call() -> None:

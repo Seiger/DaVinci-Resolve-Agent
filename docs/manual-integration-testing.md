@@ -314,3 +314,20 @@ ResolveBridge ручний сценарій має зафіксувати:
 - backups: 44 to 45; immediate replay remained at 45 and returned the same
   receipt without adding another job;
 - result: `verified` preparation only. Render was intentionally not started.
+
+### M45 finalized render execution evidence
+
+- UTC completion: `2026-08-01T18:00Z`;
+- input: applied M44 receipt
+  `5d03b799bdaa588b20e080f7b59dbc9ae47e617ec6a1c6f50bfbedf0c3b730c5`;
+- M45 receipt:
+  `c14ef11f8e90071cc0ad6d4db88cefba798095289683f664e1cf95c769b44f74`;
+- job: `926b8633-a03b-4a25-a572-f1d18680c3e5`, exact M42 timeline
+  `7e430372-841d-4f6f-99ac-8647f6d75a31`;
+- terminal readback: `Complete`, 100%, `rendering_in_progress=false`,
+  `TimeTakenToRenderInMs=2462603`;
+- output: managed `M44 Finalized Timeline Test.mp4`, 2,094,070,933 bytes;
+- validation: completed, managed path, and non-empty checks all passed;
+- backups: start created backup 45 to 46; immediate and post-completion replay
+  returned the same receipt and remained at 46 without another render start;
+- result: `verified` on Resolve 21 Free 21.0.3.7 in Windows 10.

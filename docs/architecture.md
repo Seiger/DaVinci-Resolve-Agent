@@ -846,6 +846,21 @@ MCP prepare_finalized_timeline_render(confirm_prepare=true)
 M44 creates no output file and does not start rendering. Its durable receipt
 and the provider command receipt make interrupted preparation replay-safe.
 
+## M45 finalized render execution
+
+```text
+MCP start_finalized_timeline_render(confirm_render=true)
+ ├─ load applied M44 receipt
+ ├─ verify exact Ready queue job and absent output
+ ├─ one guarded start_render_job + durable M45 receipt
+ └─ replay returns receipt without another start
+
+MCP get_finalized_timeline_render_status
+ ├─ revalidate M45 and M44 identity
+ ├─ read GetRenderJobStatus / IsRenderingInProgress
+ └─ verify managed non-empty MP4 when completion reaches 100%
+```
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

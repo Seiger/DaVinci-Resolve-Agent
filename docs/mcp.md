@@ -46,6 +46,8 @@ Write-інструменти M4:
 - `apply_synchronized_pause_compaction`.
 - `finalize_synchronized_pause_compaction`.
 - `prepare_finalized_timeline_render`.
+- `start_finalized_timeline_render`.
+- `get_finalized_timeline_render_status`.
 - `preview_rough_cut_apply`.
 - `apply_rough_cut`.
 
@@ -337,3 +339,9 @@ canonical item identity. Replay завершеного receipt не викону
 allowlisted `profile` і `confirm_prepare=true`. Tool сам дістає timeline ID з
 receipt, створює один backed-up MP4/H.264 job і перевіряє timeline/profile/
 resolution readback. Він завжди повертає `started=false` і не запускає render.
+
+`start_finalized_timeline_render` вимагає applied M44 receipt і
+`confirm_render=true`. Tool перевіряє точну live queue identity, `Ready` state,
+capabilities та відсутність існуючого output перед одним guarded start.
+`get_finalized_timeline_render_status` не має write-шляху: він повертає live
+progress і managed MP4 validation для M45 receipt.

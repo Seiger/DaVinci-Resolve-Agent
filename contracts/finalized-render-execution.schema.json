@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/finalized-render-execution.schema.json",
+  "title": "DaVinci Resolve Agent M45 finalized render execution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["render_execution_version", "receipt_id", "status", "inputs", "target", "job", "operation"],
+  "properties": {
+    "render_execution_version": {"const": "1.0"},
+    "receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "status": {"enum": ["in_progress", "started"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preparation_receipt_id"],
+      "properties": {
+        "preparation_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "timeline_name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["job_id", "custom_name", "profile"],
+      "properties": {
+        "job_id": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$"},
+        "custom_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "profile": {"enum": ["youtube-1080p-h264-v1", "youtube-2160p-h264-v1"]}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "status", "result"],
+      "properties": {
+        "operation": {"const": "start_render_job"},
+        "status": {"enum": ["pending", "applied"]},
+        "result": {"type": ["object", "null"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "started"}}},
+      "then": {
+        "properties": {
+          "operation": {
+            "properties": {
+              "status": {"const": "applied"},
+              "result": {"type": "object"}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

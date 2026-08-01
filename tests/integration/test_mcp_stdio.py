@@ -68,6 +68,8 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "apply_synchronized_pause_compaction",
         "finalize_synchronized_pause_compaction",
         "prepare_finalized_timeline_render",
+        "start_finalized_timeline_render",
+        "get_finalized_timeline_render_status",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

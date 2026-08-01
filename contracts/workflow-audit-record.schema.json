@@ -46,6 +46,8 @@
         "apply_synchronized_pause_compaction",
         "finalize_synchronized_pause_compaction",
         "prepare_finalized_timeline_render",
+        "start_finalized_timeline_render",
+        "get_finalized_timeline_render_status",
         "sync_screen_and_webcam",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
@@ -136,7 +138,13 @@
     {
       "if": {
         "properties": {
-          "operation": {"const": "prepare_finalized_timeline_render"}
+          "operation": {
+            "enum": [
+              "prepare_finalized_timeline_render",
+              "start_finalized_timeline_render",
+              "get_finalized_timeline_render_status"
+            ]
+          }
         }
       },
       "then": {

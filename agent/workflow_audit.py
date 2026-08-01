@@ -23,6 +23,8 @@ WORKFLOW_CATEGORIES = {
     "apply_synchronized_pause_compaction": "rough_cut",
     "finalize_synchronized_pause_compaction": "rough_cut",
     "prepare_finalized_timeline_render": "delivery",
+    "start_finalized_timeline_render": "delivery",
+    "get_finalized_timeline_render_status": "delivery",
     "sync_screen_and_webcam": "editing",
     "compose_webcam_picture_in_picture": "editing",
     "link_synchronized_screen_pair": "editing",

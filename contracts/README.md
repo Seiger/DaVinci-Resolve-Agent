@@ -37,6 +37,9 @@ M9 extends `prepare_render_job` with an optional allowlisted `profile`.
 M44 additionally permits an optional bounded `timeline_id`, allowing a
 workflow to bind job creation to a canonical finalized timeline instead of UI
 selection state. The response reports the selected timeline identity.
+M45 adds a durable finalized-render execution contract. It stores only the
+canonical M44 receipt binding and one guarded start result; live progress and
+output verification remain read-only responses rather than mutable receipts.
 Omitting it preserves the 1080p default. The only accepted values are
 `youtube-1080p-h264-v1` and `youtube-2160p-h264-v1`; raw width, height, preset,
 codec, quality, and output path remain outside the command contract.

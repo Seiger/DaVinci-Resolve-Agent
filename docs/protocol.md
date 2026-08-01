@@ -202,6 +202,15 @@ The returned timeline identity, profile, dimensions, and `started=false` must
 match before the durable M44 receipt becomes applied. Render start remains a
 separate guarded operation.
 
+## M45 finalized render execution
+
+The write workflow accepts one applied M44 receipt rather than a caller-chosen
+job ID. It compares the live queue job with the stored timeline, preset,
+dimensions, codec, output filename, and managed directory, requires `Ready`,
+rejects an existing output, and then calls the existing guarded
+`start_render_job` once. A separate read-only status workflow verifies the same
+identity and uses the canonical managed MP4 validator at every poll.
+
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
 YouTube 1080p or 2160p preset, verifies the matching documented MP4/H264

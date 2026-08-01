@@ -167,6 +167,24 @@ Live M44 receipt `5d03b799bdaa588b20e080f7b59dbc9ae47e617ec6a1c6f50bfbedf0c3b730
 Queue readback: `Ready`, 1920×1080, MP4/H.264, `rendering_in_progress=false`;
 backup count 44→45, replay залишив 45.
 
+## M45: execute finalized render
+
+`start_finalized_timeline_render` приймає тільки applied M44 receipt і
+`confirm_render=true`. Перед стартом workflow звіряє job ID, timeline, preset,
+resolution, codec, managed output path, статус `Ready` та відсутність старого
+MP4. Durable M45 receipt і provider start-record блокують повторний старт.
+
+`get_finalized_timeline_render_status` є read-only: він приймає M45 receipt,
+повторно звіряє live job і повертає progress та перевірку output. Готовий файл
+приймається лише при 100% completion, правильному managed path і ненульовому
+розмірі.
+
+Live M45 receipt `c14ef11f8e90071cc0ad6d4db88cefba798095289683f664e1cf95c769b44f74`
+запустив job `926b8633-a03b-4a25-a572-f1d18680c3e5` рівно один раз. Фінальний
+readback: `Complete`, 100%, `rendering_in_progress=false`, 2 462 603 ms;
+managed output `M44 Finalized Timeline Test.mp4` має 2 094 070 933 байти й
+`passed=true`. Replay повернув той самий receipt і залишив backup count 46.
+
 ## Деінсталяція
 
 Draft-плани зберігаються за замовчуванням. Для навмисного видалення разом з

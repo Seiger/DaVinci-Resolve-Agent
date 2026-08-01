@@ -645,6 +645,32 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def start_finalized_timeline_render(
+        preparation_receipt_id: str,
+        confirm_render: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Start exactly one applied M44 render job."""
+        return await asyncio.to_thread(
+            service.start_finalized_timeline_render,
+            preparation_receipt_id=preparation_receipt_id,
+            confirm_render=confirm_render,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_finalized_timeline_render_status(
+        execution_receipt_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Inspect one M45 render and verify its managed MP4 output."""
+        return await asyncio.to_thread(
+            service.get_finalized_timeline_render_status,
+            execution_receipt_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
         preset: str = "pcm-dialogue-level-v1",
