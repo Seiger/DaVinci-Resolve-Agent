@@ -24,6 +24,8 @@ ContractName = Literal[
     "pause-compaction-finalization",
     "finalized-render-preparation",
     "finalized-render-execution",
+    "finalized-audio-extraction",
+    "finalized-audio-integration",
     "audio-report",
     "diagnostics-bundle",
     "audit-record",
@@ -35,7 +37,7 @@ class ContractValidationError(ValueError):
     """Raised when a protocol payload violates its canonical schema."""
 
 
-@lru_cache(maxsize=18)
+@lru_cache(maxsize=20)
 def _validator(contract_name: ContractName) -> Draft202012Validator:
     resource = resources.files("contracts").joinpath(f"{contract_name}.schema.json")
     with resource.open("r", encoding="utf-8") as contract_file:

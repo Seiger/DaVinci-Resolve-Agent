@@ -634,7 +634,8 @@
               "profile": {
                 "enum": [
                   "youtube-1080p-h264-v1",
-                  "youtube-2160p-h264-v1"
+                  "youtube-2160p-h264-v1",
+                  "audio-only-pcm-wav-v1"
                 ]
               }
             }

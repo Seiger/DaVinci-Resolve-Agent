@@ -13,6 +13,8 @@ from agent.bridge_state import (
     heartbeat_age_seconds,
     load_bridge_state,
 )
+from agent.finalized_audio_extraction import FinalizedAudioExtractor
+from agent.finalized_audio_integration import FinalizedAudioIntegrator
 from agent.finalized_render import FinalizedRenderPreparer
 from agent.finalized_render_execution import FinalizedRenderExecutor
 from agent.media import MediaPolicy
@@ -493,6 +495,51 @@ class FinalizedRenderExecutionWorkflow(Protocol):
         """Return live render and managed output validation."""
 
 
+class FinalizedAudioExtractionWorkflow(Protocol):
+    """Provider-neutral M46 finalized timeline audio extraction boundary."""
+
+    def prepare(
+        self,
+        *,
+        finalization_receipt_id: str,
+        custom_name: str,
+        confirm_prepare: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Prepare one fixed full-timeline PCM WAV job."""
+
+    def start(
+        self,
+        extraction_receipt_id: str,
+        *,
+        confirm_render: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Start one prepared M46 audio job exactly once."""
+
+    def status(
+        self,
+        extraction_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return live audio render and strict PCM WAV validation."""
+
+
+class FinalizedAudioIntegrationWorkflow(Protocol):
+    """Provider-neutral M46 cleaned-audio integration boundary."""
+
+    def apply(
+        self,
+        *,
+        extraction_receipt_id: str,
+        audio_report_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Insert validated processed audio and disable its source A1 items."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -546,6 +593,8 @@ class AgentApplication:
         pause_compaction_finalizer: PauseCompactionFinalizationWorkflow | None = None,
         finalized_render_preparer: FinalizedRenderPreparationWorkflow | None = None,
         finalized_render_executor: FinalizedRenderExecutionWorkflow | None = None,
+        finalized_audio_extractor: FinalizedAudioExtractionWorkflow | None = None,
+        finalized_audio_integrator: FinalizedAudioIntegrationWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -565,6 +614,8 @@ class AgentApplication:
         self._pause_compaction_finalizer = pause_compaction_finalizer
         self._finalized_render_preparer = finalized_render_preparer
         self._finalized_render_executor = finalized_render_executor
+        self._finalized_audio_extractor = finalized_audio_extractor
+        self._finalized_audio_integrator = finalized_audio_integrator
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -1521,6 +1572,109 @@ class AgentApplication:
         return FinalizedRenderExecutor(
             gateway=self._resolve,
             capabilities=capabilities,
+        )
+
+    def prepare_finalized_timeline_audio(
+        self,
+        *,
+        finalization_receipt_id: str,
+        custom_name: str,
+        confirm_prepare: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Prepare one fixed Audio Only job for an applied M43 timeline."""
+        return self._run_local_workflow(
+            "prepare_finalized_timeline_audio",
+            lambda: self._finalized_audio_extraction_service().prepare(
+                finalization_receipt_id=finalization_receipt_id,
+                custom_name=custom_name,
+                confirm_prepare=confirm_prepare,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def start_finalized_timeline_audio(
+        self,
+        extraction_receipt_id: str,
+        *,
+        confirm_render: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Start one exact M46 Audio Only job."""
+        return self._run_local_workflow(
+            "start_finalized_timeline_audio",
+            lambda: self._finalized_audio_extraction_service().start(
+                extraction_receipt_id,
+                confirm_render=confirm_render,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def get_finalized_timeline_audio_status(
+        self,
+        extraction_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Inspect one M46 audio job and verify its managed PCM WAV."""
+        return self._run_local_workflow(
+            "get_finalized_timeline_audio_status",
+            lambda: self._finalized_audio_extraction_service().status(
+                extraction_receipt_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _finalized_audio_extraction_service(
+        self,
+    ) -> FinalizedAudioExtractionWorkflow:
+        if self._finalized_audio_extractor is not None:
+            return self._finalized_audio_extractor
+
+        def capabilities() -> dict[str, Any]:
+            discovered = self.status()["bridge"].get("capabilities", {})
+            return discovered if isinstance(discovered, dict) else {}
+
+        return FinalizedAudioExtractor(
+            gateway=self._resolve,
+            capabilities=capabilities,
+        )
+
+    def apply_finalized_timeline_audio(
+        self,
+        *,
+        extraction_receipt_id: str,
+        audio_report_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Insert validated M46 audio on A2 and disable its source A1 items."""
+        timeout = self._validated_timeout(timeout_seconds)
+        return self._run_local_workflow(
+            "apply_finalized_timeline_audio",
+            lambda: self._finalized_audio_integration_service().apply(
+                extraction_receipt_id=extraction_receipt_id,
+                audio_report_id=audio_report_id,
+                confirm_apply=confirm_apply,
+                timeout_seconds=timeout,
+            ),
+        )
+
+    def _finalized_audio_integration_service(
+        self,
+    ) -> FinalizedAudioIntegrationWorkflow:
+        if self._finalized_audio_integrator is not None:
+            return self._finalized_audio_integrator
+        return FinalizedAudioIntegrator(
+            gateway=self._resolve,
+            extraction_status=(
+                lambda receipt_id, *, timeout_seconds: (
+                    self._finalized_audio_extraction_service().status(
+                        receipt_id,
+                        timeout_seconds=timeout_seconds,
+                    )
+                )
+            ),
         )
 
     def _rough_cut_apply_service(self) -> RoughCutPlanApplier:

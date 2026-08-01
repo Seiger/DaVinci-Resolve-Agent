@@ -16,6 +16,8 @@ from transports.filesystem import atomic_write_json, read_json_object
 
 REPORT_VERSION = "1.0"
 PRESET_NAME = "pcm-dialogue-level-v1"
+LIMITER_PRESET_NAME = "pcm-dialogue-limit-v2"
+SUPPORTED_PRESETS = frozenset({PRESET_NAME, LIMITER_PRESET_NAME})
 TARGET_RMS_DBFS = -20.0
 MAX_PEAK_DBFS = -1.0
 RMS_TOLERANCE_DB = 0.5
@@ -54,9 +56,10 @@ class DialogueAudioWorkflow:
         preset: str = PRESET_NAME,
     ) -> dict[str, Any]:
         """Apply the fixed M6 preset without modifying the original WAV."""
-        if preset != PRESET_NAME:
+        if preset not in SUPPORTED_PRESETS:
             raise AudioWorkflowError(
-                f"Unsupported audio preset: {preset}. Expected {PRESET_NAME}."
+                "Unsupported audio preset: "
+                f"{preset}. Expected one of: {', '.join(sorted(SUPPORTED_PRESETS))}."
             )
         source = Path(source_file).resolve()
         before = self._provider.analyze(source)
@@ -91,6 +94,7 @@ class DialogueAudioWorkflow:
             output,
             target_rms_dbfs=TARGET_RMS_DBFS,
             max_peak_dbfs=MAX_PEAK_DBFS,
+            limit_peaks=preset == LIMITER_PRESET_NAME,
         )
         after = processing["after"]
         after_rms = after["rms_dbfs"]
@@ -123,6 +127,10 @@ class DialogueAudioWorkflow:
             warnings.append(
                 "Peak guard limited gain, so the RMS target may not be reached."
             )
+        if bool(processing["limiter_applied"]):
+            warnings.append(
+                "A deterministic hard limiter enforced the configured peak ceiling."
+            )
 
         report: dict[str, Any] = {
             "report_version": REPORT_VERSION,
@@ -130,7 +138,7 @@ class DialogueAudioWorkflow:
             "created_at": _utc_now(),
             "status": "completed",
             "preset": {
-                "name": PRESET_NAME,
+                "name": preset,
                 "target_rms_dbfs": TARGET_RMS_DBFS,
                 "max_peak_dbfs": MAX_PEAK_DBFS,
                 "rms_tolerance_db": RMS_TOLERANCE_DB,
@@ -150,6 +158,8 @@ class DialogueAudioWorkflow:
                 "requested_gain_db": processing["requested_gain_db"],
                 "applied_gain_db": processing["applied_gain_db"],
                 "peak_guard_limited": processing["peak_guard_limited"],
+                "limiter_applied": processing["limiter_applied"],
+                "limited_sample_count": processing["limited_sample_count"],
             },
             "validation": validation,
             "warnings": warnings,

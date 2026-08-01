@@ -528,6 +528,56 @@ class StubFinalizedRenderExecutor:
         }
 
 
+class StubFinalizedAudioExtractor:
+    def prepare(
+        self,
+        *,
+        finalization_receipt_id: str,
+        custom_name: str,
+        confirm_prepare: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {"status": "prepared", "receipt_id": "1" * 64}
+
+    def start(
+        self,
+        extraction_receipt_id: str,
+        *,
+        confirm_render: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {"status": "started", "receipt_id": extraction_receipt_id}
+
+    def status(
+        self,
+        extraction_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "receipt_id": extraction_receipt_id,
+            "output": {"validation": {"passed": True}},
+        }
+
+
+class StubFinalizedAudioIntegrator:
+    def apply(
+        self,
+        *,
+        extraction_receipt_id: str,
+        audio_report_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "status": "applied",
+            "inputs": {
+                "extraction_receipt_id": extraction_receipt_id,
+                "audio_report_id": audio_report_id,
+            },
+        }
+
+
 class StubAudioProcessor:
     def process(
         self,
@@ -594,6 +644,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         pause_compaction_finalizer=StubPauseCompactionFinalizer(),
         finalized_render_preparer=StubFinalizedRenderPreparer(),
         finalized_render_executor=StubFinalizedRenderExecutor(),
+        finalized_audio_extractor=StubFinalizedAudioExtractor(),
+        finalized_audio_integrator=StubFinalizedAudioIntegrator(),
         audio_processor=StubAudioProcessor(),
         audio_report_inspector=StubAudioReportInspector(),
         workflow_audit=workflow_audit,
@@ -642,6 +694,18 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             finalized_status_annotations = annotations[
                 "get_finalized_timeline_render_status"
             ]
+            audio_prepare_annotations = annotations[
+                "prepare_finalized_timeline_audio"
+            ]
+            audio_start_annotations = annotations[
+                "start_finalized_timeline_audio"
+            ]
+            audio_status_annotations = annotations[
+                "get_finalized_timeline_audio_status"
+            ]
+            audio_apply_annotations = annotations[
+                "apply_finalized_timeline_audio"
+            ]
             get_audio_annotations = annotations["get_audio_report"]
             list_audio_annotations = annotations["list_audio_reports"]
             render_annotations = annotations["resolve_get_render_options"]
@@ -670,6 +734,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert finalized_render_annotations is not None
             assert finalized_start_annotations is not None
             assert finalized_status_annotations is not None
+            assert audio_prepare_annotations is not None
+            assert audio_start_annotations is not None
+            assert audio_status_annotations is not None
+            assert audio_apply_annotations is not None
             assert get_audio_annotations is not None
             assert list_audio_annotations is not None
             assert render_annotations is not None
@@ -696,6 +764,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert finalized_render_annotations.read_only_hint is False
             assert finalized_start_annotations.read_only_hint is False
             assert finalized_status_annotations.read_only_hint is True
+            assert audio_prepare_annotations.read_only_hint is False
+            assert audio_start_annotations.read_only_hint is False
+            assert audio_status_annotations.read_only_hint is True
+            assert audio_apply_annotations.read_only_hint is False
             assert get_audio_annotations.read_only_hint is True
             assert list_audio_annotations.read_only_hint is True
             assert render_annotations.read_only_hint is True
@@ -939,6 +1011,33 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                     "get_finalized_timeline_render_status",
                     {"execution_receipt_id": "f" * 64},
                 ),
+                "audio_prepared": await client.call_tool(
+                    "prepare_finalized_timeline_audio",
+                    {
+                        "finalization_receipt_id": "d" * 64,
+                        "custom_name": "M46 Dialogue Source",
+                        "confirm_prepare": True,
+                    },
+                ),
+                "audio_started": await client.call_tool(
+                    "start_finalized_timeline_audio",
+                    {
+                        "extraction_receipt_id": "1" * 64,
+                        "confirm_render": True,
+                    },
+                ),
+                "audio_status": await client.call_tool(
+                    "get_finalized_timeline_audio_status",
+                    {"extraction_receipt_id": "1" * 64},
+                ),
+                "audio_applied": await client.call_tool(
+                    "apply_finalized_timeline_audio",
+                    {
+                        "extraction_receipt_id": "1" * 64,
+                        "audio_report_id": "2" * 64,
+                        "confirm_apply": True,
+                    },
+                ),
                 "audio": await client.call_tool(
                     "clean_dialogue_audio",
                     {"source_file": "dialogue.wav"},
@@ -998,6 +1097,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "prepare_finalized_timeline_render",
             "start_finalized_timeline_render",
             "get_finalized_timeline_render_status",
+            "prepare_finalized_timeline_audio",
+            "start_finalized_timeline_audio",
+            "get_finalized_timeline_audio_status",
+            "apply_finalized_timeline_audio",
             "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",
@@ -1082,6 +1185,12 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["finalized_status"].structured_content["output"][
         "validation"
     ]["passed"] is True
+    assert results["audio_prepared"].structured_content["status"] == "prepared"
+    assert results["audio_started"].structured_content["status"] == "started"
+    assert results["audio_status"].structured_content["output"]["validation"][
+        "passed"
+    ] is True
+    assert results["audio_applied"].structured_content["status"] == "applied"
     assert results["audio"].structured_content["status"] == "completed"
     assert results["audio_detail"].structured_content["status"] == "completed"
     assert results["audio_reports"].structured_content["count"] == 1
@@ -1099,6 +1208,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "prepare_finalized_timeline_render",
         "start_finalized_timeline_render",
         "get_finalized_timeline_render_status",
+        "prepare_finalized_timeline_audio",
+        "start_finalized_timeline_audio",
+        "get_finalized_timeline_audio_status",
+        "apply_finalized_timeline_audio",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

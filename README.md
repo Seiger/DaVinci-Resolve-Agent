@@ -7,7 +7,10 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 Канонічна межа v1 та послідовність наступних етапів зафіксовані в
 [roadmap](docs/roadmap.md).
 
-Проєкт перебуває на етапі **Milestone M45: finalized render execution**. Він
+Проєкт завершив **Milestone M46: cleaned-audio integration**; наступний етап —
+M47, транскрипція та субтитри. M46 контрольовано експортує повну аудіодоріжку
+finalized timeline у PCM WAV, потоково обробляє її та повертає валідований
+результат на A2, вимикаючи лише пов'язані source items на A1. Проєкт
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -68,6 +71,18 @@ output. Status tool не стартує job і перевіряє completed mana
 Live-перевірка у Resolve 21 Free 21.0.3.7 завершила exact M44 job зі статусом
 `Complete`/100%, підтвердила managed MP4 розміром 2 094 070 933 байти та replay
 без повторного старту або нового backup.
+M46 extraction додає `prepare_finalized_timeline_audio`,
+`start_finalized_timeline_audio` і `get_finalized_timeline_audio_status`.
+Workflow прив'язаний до applied M43 receipt, використовує лише вбудований
+`Audio Only` preset і керовану директорію `audio-sources`. Готовий результат
+приймається лише як незжатий 16-bit/48 kHz PCM WAV; довільні render settings
+не приймаються.
+`pcm-dialogue-limit-v2` додає детермінований hard limiter до nominal RMS gain,
+а `apply_finalized_timeline_audio` приймає лише completed extraction і
+`target_met=true` report, створює A2, вставляє exact full-timeline WAV та
+вимикає канонічні A1 items. Live-перевірка у Resolve 21 Free 21.0.3.7
+підтвердила 178906-frame A2 placement, збережені enabled V1 items і replay без
+нового backup або дубліката.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -233,7 +248,7 @@ canonical audit record до enqueue та атомарно оновлює йог�
 timeout. Audit не містить arguments, media paths, idempotency keys, response
 payloads чи error messages. Деталі: [audit logging](docs/audit-logging.md).
 
-Сім локальних rough-cut/audio operations також створюють окремі workflow
+Локальні rough-cut/editing/audio/delivery operations також створюють workflow
 records зі станом `running`, `success` або `error`. Вони не містять arguments,
 plan/report IDs, file paths, contents, results чи exception messages. Деталі:
 [workflow audit](docs/workflow-audit.md).
@@ -334,6 +349,10 @@ Read-only інструменти:
 - `prepare_finalized_timeline_render`.
 - `start_finalized_timeline_render`.
 - `get_finalized_timeline_render_status`.
+- `prepare_finalized_timeline_audio`.
+- `start_finalized_timeline_audio`.
+- `get_finalized_timeline_audio_status`.
+- `apply_finalized_timeline_audio`.
 
 Локальний audio-інструмент M6:
 
@@ -401,8 +420,9 @@ provider і workflow receipts роблять replay і відновлення п
 ідемпотентними. Вихідний M38 timeline не змінюється.
 
 `clean_dialogue_audio` працює без Resolve та приймає allowlisted 16-bit PCM
-WAV. Preset виконує детерміноване RMS leveling із peak guard, зберігає
-оригінал і створює derived WAV. RMS dBFS не заявляється як LUFS. Деталі:
+WAV. V1 виконує детерміноване RMS leveling із peak guard, а версійований v2 —
+nominal gain із hard limiter. Обидва потоково обробляють файл, зберігають
+оригінал і створюють derived WAV. RMS dBFS не заявляється як LUFS. Деталі:
 [audio workflow](docs/audio-workflow.md).
 
 `list_audio_reports` повертає до 100 summaries без source/derived paths.

@@ -33,6 +33,18 @@ exists and is unlocked, derives absolute `recordFrame` from the timeline start,
 creates a backup, and reads actual placement back from documented TimelineItem
 methods.
 
+M46 extends the documented render path with one fixed
+`audio-only-pcm-wav-v1` profile. The bridge loads the built-in `Audio Only`
+preset, attempts the discovered Wave format with its empty codec identifier,
+then treats the newly added queue job as authoritative readback. It forces
+documented 16-bit/48 kHz
+audio settings, disables video export, adds one job, and verifies the exact
+queue fields before it can be started. No arbitrary render settings are
+accepted from the command.
+If the new job is not an audio-only WAV with the fixed settings, the bridge
+deletes exactly that newly created job through documented `DeleteRenderJob`
+and reports the rejected queue metadata.
+
 The one-shot lifecycle is intentional: persistent polling is not enabled until
 live testing proves that it does not block the Resolve UI.
 

@@ -671,6 +671,48 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def prepare_finalized_timeline_audio(
+        finalization_receipt_id: str,
+        custom_name: str,
+        confirm_prepare: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Prepare one fixed full-timeline Audio Only WAV job."""
+        return await asyncio.to_thread(
+            service.prepare_finalized_timeline_audio,
+            finalization_receipt_id=finalization_receipt_id,
+            custom_name=custom_name,
+            confirm_prepare=confirm_prepare,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def start_finalized_timeline_audio(
+        extraction_receipt_id: str,
+        confirm_render: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Start one exact prepared M46 audio render job."""
+        return await asyncio.to_thread(
+            service.start_finalized_timeline_audio,
+            extraction_receipt_id,
+            confirm_render=confirm_render,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_finalized_timeline_audio_status(
+        extraction_receipt_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Inspect one M46 render and verify its managed PCM WAV."""
+        return await asyncio.to_thread(
+            service.get_finalized_timeline_audio_status,
+            extraction_receipt_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
         preset: str = "pcm-dialogue-level-v1",
@@ -680,6 +722,22 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             service.clean_dialogue_audio,
             source_file,
             preset=preset,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def apply_finalized_timeline_audio(
+        extraction_receipt_id: str,
+        audio_report_id: str,
+        confirm_apply: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Insert validated processed audio on A2 and disable source A1 items."""
+        return await asyncio.to_thread(
+            service.apply_finalized_timeline_audio,
+            extraction_receipt_id=extraction_receipt_id,
+            audio_report_id=audio_report_id,
+            confirm_apply=confirm_apply,
+            timeout_seconds=timeout_seconds,
         )
 
     @server.tool(annotations=READ_ONLY_TOOL)

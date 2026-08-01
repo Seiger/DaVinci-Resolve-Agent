@@ -9,6 +9,21 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M46 streaming PCM analysis/processing for multi-gigabyte WAV inputs without
+  loading the complete sample array into memory.
+- Versioned `pcm-dialogue-limit-v2` preset with deterministic limiting,
+  clipping removal, and strict RMS/peak target validation.
+- Durable `apply_finalized_timeline_audio` workflow that imports one validated
+  report asset, creates A2, inserts the exact extraction range, disables only
+  source A1 items, and confirms linked source video remains enabled.
+- Resolve 21 Free 21.0.3.7 live validation of a 178906-frame A2 replacement,
+  exact source A1 disable readback, preserved V1 enable state, and replay with
+  no second write, backup, or duplicate item.
+- M46 guarded full-timeline audio extraction with the fixed Resolve `Audio Only`
+  preset, managed WAV output, durable prepare/start replay, and strict 16-bit
+  48 kHz uncompressed PCM validation.
+- MCP prepare/start/status tools for M46 audio extraction bound to one applied
+  M43 finalization receipt without exposing arbitrary render settings.
 - M45 guarded `start_finalized_timeline_render` workflow bound to one applied
   M44 receipt, explicit confirmation, exact live job preflight, one-start
   durable replay, and no overwrite of an existing managed output.

@@ -648,6 +648,68 @@ class StubFinalizedRenderExecutor:
         return {"output": {"validation": {"passed": True}}}
 
 
+class StubFinalizedAudioExtractor:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def prepare(
+        self,
+        *,
+        finalization_receipt_id: str,
+        custom_name: str,
+        confirm_prepare: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.calls.append(
+            (
+                "prepare",
+                {
+                    "finalization_receipt_id": finalization_receipt_id,
+                    "custom_name": custom_name,
+                    "confirm_prepare": confirm_prepare,
+                    "timeout_seconds": timeout_seconds,
+                },
+            )
+        )
+        return {"status": "prepared", "receipt_id": "c" * 64}
+
+    def start(
+        self,
+        extraction_receipt_id: str,
+        *,
+        confirm_render: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.calls.append(
+            (
+                "start",
+                {
+                    "extraction_receipt_id": extraction_receipt_id,
+                    "confirm_render": confirm_render,
+                    "timeout_seconds": timeout_seconds,
+                },
+            )
+        )
+        return {"status": "started", "receipt_id": extraction_receipt_id}
+
+    def status(
+        self,
+        extraction_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.calls.append(
+            (
+                "status",
+                {
+                    "extraction_receipt_id": extraction_receipt_id,
+                    "timeout_seconds": timeout_seconds,
+                },
+            )
+        )
+        return {"output": {"validation": {"passed": True}}}
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -1221,6 +1283,40 @@ def test_application_starts_and_inspects_finalized_render() -> None:
     assert audit.operations == [
         "start_finalized_timeline_render",
         "get_finalized_timeline_render_status",
+    ]
+
+
+def test_application_prepares_starts_and_inspects_finalized_audio() -> None:
+    extractor = StubFinalizedAudioExtractor()
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        finalized_audio_extractor=extractor,
+        workflow_audit=audit,
+    )
+
+    prepared = application.prepare_finalized_timeline_audio(
+        finalization_receipt_id="a" * 64,
+        custom_name="M46 Dialogue Source",
+        confirm_prepare=True,
+        timeout_seconds=45,
+    )
+    started = application.start_finalized_timeline_audio(
+        prepared["receipt_id"],
+        confirm_render=True,
+        timeout_seconds=30,
+    )
+    status = application.get_finalized_timeline_audio_status(
+        prepared["receipt_id"], timeout_seconds=20
+    )
+
+    assert started["status"] == "started"
+    assert status["output"]["validation"]["passed"] is True
+    assert [name for name, _ in extractor.calls] == ["prepare", "start", "status"]
+    assert audit.operations == [
+        "prepare_finalized_timeline_audio",
+        "start_finalized_timeline_audio",
+        "get_finalized_timeline_audio_status",
     ]
 
 

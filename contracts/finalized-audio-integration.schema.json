@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/finalized-audio-integration.schema.json",
+  "title": "DaVinci Resolve Agent finalized audio integration receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audio_integration_version",
+    "receipt_id",
+    "status",
+    "inputs",
+    "target",
+    "source_audio_item_ids",
+    "source_video_item_ids",
+    "operations",
+    "readback"
+  ],
+  "properties": {
+    "audio_integration_version": {"const": "1.0"},
+    "receipt_id": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["in_progress", "applied"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["extraction_receipt_id", "audio_report_id"],
+      "properties": {
+        "extraction_receipt_id": {"$ref": "#/$defs/sha256"},
+        "audio_report_id": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeline_id",
+        "timeline_name",
+        "timeline_start_frame",
+        "duration_frames",
+        "frame_rate",
+        "video_track_count"
+      ],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1},
+        "timeline_name": {"type": "string", "minLength": 1},
+        "timeline_start_frame": {"type": "integer", "minimum": 0},
+        "duration_frames": {"type": "integer", "minimum": 1},
+        "frame_rate": {"type": "number", "exclusiveMinimum": 0},
+        "video_track_count": {"type": "integer", "minimum": 1, "maximum": 8}
+      }
+    },
+    "source_audio_item_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "source_video_item_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 35,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation", "status", "result"],
+        "properties": {
+          "operation": {
+            "enum": [
+              "import_processed_audio",
+              "ensure_audio_track_2",
+              "insert_processed_audio",
+              "disable_source_audio",
+              "ensure_source_video_enabled"
+            ]
+          },
+          "status": {"enum": ["pending", "applied"]},
+          "result": {"type": ["object", "null"]}
+        }
+      }
+    },
+    "readback": {"type": ["object", "null"]}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

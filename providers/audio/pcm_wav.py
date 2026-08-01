@@ -3,17 +3,38 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import math
 import os
 import sys
+import warnings
 import wave
 from array import array
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, cast
 
 SILENCE_THRESHOLD_DBFS = -50.0
 ANALYSIS_WINDOW_MS = 20
+
+
+class _AudioOpModule(Protocol):
+    def max(self, fragment: bytes, width: int) -> int: ...
+
+    def mul(self, fragment: bytes, width: int, factor: float) -> bytes: ...
+
+    def rms(self, fragment: bytes, width: int) -> int: ...
+
+
+def _load_audioop() -> _AudioOpModule:
+    """Load the Python 3.10-3.12 PCM accelerator without warning callers."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        module = importlib.import_module("audioop")
+    return cast(_AudioOpModule, module)
+
+
+AUDIOOP = _load_audioop()
 
 
 class PcmWavProcessingError(ValueError):
@@ -44,7 +65,6 @@ class _PcmWav:
     channels: int
     sample_rate_hz: int
     frame_count: int
-    samples: array[int]
 
 
 class PcmWavAudioProvider:
@@ -53,7 +73,7 @@ class PcmWavAudioProvider:
     def analyze(self, path: Path) -> PcmWavAnalysis:
         """Measure dialogue-oriented level, peak, clipping, and silence."""
         resolved = path.resolve()
-        source = _read_pcm_wav(resolved)
+        source = _read_pcm_wav_metadata(resolved)
         return _analyze(resolved, source)
 
     def apply_dialogue_level_preset(
@@ -63,6 +83,7 @@ class PcmWavAudioProvider:
         *,
         target_rms_dbfs: float = -20.0,
         max_peak_dbfs: float = -1.0,
+        limit_peaks: bool = False,
     ) -> dict[str, Any]:
         """Create a gain-normalized derived WAV while preserving the source."""
         if not -60.0 <= target_rms_dbfs <= -6.0:
@@ -81,7 +102,7 @@ class PcmWavAudioProvider:
                 "Derived output path must differ from the source path."
             )
 
-        source = _read_pcm_wav(source_resolved)
+        source = _read_pcm_wav_metadata(source_resolved)
         before = _analyze(source_resolved, source)
         if before.rms_dbfs is None or before.peak_dbfs is None:
             raise PcmWavProcessingError(
@@ -90,26 +111,55 @@ class PcmWavAudioProvider:
 
         requested_gain_db = target_rms_dbfs - before.rms_dbfs
         peak_limited_gain_db = max_peak_dbfs - before.peak_dbfs
-        applied_gain_db = min(requested_gain_db, peak_limited_gain_db)
-        gain = 10.0 ** (applied_gain_db / 20.0)
-        processed = array(
-            "h",
-            (
-                max(-32768, min(32767, round(sample * gain)))
-                for sample in source.samples
-            ),
+        applied_gain_db = (
+            requested_gain_db
+            if limit_peaks
+            else min(requested_gain_db, peak_limited_gain_db)
         )
-
+        gain = 10.0 ** (applied_gain_db / 20.0)
+        limiter_pre_gain = 10.0 ** (
+            ((applied_gain_db - max_peak_dbfs) if limit_peaks else 0.0)
+            / 20.0
+        )
+        limiter_post_gain = (
+            10.0 ** (max_peak_dbfs / 20.0) if limit_peaks else 1.0
+        )
+        limited_sample_count = 0
         output_resolved.parent.mkdir(parents=True, exist_ok=True)
         temporary = output_resolved.with_name(f"{output_resolved.name}.tmp")
         try:
-            with wave.open(str(temporary), "wb") as output:
+            with wave.open(str(source_resolved), "rb") as input_audio, wave.open(
+                str(temporary), "wb"
+            ) as output:
                 output.setnchannels(source.channels)
                 output.setsampwidth(2)
                 output.setframerate(source.sample_rate_hz)
-                output.writeframes(_little_endian_bytes(processed))
+                written_frames = 0
+                while raw := input_audio.readframes(65_536):
+                    if limit_peaks:
+                        limited = AUDIOOP.mul(raw, 2, limiter_pre_gain)
+                        limited_samples = array("h")
+                        limited_samples.frombytes(limited)
+                        if sys.byteorder != "little":
+                            limited_samples.byteswap()
+                        limited_sample_count += limited_samples.count(32767)
+                        limited_sample_count += limited_samples.count(-32768)
+                        processed = AUDIOOP.mul(
+                            limited,
+                            2,
+                            limiter_post_gain,
+                        )
+                    else:
+                        processed = AUDIOOP.mul(raw, 2, gain)
+                    output.writeframesraw(processed)
+                    written_frames += len(raw) // (2 * source.channels)
+                output.writeframes(b"")
+                if written_frames != source.frame_count:
+                    raise PcmWavProcessingError(
+                        "PCM WAV sample data is incomplete."
+                    )
             os.replace(temporary, output_resolved)
-        except (OSError, wave.Error) as error:
+        except (EOFError, OSError, wave.Error) as error:
             raise PcmWavProcessingError(
                 f"Failed to create derived PCM WAV: {error}"
             ) from error
@@ -124,10 +174,12 @@ class PcmWavAudioProvider:
             "requested_gain_db": round(requested_gain_db, 3),
             "applied_gain_db": round(applied_gain_db, 3),
             "peak_guard_limited": applied_gain_db < requested_gain_db,
+            "limiter_applied": limit_peaks,
+            "limited_sample_count": limited_sample_count,
         }
 
 
-def _read_pcm_wav(path: Path) -> _PcmWav:
+def _read_pcm_wav_metadata(path: Path) -> _PcmWav:
     if not path.is_file():
         raise PcmWavProcessingError(f"Audio file does not exist: {path}")
     try:
@@ -145,37 +197,46 @@ def _read_pcm_wav(path: Path) -> _PcmWav:
             frame_count = source.getnframes()
             if channels < 1 or sample_rate < 1 or frame_count < 1:
                 raise PcmWavProcessingError("PCM WAV metadata is invalid.")
-            samples = array("h")
-            samples.frombytes(source.readframes(frame_count))
-            if sys.byteorder != "little":
-                samples.byteswap()
     except (EOFError, OSError, wave.Error) as error:
         raise PcmWavProcessingError(f"PCM WAV is unreadable: {error}") from error
-    if len(samples) != frame_count * channels:
-        raise PcmWavProcessingError("PCM WAV sample data is incomplete.")
-    return _PcmWav(channels, sample_rate, frame_count, samples)
+    return _PcmWav(channels, sample_rate, frame_count)
 
 
 def _analyze(path: Path, source: _PcmWav) -> PcmWavAnalysis:
-    square_sum = sum(float(sample) ** 2 for sample in source.samples)
-    rms = math.sqrt(square_sum / len(source.samples))
-    peak = max(abs(sample) for sample in source.samples)
-    clipping_count = sum(abs(sample) >= 32767 for sample in source.samples)
     frames_per_window = max(
         1,
         source.sample_rate_hz * ANALYSIS_WINDOW_MS // 1000,
     )
-    samples_per_window = frames_per_window * source.channels
+    sample_count = 0
+    square_sum = 0.0
+    peak = 0
+    clipping_count = 0
     silent_windows = 0
     window_count = 0
     silence_amplitude = 32768.0 * 10.0 ** (SILENCE_THRESHOLD_DBFS / 20.0)
-    for start in range(0, len(source.samples), samples_per_window):
-        window = source.samples[start : start + samples_per_window]
-        window_rms = math.sqrt(
-            sum(float(sample) ** 2 for sample in window) / len(window)
-        )
-        silent_windows += window_rms <= silence_amplitude
-        window_count += 1
+    read_frames = 0
+    try:
+        with wave.open(str(path), "rb") as input_audio:
+            while raw := input_audio.readframes(frames_per_window):
+                samples_in_window = len(raw) // 2
+                window_rms = AUDIOOP.rms(raw, 2)
+                square_sum += float(window_rms) ** 2 * samples_in_window
+                sample_count += samples_in_window
+                peak = max(peak, AUDIOOP.max(raw, 2))
+                samples = array("h")
+                samples.frombytes(raw)
+                if sys.byteorder != "little":
+                    samples.byteswap()
+                clipping_count += samples.count(32767)
+                clipping_count += samples.count(-32768)
+                silent_windows += window_rms <= silence_amplitude
+                window_count += 1
+                read_frames += samples_in_window // source.channels
+    except (EOFError, OSError, wave.Error) as error:
+        raise PcmWavProcessingError(f"PCM WAV is unreadable: {error}") from error
+    if read_frames != source.frame_count or sample_count < 1 or window_count < 1:
+        raise PcmWavProcessingError("PCM WAV sample data is incomplete.")
+    rms = math.sqrt(square_sum / sample_count)
     return PcmWavAnalysis(
         duration_ms=round(source.frame_count * 1000 / source.sample_rate_hz),
         sample_rate_hz=source.sample_rate_hz,
@@ -201,11 +262,3 @@ def _sha256(path: Path) -> str:
         while chunk := source.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _little_endian_bytes(samples: array[int]) -> bytes:
-    if sys.byteorder == "little":
-        return samples.tobytes()
-    copy = array("h", samples)
-    copy.byteswap()
-    return copy.tobytes()

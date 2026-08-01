@@ -56,3 +56,52 @@ def test_provider_rejects_silent_audio(tmp_path: Path) -> None:
             source,
             tmp_path / "derived.wav",
         )
+
+
+def test_provider_streams_wav_frames_in_bounded_chunks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "long-source.wav"
+    output = tmp_path / "long-derived.wav"
+    _write_tone(source, 2_000, duration_ms=20_000)
+    original_readframes = wave.Wave_read.readframes
+    requested_frame_counts: list[int] = []
+
+    def tracked_readframes(reader: wave.Wave_read, count: int) -> bytes:
+        requested_frame_counts.append(count)
+        return original_readframes(reader, count)
+
+    monkeypatch.setattr(wave.Wave_read, "readframes", tracked_readframes)
+
+    PcmWavAudioProvider().apply_dialogue_level_preset(source, output)
+
+    assert output.is_file()
+    assert requested_frame_counts
+    assert max(requested_frame_counts) <= 65_536
+
+
+def test_provider_limiter_reaches_rms_target_with_isolated_full_scale_peak(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "peaked-source.wav"
+    output = tmp_path / "limited-derived.wav"
+    _write_tone(source, 2_000)
+    with wave.open(str(source), "rb") as input_audio:
+        parameters = input_audio.getparams()
+        frames = bytearray(input_audio.readframes(input_audio.getnframes()))
+    frames[:2] = (32767).to_bytes(2, "little", signed=True)
+    with wave.open(str(source), "wb") as output_audio:
+        output_audio.setparams(parameters)
+        output_audio.writeframes(frames)
+
+    result = PcmWavAudioProvider().apply_dialogue_level_preset(
+        source,
+        output,
+        limit_peaks=True,
+    )
+
+    assert result["limiter_applied"] is True
+    assert result["limited_sample_count"] >= 1
+    assert result["after"]["rms_dbfs"] == pytest.approx(-20.0, abs=0.5)
+    assert result["after"]["peak_dbfs"] <= -1.0

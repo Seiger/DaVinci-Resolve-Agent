@@ -211,6 +211,36 @@ rejects an existing output, and then calls the existing guarded
 `start_render_job` once. A separate read-only status workflow verifies the same
 identity and uses the canonical managed MP4 validator at every poll.
 
+## M46 finalized audio extraction
+
+The existing `prepare_render_job` command accepts one additional fixed profile,
+`audio-only-pcm-wav-v1`. It still accepts no arbitrary settings. The Resolve
+adapter loads the built-in `Audio Only` preset and attempts the discovered
+`Wave` format with its empty codec identifier. Because Resolve 21 Free may
+reject that setter, the newly added queue job is the authoritative readback;
+an invalid job is immediately removed with documented `DeleteRenderJob`.
+sets only documented `ExportVideo=false`, `ExportAudio=true`,
+`AudioBitDepth=16`, and `AudioSampleRate=48000`, and writes below the managed
+`audio-sources` directory.
+
+The higher-level prepare/start/status workflow is bound to an applied M43
+receipt. Start requires a separate confirmation and remains protected by the
+existing provider start record. Status is read-only and requires a completed,
+non-empty, uncompressed 16-bit/48 kHz WAV before reporting `passed=true`.
+
+The local `pcm-dialogue-limit-v2` preset processes this WAV in bounded chunks,
+applies nominal RMS gain with a deterministic hard limiter, and emits a report
+that must satisfy both RMS tolerance and peak ceiling. The versioned v1 peak
+guard behavior remains unchanged.
+
+`apply_finalized_timeline_audio` accepts only the extraction receipt, validated
+v2 report ID, and confirmation. It derives timeline/item IDs and duration from
+the receipts, verifies WAV duration against render `MarkIn`/`MarkOut`, then
+uses existing allowlisted primitives to import one asset, ensure A2, insert the
+full range, disable source A1 items, and confirm linked video items enabled.
+No raw Resolve setting, track, asset, item ID, or filesystem path is accepted
+from the MCP caller.
+
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
 YouTube 1080p or 2160p preset, verifies the matching documented MP4/H264

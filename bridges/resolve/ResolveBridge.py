@@ -22,14 +22,30 @@ DEFAULT_RENDER_PROFILE = "youtube-1080p-h264-v1"
 POLL_INTERVAL_SECONDS = 0.5
 RENDER_PROFILES = {
     "youtube-1080p-h264-v1": {
+        "kind": "video",
         "resolve_preset": "YouTube - 1080p",
+        "format": "MP4",
+        "codec": "H264",
+        "extension": ".mp4",
         "width": 1920,
         "height": 1080,
     },
     "youtube-2160p-h264-v1": {
+        "kind": "video",
         "resolve_preset": "YouTube - 2160p",
+        "format": "MP4",
+        "codec": "H264",
+        "extension": ".mp4",
         "width": 3840,
         "height": 2160,
+    },
+    "audio-only-pcm-wav-v1": {
+        "kind": "audio",
+        "resolve_preset": "Audio Only",
+        "format": "Wave",
+        "extension": ".wav",
+        "audio_bit_depth": 16,
+        "audio_sample_rate": 48000,
     },
 }
 ALLOWED_ACTIONS = {
@@ -935,6 +951,23 @@ def _render_output_directory() -> Path:
         / "Videos"
         / APPLICATION_DIRECTORY_NAME
         / "renders"
+    ).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    return output
+
+
+def _audio_source_output_directory() -> Path:
+    user_profile = os.environ.get("USERPROFILE")
+    if not user_profile:
+        raise BridgeOperationError(
+            "PATH_CONFIGURATION_ERROR",
+            "The USERPROFILE environment variable is not set.",
+        )
+    output = (
+        Path(user_profile)
+        / "Videos"
+        / APPLICATION_DIRECTORY_NAME
+        / "audio-sources"
     ).resolve()
     output.mkdir(parents=True, exist_ok=True)
     return output
@@ -2366,25 +2399,54 @@ def _verify_agent_prepared_render_job(
         if isinstance(profile_name, str)
         else None
     )
-    expected_directory = _render_output_directory()
-    expected_name = f"{prepared.get('custom_name', '')}.mp4"
+    if profile is None:
+        raise BridgeOperationError(
+            "RENDER_JOB_POLICY_MISMATCH",
+            "The prepared render job has an unsupported profile.",
+            details={"job_id": job_id},
+        )
+    kind = profile.get("kind")
+    expected_directory = (
+        _audio_source_output_directory()
+        if kind == "audio"
+        else _render_output_directory()
+    )
+    extension = profile.get("extension", "") if isinstance(profile, dict) else ""
+    expected_name = f"{prepared.get('custom_name', '')}{extension}"
     prepared_directory = Path(str(prepared.get("target_directory", ""))).resolve()
     live_directory = Path(str(job.get("TargetDir", ""))).resolve()
-    valid = (
-        profile is not None
-        and prepared.get("resolve_preset") == profile["resolve_preset"]
-        and prepared.get("format") == "MP4"
-        and prepared.get("codec") == "H264"
+    common_valid = (
+        prepared.get("resolve_preset") == profile["resolve_preset"]
         and prepared.get("started") is False
         and prepared_directory == expected_directory
         and live_directory == expected_directory
         and job.get("PresetName") == profile["resolve_preset"]
-        and job.get("VideoFormat") == "MP4"
-        and job.get("VideoCodec") in {"H.264", "H264"}
-        and job.get("FormatWidth") == profile["width"]
-        and job.get("FormatHeight") == profile["height"]
         and job.get("OutputFilename") == expected_name
     )
+    if kind == "audio":
+        valid = bool(
+            common_valid
+            and str(prepared.get("format", "")).casefold() in {"wav", "wave"}
+            and prepared.get("export_video") is False
+            and prepared.get("export_audio") is True
+            and prepared.get("audio_bit_depth") == profile["audio_bit_depth"]
+            and prepared.get("audio_sample_rate")
+            == profile["audio_sample_rate"]
+            and job.get("IsExportVideo") is False
+            and job.get("IsExportAudio") is True
+            and job.get("AudioBitDepth") == profile["audio_bit_depth"]
+            and job.get("AudioSampleRate") == profile["audio_sample_rate"]
+        )
+    else:
+        valid = bool(
+            common_valid
+            and prepared.get("format") == profile["format"]
+            and prepared.get("codec") == profile["codec"]
+            and job.get("VideoFormat") == "MP4"
+            and job.get("VideoCodec") in {"H.264", "H264"}
+            and job.get("FormatWidth") == profile["width"]
+            and job.get("FormatHeight") == profile["height"]
+        )
     if not valid:
         raise BridgeOperationError(
             "RENDER_JOB_POLICY_MISMATCH",
@@ -3760,11 +3822,13 @@ def _execute_write_command(
                 "GetCurrentTimeline",
                 "GetRenderPresetList",
                 "GetRenderResolutions",
+                "GetCurrentRenderFormatAndCodec",
                 "LoadRenderPreset",
                 "SetCurrentRenderFormatAndCodec",
                 "SetCurrentRenderMode",
                 "SetRenderSettings",
                 "AddRenderJob",
+                "DeleteRenderJob",
             )
             missing = [
                 name
@@ -3806,55 +3870,78 @@ def _execute_write_command(
                         "RENDER_PRESET_UNAVAILABLE",
                         f"Resolve render preset is unavailable: {preset_name}",
                     )
-                resolutions = project.GetRenderResolutions("MP4", "H264")
-                expected_resolution = {
-                    "Width": profile["width"],
-                    "Height": profile["height"],
-                }
-                if (
-                    not isinstance(resolutions, list)
-                    or expected_resolution not in resolutions
-                ):
-                    raise BridgeOperationError(
-                        "RENDER_RESOLUTION_UNAVAILABLE",
-                        "Resolve does not expose the fixed profile resolution.",
-                        details={
-                            "profile": profile_name,
-                            "width": profile["width"],
-                            "height": profile["height"],
-                        },
-                    )
                 if project.LoadRenderPreset(preset_name) is not True:
                     raise BridgeOperationError(
                         "RENDER_PRESET_LOAD_FAILED",
                         f"Resolve could not load render preset: {preset_name}",
                         retryable=True,
                     )
-                if (
-                    project.SetCurrentRenderFormatAndCodec("MP4", "H264")
-                    is not True
-                ):
-                    raise BridgeOperationError(
-                        "RENDER_FORMAT_FAILED",
-                        "Resolve could not select MP4/H264 rendering.",
-                        retryable=True,
+                if profile["kind"] == "video":
+                    resolutions = project.GetRenderResolutions("MP4", "H264")
+                    expected_resolution = {
+                        "Width": profile["width"],
+                        "Height": profile["height"],
+                    }
+                    if (
+                        not isinstance(resolutions, list)
+                        or expected_resolution not in resolutions
+                    ):
+                        raise BridgeOperationError(
+                            "RENDER_RESOLUTION_UNAVAILABLE",
+                            "Resolve does not expose the fixed profile resolution.",
+                            details={
+                                "profile": profile_name,
+                                "width": profile["width"],
+                                "height": profile["height"],
+                            },
+                        )
+                    if (
+                        project.SetCurrentRenderFormatAndCodec("MP4", "H264")
+                        is not True
+                    ):
+                        raise BridgeOperationError(
+                            "RENDER_FORMAT_FAILED",
+                            "Resolve could not select MP4/H264 rendering.",
+                            retryable=True,
+                        )
+                    selected_format = "MP4"
+                    selected_codec = "H264"
+                else:
+                    format_selected = (
+                        project.SetCurrentRenderFormatAndCodec("Wave", "")
+                        is True
                     )
+                    current_render = project.GetCurrentRenderFormatAndCodec()
+                    selected_format = "Wave"
+                    selected_codec = ""
                 if project.SetCurrentRenderMode(1) is not True:
                     raise BridgeOperationError(
                         "RENDER_MODE_FAILED",
                         "Resolve could not select single-clip render mode.",
                         retryable=True,
                     )
-                target_directory = _render_output_directory()
-                settings = {
-                    "SelectAllFrames": True,
-                    "TargetDir": str(target_directory),
-                    "CustomName": custom_name,
-                    "ExportVideo": True,
-                    "ExportAudio": True,
-                    "FormatWidth": profile["width"],
-                    "FormatHeight": profile["height"],
-                }
+                if profile["kind"] == "audio":
+                    target_directory = _audio_source_output_directory()
+                    settings = {
+                        "SelectAllFrames": True,
+                        "TargetDir": str(target_directory),
+                        "CustomName": custom_name,
+                        "ExportVideo": False,
+                        "ExportAudio": True,
+                        "AudioBitDepth": profile["audio_bit_depth"],
+                        "AudioSampleRate": profile["audio_sample_rate"],
+                    }
+                else:
+                    target_directory = _render_output_directory()
+                    settings = {
+                        "SelectAllFrames": True,
+                        "TargetDir": str(target_directory),
+                        "CustomName": custom_name,
+                        "ExportVideo": True,
+                        "ExportAudio": True,
+                        "FormatWidth": profile["width"],
+                        "FormatHeight": profile["height"],
+                    }
                 if project.SetRenderSettings(settings) is not True:
                     raise BridgeOperationError(
                         "RENDER_SETTINGS_FAILED",
@@ -3868,6 +3955,47 @@ def _execute_write_command(
                         "Resolve did not add the render job.",
                         retryable=True,
                     )
+                prepared_job = _find_render_job(project, job_id)
+                expected_name = f"{custom_name}{profile['extension']}"
+                if (
+                    prepared_job.get("PresetName") != preset_name
+                    or Path(str(prepared_job.get("TargetDir", ""))).resolve()
+                    != target_directory
+                    or (
+                        profile["kind"] != "audio"
+                        and prepared_job.get("OutputFilename") != expected_name
+                    )
+                ):
+                    raise BridgeOperationError(
+                        "RENDER_JOB_POLICY_MISMATCH",
+                        "Resolve prepared a job outside the fixed profile policy.",
+                        details={"job_id": job_id},
+                    )
+                if profile["kind"] == "audio" and (
+                    Path(str(prepared_job.get("OutputFilename", ""))).suffix.casefold()
+                    != ".wav"
+                    or
+                    prepared_job.get("IsExportVideo") is not False
+                    or prepared_job.get("IsExportAudio") is not True
+                    or prepared_job.get("AudioBitDepth")
+                    != profile["audio_bit_depth"]
+                    or prepared_job.get("AudioSampleRate")
+                    != profile["audio_sample_rate"]
+                ):
+                    deleted = project.DeleteRenderJob(job_id)
+                    raise BridgeOperationError(
+                        "RENDER_JOB_POLICY_MISMATCH",
+                        "Resolve did not preserve the fixed PCM WAV settings.",
+                        details={
+                            "job_id": job_id,
+                            "job": _json_safe(prepared_job),
+                            "job_deleted": deleted is True,
+                            "format_selected": format_selected,
+                            "current": _json_safe(current_render),
+                        },
+                    )
+                if profile["kind"] == "audio":
+                    selected_codec = str(prepared_job.get("AudioCodec", ""))
             finally:
                 if (
                     isinstance(previous_page, str)
@@ -3881,15 +4009,29 @@ def _execute_write_command(
                 "timeline_name": str(current_timeline.GetName()),
                 "preset": profile_name,
                 "resolve_preset": preset_name,
-                "format": "MP4",
-                "codec": "H264",
-                "width": profile["width"],
-                "height": profile["height"],
+                "format": selected_format,
+                "codec": selected_codec,
                 "target_directory": str(target_directory),
                 "custom_name": custom_name,
                 "started": False,
                 "backup_path": backup_path,
             }
+            if profile["kind"] == "audio":
+                result.update(
+                    {
+                        "export_video": False,
+                        "export_audio": True,
+                        "audio_bit_depth": profile["audio_bit_depth"],
+                        "audio_sample_rate": profile["audio_sample_rate"],
+                    }
+                )
+            else:
+                result.update(
+                    {
+                        "width": profile["width"],
+                        "height": profile["height"],
+                    }
+                )
         elif action == "start_render_job":
             job_id = _validate_render_job_arguments(action, arguments)
             start_path = _reserve_render_start(

@@ -861,6 +861,41 @@ MCP get_finalized_timeline_render_status
  └─ verify managed non-empty MP4 when completion reaches 100%
 ```
 
+## M46 finalized audio extraction
+
+```text
+MCP prepare_finalized_timeline_audio(confirm_prepare=true)
+ ├─ bind one applied M43 timeline
+ ├─ load fixed Resolve Audio Only preset
+ ├─ force ExportVideo=false, 16-bit and 48 kHz
+ └─ add one Ready job in managed audio-sources
+
+MCP start_finalized_timeline_audio(confirm_render=true)
+ ├─ verify exact Ready job and absent WAV
+ └─ start once through the existing guarded render primitive
+
+MCP get_finalized_timeline_audio_status
+ ├─ read exact live job status
+ └─ parse RIFF/WAVE and require uncompressed 16-bit/48 kHz PCM
+
+local clean_dialogue_audio(pcm-dialogue-limit-v2)
+ ├─ stream analysis and processing in bounded chunks
+ ├─ apply nominal RMS gain plus deterministic peak limiter
+ └─ require target_met before integration
+
+MCP apply_finalized_timeline_audio(confirm_apply=true)
+ ├─ bind completed extraction and validated v2 report
+ ├─ import one derived WAV and ensure stereo A2
+ ├─ insert exact MarkIn..MarkOut duration at timeline start
+ ├─ disable only canonical source A1 items
+ └─ confirm linked source video remains enabled
+```
+
+M46 keeps extraction, processing, and integration as separate confirmed stages
+so a render or loudness failure cannot partially replace active dialogue. The
+local backend invokes no shell decoder and preserves both source and derived
+WAV files. The integration receipt is durable and replay-safe.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

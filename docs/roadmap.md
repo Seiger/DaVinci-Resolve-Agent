@@ -21,7 +21,9 @@
 ## Заплановані milestones
 
 - **M45** — контрольований старт finalized render і перевірка MP4.
-- **M46** — інтеграція очищеного звуку в timeline.
+- **M46 — завершено** — інтеграція очищеного звуку в timeline: керований
+  audio-only WAV export, потокова локальна обробка, validation gate і bounded
+  A2 replacement із вимкненням source A1.
 - **M47** — транскрипція та субтитри.
 - **M48** — декларативні MCP editing recipes.
 - **M49** — керовані титри, zoom та reframing.

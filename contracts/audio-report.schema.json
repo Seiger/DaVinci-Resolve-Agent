@@ -44,7 +44,10 @@
       ],
       "properties": {
         "name": {
-          "const": "pcm-dialogue-level-v1"
+          "enum": [
+            "pcm-dialogue-level-v1",
+            "pcm-dialogue-limit-v2"
+          ]
         },
         "target_rms_dbfs": {
           "type": "number"
@@ -119,6 +122,13 @@
         },
         "peak_guard_limited": {
           "type": "boolean"
+        },
+        "limiter_applied": {
+          "type": "boolean"
+        },
+        "limited_sample_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

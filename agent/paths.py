@@ -147,3 +147,29 @@ def render_output_directory(
         / APPLICATION_DIRECTORY_NAME
         / "renders"
     )
+
+
+def audio_source_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return the managed directory for full-timeline PCM WAV exports."""
+    return (
+        Path(_environment_value("USERPROFILE", environment))
+        / "Videos"
+        / APPLICATION_DIRECTORY_NAME
+        / "audio-sources"
+    )
+
+
+def finalized_audio_extractions_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for finalized timeline audio extraction."""
+    return runtime_directory(environment) / "finalized-audio-extractions"
+
+
+def finalized_audio_integrations_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for cleaned-audio timeline integration."""
+    return runtime_directory(environment) / "finalized-audio-integrations"

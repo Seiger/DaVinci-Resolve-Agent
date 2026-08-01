@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/finalized-audio-extraction.schema.json",
+  "title": "DaVinci Resolve Agent finalized audio extraction receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audio_extraction_version",
+    "receipt_id",
+    "status",
+    "inputs",
+    "target",
+    "job",
+    "operations"
+  ],
+  "properties": {
+    "audio_extraction_version": {"const": "1.0"},
+    "receipt_id": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["in_progress", "prepared", "started"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finalization_receipt_id", "custom_name", "profile"],
+      "properties": {
+        "finalization_receipt_id": {"$ref": "#/$defs/sha256"},
+        "custom_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "profile": {"const": "audio-only-pcm-wav-v1"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "timeline_name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "job": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["job_id", "custom_name", "profile"],
+          "properties": {
+            "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+            "custom_name": {"type": "string", "minLength": 1, "maxLength": 128},
+            "profile": {"const": "audio-only-pcm-wav-v1"}
+          }
+        }
+      ]
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {"$ref": "#/$defs/prepareOperation"},
+        {"$ref": "#/$defs/startOperation"}
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "operationBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "status", "result"],
+      "properties": {
+        "operation": {"type": "string"},
+        "status": {"enum": ["pending", "applied"]},
+        "result": {"type": ["object", "null"]}
+      }
+    },
+    "prepareOperation": {
+      "allOf": [
+        {"$ref": "#/$defs/operationBase"},
+        {"properties": {"operation": {"const": "prepare_render_job"}}}
+      ]
+    },
+    "startOperation": {
+      "allOf": [
+        {"$ref": "#/$defs/operationBase"},
+        {"properties": {"operation": {"const": "start_render_job"}}}
+      ]
+    }
+  }
+}

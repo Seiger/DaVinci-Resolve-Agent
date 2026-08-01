@@ -48,6 +48,10 @@
         "prepare_finalized_timeline_render",
         "start_finalized_timeline_render",
         "get_finalized_timeline_render_status",
+        "prepare_finalized_timeline_audio",
+        "start_finalized_timeline_audio",
+        "get_finalized_timeline_audio_status",
+        "apply_finalized_timeline_audio",
         "sync_screen_and_webcam",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
@@ -126,7 +130,11 @@
             "enum": [
               "clean_dialogue_audio",
               "get_audio_report",
-              "list_audio_reports"
+              "list_audio_reports",
+              "prepare_finalized_timeline_audio",
+              "start_finalized_timeline_audio",
+              "get_finalized_timeline_audio_status",
+              "apply_finalized_timeline_audio"
             ]
           }
         }

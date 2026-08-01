@@ -10,6 +10,10 @@ M26 поширює observable behavior на локальні MCP operations, я�
 - `clean_dialogue_audio`;
 - `get_audio_report`;
 - `list_audio_reports`.
+- `prepare_finalized_timeline_audio`;
+- `start_finalized_timeline_audio`;
+- `get_finalized_timeline_audio_status`.
+- `apply_finalized_timeline_audio`;
 - `prepare_finalized_timeline_render` (`delivery`).
 - `start_finalized_timeline_render` (`delivery`);
 - `get_finalized_timeline_render_status` (`delivery`).

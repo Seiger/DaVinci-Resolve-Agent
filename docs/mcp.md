@@ -56,6 +56,9 @@ Write-інструменти M4:
 - `clean_dialogue_audio`.
 - `get_audio_report`.
 - `list_audio_reports`.
+- `prepare_finalized_timeline_audio`.
+- `start_finalized_timeline_audio`.
+- `get_finalized_timeline_audio_status`.
 
 MCP-адаптер звертається до application service. Він не працює з transport
 runtime безпосередньо та не приймає довільних назв команд, Python, Lua,
@@ -85,6 +88,11 @@ SHA-256-зв’язок між ними. Обидва tools read-only, прац�
 `get_audio_report` приймає canonical `report_id` і повторно валідовує
 збережений report. Обидва tools read-only, не викликають bridge та не
 запускають повторну обробку аудіо.
+
+M46 audio extraction tools приймають лише applied M43 receipt і безпечний
+filename stem. Профіль завжди `audio-only-pcm-wav-v1`; prepare та start мають
+окремі confirmation flags, а status tool лише читає job і перевіряє managed
+16-bit/48 kHz PCM WAV. Довільні Resolve render settings не експонуються.
 
 У default MCP composition усі сім локальних rough-cut/audio tools проходять
 через workflow audit. Records не містять tool arguments, plan/report IDs,
@@ -345,3 +353,10 @@ resolution readback. Він завжди повертає `started=false` і н�
 capabilities та відсутність існуючого output перед одним guarded start.
 `get_finalized_timeline_render_status` не має write-шляху: він повертає live
 progress і managed MP4 validation для M45 receipt.
+
+`apply_finalized_timeline_audio` вимагає canonical M46 extraction receipt,
+canonical `pcm-dialogue-limit-v2` report і `confirm_apply=true`. Caller не
+передає timeline, track, asset або item IDs: workflow виводить їх із receipts,
+звіряє extraction range з WAV duration, вставляє один processed item на A2,
+вимикає лише source A1 та підтверджує linked source video як enabled. Durable
+receipt робить replay без повторних writes.

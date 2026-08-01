@@ -331,3 +331,28 @@ ResolveBridge ручний сценарій має зафіксувати:
 - backups: start created backup 45 to 46; immediate and post-completion replay
   returned the same receipt and remained at 46 without another render start;
 - result: `verified` on Resolve 21 Free 21.0.3.7 in Windows 10.
+
+### M46 cleaned-audio integration evidence
+
+- UTC execution: `2026-08-01T18:58Z` through `2026-08-01T19:27Z`;
+- extraction receipt:
+  `5c54b2eba322013e6149897be2bca4da65dff507a94dbc81e9f74c3bd80262d5`;
+- job `1cb90cf4-7d70-4711-a815-a13bc7c8e920`: built-in `Audio Only`,
+  Wave/lpcm, 16-bit/48 kHz stereo, `Complete`/100%, 261793 ms;
+- extracted WAV: 357812000 sample frames, 7,454,417 ms,
+  1,431,249,588 bytes, uncompressed PCM;
+- streaming v2 report:
+  `091a64d764c7406db37d4b186c9e93f3f6692a3b7f86483582990551dee38cfa`;
+- processing readback: RMS `-24.746` → `-20.001 dBFS`, peak `0.0` →
+  `-1.0 dBFS`, clipped samples `10` → `0`, `target_met=true`;
+- integration receipt:
+  `f9f037abe3ac934725960c1e9f88cb2e521c623460e4d954463d3b37af5483ab`;
+- exact placement: A2 item `f62bb0e6-c2c2-46db-b0b2-01c970e3c63f`,
+  timeline frames `86400..265306`, duration 178906 frames;
+- both canonical A1 items reported `enabled=false`; their linked V1 peers
+  reported `enabled=true` before and after the explicit safety operation;
+- backups: successful extraction prepare/start used 48→50; integration import,
+  track creation, insertion, two A1 disables, and two V1 confirmations ended at
+  57; immediate replay remained at 57 with one A2 item;
+- result: `verified` on Resolve 21 Free 21.0.3.7 in Windows 10. RMS dBFS remains
+  a reference metric, not a LUFS/EBU R128 delivery claim.

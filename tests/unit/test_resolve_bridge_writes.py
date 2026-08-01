@@ -347,6 +347,7 @@ class FakeProject:
         self.rendering = False
         self.render_start_count = 0
         self.render_statuses: dict[str, dict[str, Any]] = {}
+        self.force_invalid_audio_job = False
 
     def GetName(self) -> str:
         return "M4 Test Project"
@@ -370,20 +371,31 @@ class FakeProject:
         return True
 
     def GetRenderFormats(self) -> dict[str, str]:
-        return {"mp4": "mp4"}
+        return {"mp4": "mp4", "Wave": "wav"}
 
     def GetRenderCodecs(self, render_format: str) -> dict[str, str]:
-        assert render_format == "mp4"
-        return {"H.264": "H264"}
+        if render_format == "mp4":
+            return {"H.264": "H264"}
+        assert render_format == "Wave"
+        return {}
 
     def GetCurrentRenderFormatAndCodec(self) -> dict[str, str]:
-        return {"format": "mp4", "codec": "H264"}
+        if self.render_format:
+            return {"format": self.render_format, "codec": self.render_codec}
+        return {
+            "format": "mp4",
+            "codec": "H264",
+        }
 
     def GetRenderPresetList(self) -> list[str]:
-        return ["YouTube - 1080p", "YouTube - 2160p"]
+        return ["YouTube - 1080p", "YouTube - 2160p", "Audio Only"]
 
     def LoadRenderPreset(self, preset_name: str) -> bool:
         self.render_preset = preset_name
+        if preset_name == "Audio Only":
+            self.render_format = "unknown"
+            self.render_codec = ""
+            return True
         return preset_name in {"YouTube - 1080p", "YouTube - 2160p"}
 
     def GetRenderResolutions(
@@ -403,6 +415,8 @@ class FakeProject:
         render_format: str,
         codec: str,
     ) -> bool:
+        if render_format == "Wave" and codec == "":
+            return False
         self.render_format = render_format
         self.render_codec = codec
         return True
@@ -417,25 +431,46 @@ class FakeProject:
 
     def AddRenderJob(self) -> str:
         job_id = f"job-{len(self.render_jobs) + 1}"
-        self.render_jobs.append(
-            {
+        if self.render_settings["ExportVideo"] is False:
+            job = {
                 "JobId": job_id,
                 "TargetDir": self.render_settings["TargetDir"],
                 "OutputFilename": (
                     f"{self.render_settings['CustomName']}.mp4"
+                    if self.force_invalid_audio_job
+                    else f"{self.render_settings['CustomName']}.wav"
                 ),
+                "PresetName": self.render_preset,
+                "IsExportVideo": False,
+                "IsExportAudio": True,
+                "AudioBitDepth": self.render_settings["AudioBitDepth"],
+                "AudioSampleRate": self.render_settings["AudioSampleRate"],
+            }
+        else:
+            job = {
+                "JobId": job_id,
+                "TargetDir": self.render_settings["TargetDir"],
+                "OutputFilename": f"{self.render_settings['CustomName']}.mp4",
                 "PresetName": self.render_preset,
                 "VideoFormat": self.render_format,
                 "VideoCodec": "H.264",
                 "FormatWidth": self.render_settings["FormatWidth"],
                 "FormatHeight": self.render_settings["FormatHeight"],
             }
-        )
+        self.render_jobs.append(job)
         self.render_statuses[job_id] = {
             "JobStatus": "Ready",
             "CompletionPercentage": 0,
         }
         return job_id
+
+    def DeleteRenderJob(self, job_id: str) -> bool:
+        before = len(self.render_jobs)
+        self.render_jobs = [
+            job for job in self.render_jobs if job.get("JobId") != job_id
+        ]
+        self.render_statuses.pop(job_id, None)
+        return len(self.render_jobs) < before
 
     def GetRenderJobList(self) -> list[dict[str, Any]]:
         return self.render_jobs
@@ -1583,6 +1618,94 @@ def test_prepare_render_job_supports_verified_fixed_4k_profile(
     assert response["result"]["height"] == 2160
     assert resolve.project.render_jobs[0]["FormatWidth"] == 3840
     assert resolve.project.render_jobs[0]["FormatHeight"] == 2160
+
+
+def test_prepare_and_start_fixed_audio_only_wav_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M46 Audio")
+    resolve.project.SetCurrentTimeline(timeline)
+    state = collect_bridge_state(resolve)
+
+    prepared = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "audio-prepare",
+            "prepare_render_job",
+            {
+                "custom_name": "M46 Dialogue Source",
+                "timeline_id": timeline.GetUniqueId(),
+                "profile": "audio-only-pcm-wav-v1",
+            },
+            idempotency_key="stable-audio-prepare",
+        ),
+    )
+
+    assert prepared["status"] == "success"
+    assert prepared["result"]["format"] == "Wave"
+    assert prepared["result"]["codec"] == ""
+    assert prepared["result"]["export_video"] is False
+    assert prepared["result"]["export_audio"] is True
+    assert prepared["result"]["audio_bit_depth"] == 16
+    assert prepared["result"]["audio_sample_rate"] == 48_000
+    assert Path(prepared["result"]["target_directory"]) == (
+        tmp_path
+        / "profile"
+        / "Videos"
+        / "DaVinciResolveAgent"
+        / "audio-sources"
+    )
+
+    started = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "audio-start",
+            "start_render_job",
+            {"job_id": prepared["result"]["job_id"]},
+            idempotency_key="stable-audio-start",
+        ),
+    )
+    assert started["status"] == "success"
+    assert started["result"]["started"] is True
+
+
+def test_invalid_audio_only_job_is_removed_before_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    resolve = FakeResolve()
+    resolve.project.force_invalid_audio_job = True
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M46 Audio")
+    resolve.project.SetCurrentTimeline(timeline)
+    state = collect_bridge_state(resolve)
+
+    response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "audio-invalid",
+            "prepare_render_job",
+            {
+                "custom_name": "M46 Invalid",
+                "timeline_id": timeline.GetUniqueId(),
+                "profile": "audio-only-pcm-wav-v1",
+            },
+        ),
+    )
+
+    assert response["status"] == "error"
+    assert response["error"]["code"] == "RENDER_JOB_POLICY_MISMATCH"
+    assert response["error"]["details"]["job_deleted"] is True
+    assert resolve.project.render_jobs == []
 
 
 def test_agent_prepared_render_job_starts_once_and_reports_status(

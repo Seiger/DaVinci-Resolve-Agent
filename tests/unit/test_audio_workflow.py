@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from agent.audio_workflow import (
+    LIMITER_PRESET_NAME,
     AudioReportInspector,
     AudioWorkflowError,
     DialogueAudioWorkflow,
@@ -72,6 +73,22 @@ def test_workflow_distinguishes_equal_content_at_different_paths(
     assert first["source"]["sha256"] == second["source"]["sha256"]
     assert first["report_id"] != second["report_id"]
     assert first["derived"]["path"] != second["derived"]["path"]
+
+
+def test_workflow_supports_versioned_peak_limiter_preset(tmp_path: Path) -> None:
+    source = tmp_path / "dialogue.wav"
+    _write_tone(source, 2_000)
+    workflow = DialogueAudioWorkflow(
+        output_root=tmp_path / "processed",
+        reports_root=tmp_path / "reports",
+    )
+
+    report = workflow.process(str(source), preset=LIMITER_PRESET_NAME)
+
+    validate_contract("audio-report", report)
+    assert report["preset"]["name"] == LIMITER_PRESET_NAME
+    assert report["processing"]["limiter_applied"] is True
+    assert report["validation"]["target_met"] is True
 
 
 def test_inspector_reads_and_lists_reports_without_paths(

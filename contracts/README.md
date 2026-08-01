@@ -90,5 +90,16 @@ one explicit approval to the canonical draft SHA-256 and keeps
 `apply_supported=false`. Approval never changes the deterministic draft.
 
 `audio-report.schema.json` defines the M6 before/after measurements, fixed
-preset parameters, source-preservation flag, derived asset, and target
-validation. It is also independent from the Resolve command protocol.
+versioned preset parameters, source-preservation flag, derived asset, and
+target validation. It accepts the original peak-guard v1 and deterministic
+limiter v2 while remaining independent from the Resolve command protocol.
+
+`finalized-audio-extraction.schema.json` defines the durable M46 receipt for
+one fixed `Audio Only` WAV prepare/start sequence bound to an applied M43
+timeline. It stores no arbitrary render settings and does not claim that the
+audio has already been cleaned or integrated back into the timeline.
+
+`finalized-audio-integration.schema.json` defines the durable M46 apply receipt.
+It binds one completed extraction to one validated limiter-v2 report, records
+the fixed A2 insertion and the exact source A1/V1 enable-state operations, and
+does not accept caller-supplied timeline item IDs or arbitrary processing data.

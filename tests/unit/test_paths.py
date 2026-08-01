@@ -4,8 +4,11 @@ from pathlib import Path, PureWindowsPath
 
 from agent.paths import (
     audio_reports_directory,
+    audio_source_directory,
     config_directory,
     diagnostics_directory,
+    finalized_audio_extractions_directory,
+    finalized_audio_integrations_directory,
     finalized_render_executions_directory,
     finalized_render_preparations_directory,
     picture_in_picture_directory,
@@ -61,6 +64,12 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     assert finalized_render_executions_directory(first_environment) == (
         first_runtime / "finalized-render-executions"
     )
+    assert finalized_audio_extractions_directory(first_environment) == (
+        first_runtime / "finalized-audio-extractions"
+    )
+    assert finalized_audio_integrations_directory(first_environment) == (
+        first_runtime / "finalized-audio-integrations"
+    )
     assert audio_reports_directory(first_environment) == (
         first_runtime / "audio-reports"
     )
@@ -78,4 +87,10 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
         / "Videos"
         / "DaVinciResolveAgent"
         / "renders"
+    )
+    assert audio_source_directory(first_environment) == (
+        Path(r"C:\Users\first-user")
+        / "Videos"
+        / "DaVinciResolveAgent"
+        / "audio-sources"
     )
