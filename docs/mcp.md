@@ -39,6 +39,7 @@ Write-інструменти M4:
 - `approve_rough_cut`.
 - `get_rough_cut_plan`.
 - `list_rough_cut_plans`.
+- `sync_screen_and_webcam`.
 - `preview_rough_cut_apply`.
 - `apply_rough_cut`.
 
@@ -279,3 +280,10 @@ TimelineItem IDs та `linked=true|false`. Інструмент працює л�
 MCP annotations позначають `resolve_delete_clip` як destructive, а решту
 write-tools — як non-destructive. Автоматичного відновлення проєкту немає;
 стратегія ручного відновлення описана в [rollback.md](rollback.md).
+
+`sync_screen_and_webcam` є non-destructive write workflow над наявними MCP
+primitives. Він вимагає `confirm_sync=true`, двох різних canonical asset IDs,
+нової назви timeline та offset від -30000 до 30000 мс. Позитивний offset
+розміщує webcam пізніше, негативний — screen пізніше. Мілісекунди округлюються
+до найближчого target timeline frame; source bounds залишаються у frames
+відповідного asset. `timeout_seconds` застосовується до кожного primitive.

@@ -10,6 +10,7 @@ from agent.paths import (
     processed_audio_directory,
     render_output_directory,
     runtime_directory,
+    synchronized_pairs_directory,
 )
 
 
@@ -41,6 +42,9 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
         Path(first_environment["APPDATA"]) / "DaVinciResolveAgent"
     )
     assert plans_directory(first_environment) == first_runtime / "plans"
+    assert synchronized_pairs_directory(first_environment) == (
+        first_runtime / "synchronized-pairs"
+    )
     assert audio_reports_directory(first_environment) == (
         first_runtime / "audio-reports"
     )

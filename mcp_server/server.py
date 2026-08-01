@@ -519,6 +519,26 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def sync_screen_and_webcam(
+        timeline_name: str,
+        screen_asset_id: str,
+        webcam_asset_id: str,
+        webcam_offset_ms: int,
+        confirm_sync: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Create a timeline and place synchronized screen V1/A1 + webcam V2."""
+        return await asyncio.to_thread(
+            service.sync_screen_and_webcam,
+            timeline_name=timeline_name,
+            screen_asset_id=screen_asset_id,
+            webcam_asset_id=webcam_asset_id,
+            webcam_offset_ms=webcam_offset_ms,
+            confirm_sync=confirm_sync,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
         preset: str = "pcm-dialogue-level-v1",

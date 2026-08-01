@@ -48,6 +48,12 @@ targets from 1 through 8. It requires backup and exposes no deletion, track
 renaming, arbitrary subtype, or raw `AddTrack` options; new audio tracks use
 the fixed `stereo` subtype.
 
+M38 adds `synchronized-pair-result.schema.json` for the local higher-level
+workflow rather than a new bridge action. It records bounded inputs, the new
+timeline, target FPS, three fixed placements, five allowlisted primitive
+results and final readback. `in_progress` receipts make partial execution
+resumable; the contract contains canonical asset IDs but no source paths.
+
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.

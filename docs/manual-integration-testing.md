@@ -182,3 +182,24 @@ ResolveBridge ручний сценарій має зафіксувати:
   the M36 write from `2026-07-31T18:44:07Z`;
 - result: `verified` and confirms that source FPS cannot be assumed to equal
   target timeline FPS; other Resolve versions and editions remain pending.
+
+### M38 synchronized pair assembly evidence
+
+- UTC execution: `2026-08-01T09:06:13Z` through `2026-08-01T09:07:04Z`;
+- platform: Windows 10 build 19045, Python 3.12.10;
+- Resolve: DaVinci Resolve 21.0.3.7 Free, edition operator-confirmed;
+- approved M5 synchronization input: `webcam_offset_ms=0`, correlation `1.0`;
+- target: one new `M38 Synchronized Pair Test`, canonical timeline ID
+  `5edf4ca3-8db0-44ef-a74f-40fbe08c51ec`, target FPS `24.0`;
+- source metadata: screen `447300` and webcam `447272` frames at `60.0` FPS;
+- track preparation: 1V/1A → 2V/1A;
+- readback: screen video on V1, screen audio on A1, webcam video on V2, all at
+  timeline start; three distinct canonical TimelineItem IDs;
+- Resolve clamped requested inclusive source ends by one to two frames to the
+  actual stream extents; bounded readback recorded `447297` and `447270`;
+- safety: five `.drp` backups for five initial primitive writes; replay returned
+  the identical SHA-256 receipt with no second timeline, item, or backup;
+- workflow audit: two successful `editing` records, neither containing inputs
+  nor results;
+- result: `verified` on this exact environment; positive/negative non-zero
+  offsets remain simulation-tested, and other versions/editions remain pending.

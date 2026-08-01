@@ -456,6 +456,31 @@ class StubRoughCutInspector:
         }
 
 
+class StubSynchronizedPairAssembler:
+    def __init__(self) -> None:
+        self.arguments: dict[str, Any] = {}
+
+    def assemble(
+        self,
+        *,
+        timeline_name: str,
+        screen_asset_id: str,
+        webcam_asset_id: str,
+        webcam_offset_ms: int,
+        confirm_sync: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.arguments = {
+            "timeline_name": timeline_name,
+            "screen_asset_id": screen_asset_id,
+            "webcam_asset_id": webcam_asset_id,
+            "webcam_offset_ms": webcam_offset_ms,
+            "confirm_sync": confirm_sync,
+            "timeout_seconds": timeout_seconds,
+        }
+        return {"status": "applied", "timeline": {"name": timeline_name}}
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -800,6 +825,36 @@ def test_application_inspects_plans_without_resolve_call() -> None:
         "list_rough_cut_plans",
     ]
     assert resolve.timeouts == []
+
+
+def test_application_runs_synchronized_pair_workflow() -> None:
+    assembler = StubSynchronizedPairAssembler()
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        synchronized_pair_assembler=assembler,
+        workflow_audit=audit,
+    )
+
+    result = application.sync_screen_and_webcam(
+        timeline_name="M38 Synced Pair",
+        screen_asset_id="screen",
+        webcam_asset_id="webcam",
+        webcam_offset_ms=200,
+        confirm_sync=True,
+        timeout_seconds=45,
+    )
+
+    assert result["status"] == "applied"
+    assert assembler.arguments == {
+        "timeline_name": "M38 Synced Pair",
+        "screen_asset_id": "screen",
+        "webcam_asset_id": "webcam",
+        "webcam_offset_ms": 200,
+        "confirm_sync": True,
+        "timeout_seconds": 45,
+    }
+    assert audit.operations == ["sync_screen_and_webcam"]
 
 
 def test_application_processes_audio_without_resolve_call() -> None:

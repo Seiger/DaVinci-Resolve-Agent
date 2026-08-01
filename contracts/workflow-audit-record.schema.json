@@ -42,13 +42,14 @@
         "approve_rough_cut",
         "get_rough_cut_plan",
         "list_rough_cut_plans",
+        "sync_screen_and_webcam",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports"
       ]
     },
     "category": {
-      "enum": ["rough_cut", "audio"]
+      "enum": ["rough_cut", "editing", "audio"]
     },
     "status": {
       "enum": ["running", "success", "error"]
@@ -89,8 +90,33 @@
       },
       "then": {
         "properties": {"category": {"const": "rough_cut"}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "sync_screen_and_webcam"
+          }
+        }
       },
-      "else": {
+      "then": {
+        "properties": {"category": {"const": "editing"}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "enum": [
+              "clean_dialogue_audio",
+              "get_audio_report",
+              "list_audio_reports"
+            ]
+          }
+        }
+      },
+      "then": {
         "properties": {"category": {"const": "audio"}}
       }
     },

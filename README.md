@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M37: timeline timing metadata**. Він
+Проєкт перебуває на етапі **Milestone M38: synchronized pair assembly**. Він
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -21,6 +21,10 @@ M37 додає до bounded editing metadata фактичний FPS цільов
 майбутня синхронна розкладка переводила мілісекунди у frames без припущень.
 Live readback у Resolve 21 Free 21.0.3.7 підтвердив 24 FPS для target timeline
 і 60 FPS для source asset без backup або зміни проєкту.
+M38 додає provider-neutral workflow `sync_screen_and_webcam`: він створює
+новий timeline, готує V1/A1/V2 та розміщує screen video, screen audio і webcam
+video з signed offset. Кожен write має окремий backup та derived idempotency
+key, а progress receipt дозволяє безпечно продовжити перервану операцію.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -278,6 +282,7 @@ Read-only інструменти:
 - `approve_rough_cut`.
 - `get_rough_cut_plan`.
 - `list_rough_cut_plans`.
+- `sync_screen_and_webcam`.
 
 Локальний audio-інструмент M6:
 
@@ -308,6 +313,14 @@ runtime-директорії. Деталі наведено в
 `get_rough_cut_plan` приймає canonical ID і повертає валідований draft,
 matching approval або `null`, effective status та `apply_supported=false`.
 Обидва інструменти read-only і не використовують ResolveBridge.
+
+`sync_screen_and_webcam` приймає нову назву timeline, canonical IDs screen і
+webcam assets, signed `webcam_offset_ms` у межах ±30 секунд та
+`confirm_sync=true`. Workflow створює новий timeline, забезпечує 2V/1A,
+конвертує offset за live target FPS і вставляє screen video на V1, screen audio
+на A1 та webcam video на V2. Webcam audio, trim, split і pause removal не
+виконуються. Результат перевіряється через bounded TimelineItem readback;
+фактичні stream extents після можливого Resolve clamp є авторитетними.
 
 `clean_dialogue_audio` працює без Resolve та приймає allowlisted 16-bit PCM
 WAV. Preset виконує детерміноване RMS leveling із peak guard, зберігає

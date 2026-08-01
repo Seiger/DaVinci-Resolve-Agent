@@ -27,6 +27,7 @@ from agent.rough_cut import (
     RoughCutReviewer,
 )
 from agent.rough_cut_apply import RoughCutApplier
+from agent.synchronized_pair import SynchronizedPairAssembler
 from providers.resolve import ResolveProviderClient
 
 MAX_COMMAND_TIMEOUT_SECONDS = 300.0
@@ -329,6 +330,22 @@ class RoughCutPlanApplier(Protocol):
         """Apply the supported plan to the copied timeline."""
 
 
+class SynchronizedPairWorkflow(Protocol):
+    """Provider-neutral synchronized screen/webcam assembly boundary."""
+
+    def assemble(
+        self,
+        *,
+        timeline_name: str,
+        screen_asset_id: str,
+        webcam_asset_id: str,
+        webcam_offset_ms: int,
+        confirm_sync: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Create and populate one synchronized V1/A1/V2 timeline."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -374,6 +391,7 @@ class AgentApplication:
         rough_cut_reviewer: RoughCutPlanReviewer | None = None,
         rough_cut_inspector: RoughCutPlanInspector | None = None,
         rough_cut_applier: RoughCutPlanApplier | None = None,
+        synchronized_pair_assembler: SynchronizedPairWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -385,6 +403,7 @@ class AgentApplication:
         self._rough_cut_reviewer = rough_cut_reviewer
         self._rough_cut_inspector = rough_cut_inspector
         self._rough_cut_applier = rough_cut_applier
+        self._synchronized_pair_assembler = synchronized_pair_assembler
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -1047,6 +1066,39 @@ class AgentApplication:
                 target_timeline_name,
                 confirm_apply=confirm_apply,
                 timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def sync_screen_and_webcam(
+        self,
+        *,
+        timeline_name: str,
+        screen_asset_id: str,
+        webcam_asset_id: str,
+        webcam_offset_ms: int,
+        confirm_sync: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Create a timeline and place one synchronized screen/webcam pair."""
+        return self._run_local_workflow(
+            "sync_screen_and_webcam",
+            lambda: self._synchronized_pair_service().assemble(
+                timeline_name=timeline_name,
+                screen_asset_id=screen_asset_id,
+                webcam_asset_id=webcam_asset_id,
+                webcam_offset_ms=webcam_offset_ms,
+                confirm_sync=confirm_sync,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _synchronized_pair_service(self) -> SynchronizedPairWorkflow:
+        if self._synchronized_pair_assembler is not None:
+            return self._synchronized_pair_assembler
+        return SynchronizedPairAssembler(
+            gateway=self._resolve,
+            capabilities=lambda: self.status()["bridge"].get(
+                "capabilities", {}
             ),
         )
 

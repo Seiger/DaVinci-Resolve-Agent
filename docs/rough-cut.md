@@ -108,6 +108,18 @@ canonical ID. Якщо approval відсутній, effective status залиш�
 `pending_review`; якщо його SHA-256 не відповідає draft, інструмент завершується
 помилкою. Обидва інструменти завжди повідомляють `apply_supported=false`.
 
+## M38: складання синхронної бази
+
+`sync_screen_and_webcam` реалізує лише підтриману частину майбутнього rough
+cut: створення нового timeline та синхронне розміщення screen V1/A1 і webcam
+V2. Він не застосовує старий M5 plan автоматично й не змінює його approval.
+Offset можна взяти з перевіреного плану, але MCP виклик явно передає canonical
+asset IDs, signed offset і `confirm_sync=true`.
+
+Це свідомо окремий workflow: M5 `remove_pauses` усе ще потребує відсутніх
+документованих trim/split/move mappings. M38 не оголошує весь plan
+`apply_supported=true` і не додає webcam audio.
+
 ## Деінсталяція
 
 Draft-плани зберігаються за замовчуванням. Для навмисного видалення разом з

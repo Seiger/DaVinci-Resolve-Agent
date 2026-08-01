@@ -19,6 +19,7 @@ WORKFLOW_CATEGORIES = {
     "approve_rough_cut": "rough_cut",
     "get_rough_cut_plan": "rough_cut",
     "list_rough_cut_plans": "rough_cut",
+    "sync_screen_and_webcam": "editing",
     "clean_dialogue_audio": "audio",
     "get_audio_report": "audio",
     "list_audio_reports": "audio",

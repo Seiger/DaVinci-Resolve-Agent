@@ -62,6 +62,13 @@ def rough_cut_apply_directory(
     return runtime_directory(environment) / "rough-cut-applies"
 
 
+def synchronized_pairs_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable progress receipts for synchronized pair assembly."""
+    return runtime_directory(environment) / "synchronized-pairs"
+
+
 def audio_reports_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

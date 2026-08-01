@@ -731,6 +731,26 @@ composition layer grounded in live metadata rather than a project-default or
 source-FPS assumption. Only the named `timelineFrameRate` setting is queried;
 raw timeline settings remain outside the contract.
 
+## M38 synchronized pair assembly
+
+```text
+MCP sync_screen_and_webcam
+ └─ capability + explicit-confirmation gate
+     └─ durable in-progress receipt
+         ├─ create new timeline
+         ├─ read target/source FPS and durations
+         ├─ ensure V1/A1/V2
+         ├─ insert screen V1 + screen A1 + webcam V2
+         └─ verify the three canonical TimelineItem IDs
+```
+
+M38 stays provider-neutral by depending on a small gateway protocol rather
+than Resolve objects. The Resolve provider continues to own each primitive.
+Progress is persisted after every step, while per-step idempotency receipts in
+the transport protect the gap between a successful provider write and the
+next local progress write. The workflow creates a new timeline instead of
+modifying an existing edit and never applies pause removal.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

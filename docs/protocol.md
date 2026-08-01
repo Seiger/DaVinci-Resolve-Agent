@@ -115,6 +115,27 @@ and requested asset `Frames`/`FPS`. It normalizes the target frame rate to a
 positive float, including the documented drop-frame suffix, and never returns
 a raw setting snapshot.
 
+## M38 synchronized pair workflow
+
+`sync_screen_and_webcam` is an application workflow, not a bridge action. It
+composes the existing `create_timeline`, `get_editing_metadata`,
+`ensure_timeline_tracks`, three `insert_clip` calls, and
+`list_timeline_items`. The fixed mapping is screen video V1, screen audio A1,
+and webcam video V2. A signed millisecond offset is converted with the live
+target timeline FPS; source ranges use each asset's own frame domain.
+The documented Resolve example treats `endFrame` as inclusive, so a full
+bounded asset range is `0..duration_frames-1`.
+Resolve may clamp that request to actual per-stream extents. The workflow keeps
+the requested placement separately and treats the bounded TimelineItem
+readback as authoritative; it rejects a non-positive or out-of-request range.
+
+Before the first write, the workflow requires verified `timeline.create`,
+`timeline.track.create`, `media.metadata.read`, `clip.insert`, and `clip.read`
+capabilities. Its SHA-256 receipt stores progress after each primitive. Every
+write derives a stable command idempotency key, so a retry resumes pending
+steps and a completed retry returns the stored result. It accepts no paths,
+raw clipInfo, arbitrary operation list, webcam audio, trim, split, or delete.
+
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
 YouTube 1080p or 2160p preset, verifies the matching documented MP4/H264

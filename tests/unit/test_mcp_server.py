@@ -370,6 +370,29 @@ class StubRoughCutInspector:
         }
 
 
+class StubSynchronizedPairAssembler:
+    def assemble(
+        self,
+        *,
+        timeline_name: str,
+        screen_asset_id: str,
+        webcam_asset_id: str,
+        webcam_offset_ms: int,
+        confirm_sync: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "status": "applied",
+            "timeline": {"timeline_id": "timeline-38", "name": timeline_name},
+            "inputs": {
+                "screen_asset_id": screen_asset_id,
+                "webcam_asset_id": webcam_asset_id,
+                "webcam_offset_ms": webcam_offset_ms,
+                "confirm_sync": confirm_sync,
+            },
+        }
+
+
 class StubAudioProcessor:
     def process(
         self,
@@ -428,6 +451,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         rough_cut_planner=StubRoughCutPlanner(),
         rough_cut_reviewer=StubRoughCutReviewer(),
         rough_cut_inspector=StubRoughCutInspector(),
+        synchronized_pair_assembler=StubSynchronizedPairAssembler(),
         audio_processor=StubAudioProcessor(),
         audio_report_inspector=StubAudioReportInspector(),
         workflow_audit=workflow_audit,
@@ -454,6 +478,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             get_plan_annotations = annotations["get_rough_cut_plan"]
             list_plans_annotations = annotations["list_rough_cut_plans"]
             audio_annotations = annotations["clean_dialogue_audio"]
+            sync_annotations = annotations["sync_screen_and_webcam"]
             get_audio_annotations = annotations["get_audio_report"]
             list_audio_annotations = annotations["list_audio_reports"]
             render_annotations = annotations["resolve_get_render_options"]
@@ -474,6 +499,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert get_plan_annotations is not None
             assert list_plans_annotations is not None
             assert audio_annotations is not None
+            assert sync_annotations is not None
             assert get_audio_annotations is not None
             assert list_audio_annotations is not None
             assert render_annotations is not None
@@ -492,6 +518,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert get_plan_annotations.read_only_hint is True
             assert list_plans_annotations.read_only_hint is True
             assert audio_annotations.read_only_hint is False
+            assert sync_annotations.read_only_hint is False
             assert get_audio_annotations.read_only_hint is True
             assert list_audio_annotations.read_only_hint is True
             assert render_annotations.read_only_hint is True
@@ -662,6 +689,16 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                     "list_rough_cut_plans",
                     {"limit": 10},
                 ),
+                "synced": await client.call_tool(
+                    "sync_screen_and_webcam",
+                    {
+                        "timeline_name": "M38 Synced Pair",
+                        "screen_asset_id": "screen",
+                        "webcam_asset_id": "webcam",
+                        "webcam_offset_ms": 200,
+                        "confirm_sync": True,
+                    },
+                ),
                 "audio": await client.call_tool(
                     "clean_dialogue_audio",
                     {"source_file": "dialogue.wav"},
@@ -712,6 +749,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "list_rough_cut_plans",
             "preview_rough_cut_apply",
             "apply_rough_cut",
+            "sync_screen_and_webcam",
             "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",
@@ -783,6 +821,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "effective_status"
     ] == "pending_review"
     assert results["rough_cut_plans"].structured_content["count"] == 1
+    assert results["synced"].structured_content["status"] == "applied"
     assert results["audio"].structured_content["status"] == "completed"
     assert results["audio_detail"].structured_content["status"] == "completed"
     assert results["audio_reports"].structured_content["count"] == 1
@@ -791,6 +830,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "approve_rough_cut",
         "get_rough_cut_plan",
         "list_rough_cut_plans",
+        "sync_screen_and_webcam",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

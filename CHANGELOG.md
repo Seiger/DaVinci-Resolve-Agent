@@ -9,6 +9,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M38 provider-neutral `sync_screen_and_webcam` workflow for a new V1/A1/V2
+  timeline using live target FPS and bounded signed synchronization offset.
+- Durable step-level progress receipt, derived primitive idempotency keys,
+  capability gate, explicit confirmation, and final TimelineItem readback.
+- Privacy-preserving `editing` workflow audit category without asset IDs or
+  operation results in audit records.
+- Resolve 21 Free 21.0.3.7 live verification of one 24 FPS timeline, exact
+  V1/A1/V2 item mapping, five initial backups, and zero replay writes.
 - M37 documented target timeline frame-rate discovery in bounded editing
   metadata, without exposing raw timeline settings.
 - Resolve 21 Free 21.0.3.7 live verification of a 24 FPS target timeline and
