@@ -24,7 +24,7 @@ class StubPreviewer:
         plan_id: str,
         synchronized_pair_receipt_id: str,
         target_timeline_name: str,
-        timeout_seconds: float,
+        timeout_seconds: float = 30,
     ) -> dict[str, Any]:
         self.calls += 1
         placements = [

@@ -80,6 +80,37 @@ class StubResolveReader:
             ],
         }
 
+    def subtitle_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "subtitle_track_count": 0,
+            "subtitle_item_count": 0,
+            "tracks": [],
+            "auto_caption": {"method_available": True},
+        }
+
+    def create_subtitles_from_audio(
+        self,
+        timeline_id: str,
+        *,
+        confirm_create: bool,
+        timeout_seconds: float = 300,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        assert confirm_create is True
+        assert idempotency_key == "stable-key"
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "subtitle_environment": {"subtitle_item_count": 1},
+        }
+
     def workspace_snapshot(
         self,
         timeout_seconds: float = 30,
@@ -180,6 +211,26 @@ class StubResolveReader:
         self.timeouts.append(timeout_seconds)
         return {"timeline_id": timeline_id, "asset_id": asset_id}
 
+    def append_subtitle_file(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        subtitle_path: str,
+        import_idempotency_key: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "asset_id": asset_id,
+            "subtitle_path": subtitle_path,
+            "import_idempotency_key": import_idempotency_key,
+            "confirm_apply": confirm_apply,
+        }
+
     def insert_clip(
         self,
         timeline_id: str,
@@ -205,6 +256,17 @@ class StubResolveReader:
                 "track_index": track_index,
             },
         }
+
+    def insert_clips(
+        self,
+        timeline_id: str,
+        placements: list[dict[str, Any]],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {"timeline_id": timeline_id, "items": placements}
 
     def set_clip_enabled(
         self,
@@ -239,6 +301,18 @@ class StubResolveReader:
             "linked": linked,
         }
 
+    def set_clip_link_groups(
+        self,
+        timeline_id: str,
+        groups: list[list[str]],
+        linked: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {"timeline_id": timeline_id, "groups": groups, "linked": linked}
+
     def set_clip_transform(
         self,
         timeline_id: str,
@@ -264,6 +338,17 @@ class StubResolveReader:
                 "opacity_percent": opacity_percent,
             },
         }
+
+    def set_clip_transforms(
+        self,
+        timeline_id: str,
+        items: list[dict[str, Any]],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {"timeline_id": timeline_id, "items": items}
 
     def delete_clip(
         self,
@@ -791,6 +876,11 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
     )
     assert editing_metadata["assets"][0]["frame_rate"] == 60.0
     assert editing_metadata["timeline"]["frame_rate"] == 60.0
+    subtitle_environment = application.resolve_get_subtitle_environment(
+        "timeline-1", 37.75
+    )
+    assert subtitle_environment["subtitle_track_count"] == 0
+    assert subtitle_environment["auto_caption"]["method_available"] is True
     assert application.resolve_get_workspace_snapshot(38)["project"]["name"] == (
         "Test Project"
     )
@@ -798,7 +888,18 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
         "format": "mp4",
         "codec": "H264",
     }
-    assert resolve.timeouts == [10, 12, 20, 30, 35, 37, 37.5, 38, 40]
+    assert resolve.timeouts == [
+        10,
+        12,
+        20,
+        30,
+        35,
+        37,
+        37.5,
+        37.75,
+        38,
+        40,
+    ]
 
 
 def test_application_exposes_validated_write_methods() -> None:
@@ -817,6 +918,13 @@ def test_application_exposes_validated_write_methods() -> None:
         "M4 Timeline",
         timeout_seconds=20,
     )
+    subtitles = application.resolve_create_subtitles_from_audio(
+        "timeline-1",
+        confirm_create=True,
+        timeout_seconds=25,
+        idempotency_key="stable-key",
+    )
+    assert subtitles["subtitle_environment"]["subtitle_item_count"] == 1
     tracks = application.resolve_ensure_timeline_tracks(
         "timeline-1",
         2,
@@ -920,6 +1028,7 @@ def test_application_exposes_validated_write_methods() -> None:
     assert resolve.timeouts == [
         10,
         20,
+        25,
         21,
         22,
         25,

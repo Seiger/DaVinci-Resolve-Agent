@@ -19,7 +19,10 @@ param(
     [bool]$PreserveProcessedAudio = $true,
 
     [Parameter(Mandatory = $false)]
-    [bool]$PreserveRenderOutput = $true
+    [bool]$PreserveRenderOutput = $true,
+
+    [Parameter(Mandatory = $false)]
+    [bool]$PreserveSubtitleOutput = $true
 )
 
 Set-StrictMode -Version Latest
@@ -151,6 +154,16 @@ if (
     Write-Host "Removed rendered outputs: $($paths.RenderOutputRoot)"
 } elseif ($PreserveRenderOutput) {
     Write-Host "Preserved rendered outputs: $($paths.RenderOutputRoot)"
+}
+
+if (
+    -not $PreserveSubtitleOutput -and
+    (Test-Path -LiteralPath $paths.SubtitleOutputRoot)
+) {
+    Remove-Item -LiteralPath $paths.SubtitleOutputRoot -Recurse -Force
+    Write-Host "Removed generated subtitles: $($paths.SubtitleOutputRoot)"
+} elseif ($PreserveSubtitleOutput) {
+    Write-Host "Preserved generated subtitles: $($paths.SubtitleOutputRoot)"
 }
 
 Write-Host "Uninstallation completed. Repository, media, and Resolve projects were not removed."

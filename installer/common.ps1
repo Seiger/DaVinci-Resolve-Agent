@@ -94,6 +94,10 @@ function Get-AgentPaths {
         BackupsRoot = Join-Path $runtimeRoot "backups"
         PlansRoot = Join-Path $runtimeRoot "plans"
         AudioReportsRoot = Join-Path $runtimeRoot "audio-reports"
+        SubtitleReceiptsRoot = Join-Path $runtimeRoot "subtitle-receipts"
+        TranscriptionModelsRoot = Join-Path (
+            Join-Path $runtimeRoot "models"
+        ) "faster-whisper"
         DiagnosticsRoot = Join-Path $runtimeRoot "diagnostics"
         ProcessedAudioRoot = Join-Path (
             Join-Path (
@@ -105,6 +109,11 @@ function Get-AgentPaths {
                 Join-Path $env:USERPROFILE "Videos"
             ) $script:ApplicationDirectoryName
         ) "renders"
+        SubtitleOutputRoot = Join-Path (
+            Join-Path (
+                Join-Path $env:USERPROFILE "Videos"
+            ) $script:ApplicationDirectoryName
+        ) "subtitles"
         BridgeStateFile = Join-Path (Join-Path $runtimeRoot "state") "bridge.json"
         ResolveScriptsRoot = $resolveScriptsRoot
         BridgeSource = Join-Path $RepositoryRoot "bridges\resolve\ResolveBridge.py"

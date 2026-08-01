@@ -9,8 +9,10 @@ description = "Provider-neutral local automation framework for video editors"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
+  "faster-whisper==1.2.1",
   "jsonschema>=4.23,<5",
   "mcp>=2.0,<3",
+  "numpy>=1.23.5,<2.3",
   "tomli>=2.0.1; python_version < '3.11'",
 ]
 
@@ -38,6 +40,7 @@ packages = [
   "providers",
   "providers.audio",
   "providers.resolve",
+  "providers.transcription",
   "transports",
 ]
 include-package-data = true

@@ -137,6 +137,32 @@ def processed_audio_directory(
     )
 
 
+def subtitle_output_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return the durable per-user generated subtitle directory."""
+    return (
+        Path(_environment_value("USERPROFILE", environment))
+        / "Videos"
+        / APPLICATION_DIRECTORY_NAME
+        / "subtitles"
+    )
+
+
+def transcription_models_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return the managed local cache for speech-to-text models."""
+    return runtime_directory(environment) / "models" / "faster-whisper"
+
+
+def subtitle_receipts_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for generated subtitle applications."""
+    return runtime_directory(environment) / "subtitle-receipts"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

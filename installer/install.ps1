@@ -91,9 +91,12 @@ foreach ($runtimeDirectory in @(
     $paths.BackupsRoot,
     $paths.PlansRoot,
     $paths.AudioReportsRoot,
+    $paths.SubtitleReceiptsRoot,
+    $paths.TranscriptionModelsRoot,
     $paths.DiagnosticsRoot,
     $paths.ProcessedAudioRoot,
     $paths.RenderOutputRoot,
+    $paths.SubtitleOutputRoot,
     $paths.LogsRoot
 )) {
     New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null

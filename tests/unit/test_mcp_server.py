@@ -71,6 +71,35 @@ class StubResolveReader:
             ],
         }
 
+    def subtitle_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "timeline_id": timeline_id,
+            "subtitle_track_count": 0,
+            "subtitle_item_count": 0,
+            "tracks": [],
+            "auto_caption": {"method_available": True},
+        }
+
+    def create_subtitles_from_audio(
+        self,
+        timeline_id: str,
+        *,
+        confirm_create: bool,
+        timeout_seconds: float = 300,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        assert confirm_create is True
+        return {
+            "timeline_id": timeline_id,
+            "policy": {"language": "auto"},
+            "subtitle_environment": {"subtitle_item_count": 1},
+        }
+
     def workspace_snapshot(
         self,
         timeout_seconds: float = 30,
@@ -163,6 +192,25 @@ class StubResolveReader:
     ) -> dict[str, Any]:
         return {"timeline_id": timeline_id, "asset_id": asset_id}
 
+    def append_subtitle_file(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        subtitle_path: str,
+        import_idempotency_key: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline_id": timeline_id,
+            "asset_id": asset_id,
+            "subtitle_path": subtitle_path,
+            "import_idempotency_key": import_idempotency_key,
+            "confirm_apply": confirm_apply,
+        }
+
     def insert_clip(
         self,
         timeline_id: str,
@@ -187,6 +235,16 @@ class StubResolveReader:
                 "track_index": track_index,
             },
         }
+
+    def insert_clips(
+        self,
+        timeline_id: str,
+        placements: list[dict[str, Any]],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"timeline_id": timeline_id, "items": placements}
 
     def set_clip_enabled(
         self,
@@ -219,6 +277,17 @@ class StubResolveReader:
             "linked": linked,
         }
 
+    def set_clip_link_groups(
+        self,
+        timeline_id: str,
+        groups: list[list[str]],
+        linked: bool,
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"timeline_id": timeline_id, "groups": groups, "linked": linked}
+
     def set_clip_transform(
         self,
         timeline_id: str,
@@ -243,6 +312,16 @@ class StubResolveReader:
                 "opacity_percent": opacity_percent,
             },
         }
+
+    def set_clip_transforms(
+        self,
+        timeline_id: str,
+        items: list[dict[str, Any]],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {"timeline_id": timeline_id, "items": items}
 
     def delete_clip(
         self,
@@ -604,6 +683,20 @@ class StubAudioReportInspector:
         }
 
 
+class StubSubtitleGenerator:
+    def generate(
+        self,
+        source_file: str,
+        timeline_id: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 300,
+    ) -> dict[str, Any]:
+        assert source_file == "dialogue.wav"
+        assert confirm_apply is True
+        return {"status": "applied", "timeline_id": timeline_id}
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -648,6 +741,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         finalized_audio_integrator=StubFinalizedAudioIntegrator(),
         audio_processor=StubAudioProcessor(),
         audio_report_inspector=StubAudioReportInspector(),
+        subtitle_generator=StubSubtitleGenerator(),
         workflow_audit=workflow_audit,
     )
     server = create_server(application)
@@ -709,6 +803,12 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             get_audio_annotations = annotations["get_audio_report"]
             list_audio_annotations = annotations["list_audio_reports"]
             render_annotations = annotations["resolve_get_render_options"]
+            subtitle_annotations = annotations[
+                "resolve_get_subtitle_environment"
+            ]
+            create_subtitle_annotations = annotations[
+                "resolve_create_subtitles_from_audio"
+            ]
             prepare_annotations = annotations["resolve_prepare_render_job"]
             job_status_annotations = annotations[
                 "resolve_get_render_job_status"
@@ -741,6 +841,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert get_audio_annotations is not None
             assert list_audio_annotations is not None
             assert render_annotations is not None
+            assert subtitle_annotations is not None
+            assert create_subtitle_annotations is not None
             assert prepare_annotations is not None
             assert job_status_annotations is not None
             assert start_annotations is not None
@@ -771,6 +873,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert get_audio_annotations.read_only_hint is True
             assert list_audio_annotations.read_only_hint is True
             assert render_annotations.read_only_hint is True
+            assert subtitle_annotations.read_only_hint is True
+            assert create_subtitle_annotations.read_only_hint is False
             assert prepare_annotations.read_only_hint is False
             assert job_status_annotations.read_only_hint is True
             assert start_annotations.read_only_hint is False
@@ -803,6 +907,22 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                 "editing_metadata": await client.call_tool(
                     "resolve_get_editing_metadata",
                     {"timeline_id": "timeline-1", "asset_ids": ["asset-1"]},
+                ),
+                "subtitles": await client.call_tool(
+                    "resolve_get_subtitle_environment",
+                    {"timeline_id": "timeline-1"},
+                ),
+                "created_subtitles": await client.call_tool(
+                    "resolve_create_subtitles_from_audio",
+                    {"timeline_id": "timeline-1", "confirm_create": True},
+                ),
+                "generated_subtitles": await client.call_tool(
+                    "generate_subtitles",
+                    {
+                        "source_file": "dialogue.wav",
+                        "timeline_id": "timeline-1",
+                        "confirm_apply": True,
+                    },
                 ),
                 "snapshot": await client.call_tool(
                     "resolve_get_workspace_snapshot",
@@ -1064,6 +1184,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_list_timeline_items",
         "resolve_list_media_pool_items",
         "resolve_get_editing_metadata",
+        "resolve_get_subtitle_environment",
+        "resolve_create_subtitles_from_audio",
+        "generate_subtitles",
         "resolve_get_workspace_snapshot",
         "resolve_get_render_options",
         "resolve_import_media",
@@ -1127,6 +1250,16 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["editing_metadata"].structured_content["timeline"][
         "frame_rate"
     ] == 60.0
+    assert results["subtitles"].structured_content["subtitle_track_count"] == 0
+    assert results["created_subtitles"].structured_content[
+        "subtitle_environment"
+    ]["subtitle_item_count"] == 1
+    assert results["generated_subtitles"].structured_content["status"] == (
+        "applied"
+    )
+    assert results["subtitles"].structured_content["auto_caption"][
+        "method_available"
+    ] is True
     assert results["snapshot"].structured_content["project"]["name"] == (
         "Test Project"
     )

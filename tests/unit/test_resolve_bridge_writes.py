@@ -158,8 +158,10 @@ class FakeTimeline:
         self._project: FakeProject | None = None
         self.markers: dict[int, dict[str, Any]] = {}
         self.items: list[FakeTimelineItem] = []
-        self.track_counts = {"video": 1, "audio": 1}
+        self.track_counts = {"video": 1, "audio": 1, "subtitle": 0}
         self.added_tracks: list[tuple[str, str | None]] = []
+        self.subtitle_settings: dict[object, object] | None = None
+        self.current_timecode = "01:00:10:00"
 
     def GetUniqueId(self) -> str:
         return self._timeline_id
@@ -183,6 +185,12 @@ class FakeTimeline:
     def GetStartFrame(self) -> int:
         return 86400
 
+    def GetEndFrame(self) -> int:
+        return max(
+            [86400]
+            + [item.GetEnd(False) for item in self.items]
+        )
+
     def GetSetting(self, name: str) -> str:
         settings = {
             "timelineResolutionWidth": "1920",
@@ -191,9 +199,24 @@ class FakeTimeline:
         }
         return settings[name]
 
+    def GetStartTimecode(self) -> str:
+        return "01:00:00:00"
+
+    def GetCurrentTimecode(self) -> str:
+        return self.current_timecode
+
+    def SetCurrentTimecode(self, timecode: str) -> bool:
+        self.current_timecode = timecode
+        return True
+
     def GetTrackCount(self, track_type: str) -> int:
-        assert track_type in {"video", "audio"}
+        assert track_type in {"video", "audio", "subtitle"}
         return self.track_counts[track_type]
+
+    def GetTrackName(self, track_type: str, track_index: int) -> str:
+        assert track_type == "subtitle"
+        assert track_index == 1
+        return "Subtitles 1"
 
     def AddTrack(
         self,
@@ -224,6 +247,21 @@ class FakeTimeline:
             for item in self.items
             if item.GetTrackTypeAndIndex() == [track_type, track_index]
         ]
+
+    def CreateSubtitlesFromAudio(self, settings: dict[object, object]) -> bool:
+        self.subtitle_settings = settings
+        self.track_counts["subtitle"] = 1
+        self.items.append(
+            FakeTimelineItem(
+                "subtitle-1",
+                "Generated caption",
+                timeline_start=86400,
+                timeline_end=86460,
+                track_type="subtitle",
+                track_index=1,
+            )
+        )
+        return True
 
     def DeleteClips(
         self,
@@ -324,6 +362,19 @@ class FakeMediaPool:
             return inserted
         media_items = cast(list[FakeMediaItem], items)
         self.appended.extend(media_items)
+        if media_items[0].GetName().casefold().endswith(".srt"):
+            subtitle = FakeTimelineItem(
+                "subtitle-import-1",
+                "Imported subtitle",
+                timeline_start=86424,
+                timeline_end=86448,
+                track_type="subtitle",
+                track_index=1,
+            )
+            if self._project.current_timeline is not None:
+                self._project.current_timeline.track_counts["subtitle"] = 1
+                self._project.current_timeline.items.append(subtitle)
+            return [subtitle]
         item = FakeTimelineItem(
             f"item-{len(self.appended)}",
             media_items[0].GetName(),
@@ -523,6 +574,15 @@ class FakeProjectManager:
 
 
 class FakeResolve:
+    SUBTITLE_LANGUAGE = "subtitle_language"
+    SUBTITLE_CAPTION_PRESET = "subtitle_caption_preset"
+    SUBTITLE_CHARS_PER_LINE = "subtitle_chars_per_line"
+    SUBTITLE_LINE_BREAK = "subtitle_line_break"
+    SUBTITLE_GAP = "subtitle_gap"
+    AUTO_CAPTION_AUTO = "auto"
+    AUTO_CAPTION_SUBTITLE_DEFAULT = "default"
+    AUTO_CAPTION_LINE_SINGLE = "single"
+
     def __init__(self) -> None:
         self.project = FakeProject()
         self.project_manager = FakeProjectManager(self.project)
@@ -591,6 +651,97 @@ def _run_command(
             )
         ),
     )
+
+
+def test_create_subtitles_uses_fixed_policy_backup_and_readback(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Caption Test")
+    resolve.project.current_timeline = timeline
+    state = collect_bridge_state(resolve)
+
+    response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "command-subtitles",
+            "create_subtitles_from_audio",
+            {"timeline_id": timeline.GetUniqueId(), "confirm_create": True},
+        ),
+    )
+
+    assert response["status"] == "success"
+    result = response["result"]
+    assert result["previous_subtitle_item_count"] == 0
+    assert result["subtitle_environment"]["subtitle_item_count"] == 1
+    assert result["subtitle_environment"]["auto_caption"]["verified"] is True
+    assert timeline.subtitle_settings == {
+        "subtitle_language": "auto",
+        "subtitle_caption_preset": "default",
+        "subtitle_chars_per_line": 42,
+        "subtitle_line_break": "single",
+        "subtitle_gap": 0,
+    }
+    assert resolve.project_manager.export_count == 1
+    assert state["capabilities"]["subtitle.auto_caption"] is True
+
+
+def test_append_subtitle_file_uses_import_receipt_and_append_frame(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Subtitle Placement")
+    resolve.project.current_timeline = timeline
+    state = collect_bridge_state(resolve)
+    media_root = tmp_path / "media"
+    media_root.mkdir()
+    subtitle_path = media_root / "captions.srt"
+    subtitle_path.write_text(
+        "1\n00:00:01,000 --> 00:00:02,000\nTest\n",
+        encoding="utf-8",
+    )
+    directories = ensure_runtime_directories(tmp_path)
+    (directories["state"] / "media-policy.json").write_text(
+        json.dumps({"policy_version": "1.0", "allowed_roots": [str(media_root)]}),
+        encoding="utf-8",
+    )
+    imported = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "import-subtitle",
+            "import_media",
+            {"paths": [str(subtitle_path.resolve())]},
+            idempotency_key="subtitle-import-key",
+        ),
+    )
+    asset_id = imported["result"]["items"][0]["asset_id"]
+
+    response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "append-subtitle",
+            "append_subtitle_file",
+            {
+                "timeline_id": timeline.GetUniqueId(),
+                "asset_id": asset_id,
+                "subtitle_path": str(subtitle_path.resolve()),
+                "import_idempotency_key": "subtitle-import-key",
+                "confirm_apply": True,
+            },
+        ),
+    )
+
+    assert response["status"] == "success"
+    assert response["result"]["timeline_start_frame"] == 86400
+    assert response["result"]["append_frame"] == 86400
+    assert response["result"]["items"][0]["timeline_start_frame"] == 86424
+    assert state["capabilities"]["subtitle.import"] is True
 
 
 def test_write_operations_create_backups_and_structured_results(

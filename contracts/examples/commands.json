@@ -100,6 +100,28 @@
   },
   {
     "protocol_version": "1.0",
+    "command_id": "example-get-subtitle-environment",
+    "idempotency_key": "example-get-subtitle-environment",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "get_subtitle_environment",
+    "arguments": {"timeline_id": "timeline-1"},
+    "safety": {"allow_destructive": false, "create_backup": false}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-create-subtitles-from-audio",
+    "idempotency_key": "example-create-subtitles-from-audio",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "create_subtitles_from_audio",
+    "arguments": {"timeline_id": "timeline-1", "confirm_create": true},
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
     "command_id": "example-get-editing-metadata",
     "idempotency_key": "example-get-editing-metadata",
     "created_at": "2026-07-30T12:00:00Z",
@@ -210,6 +232,23 @@
     "provider": "resolve",
     "action": "append_clip",
     "arguments": {"timeline_id": "timeline-1", "asset_id": "asset-1"},
+    "safety": {"allow_destructive": false, "create_backup": true}
+  },
+  {
+    "protocol_version": "1.0",
+    "command_id": "example-append-subtitle-file",
+    "idempotency_key": "example-append-subtitle-file",
+    "created_at": "2026-07-30T12:00:00Z",
+    "expires_at": "2026-07-30T12:05:00Z",
+    "provider": "resolve",
+    "action": "append_subtitle_file",
+    "arguments": {
+      "timeline_id": "timeline-1",
+      "asset_id": "subtitle-asset-1",
+      "subtitle_path": "C:/Videos/DaVinciResolveAgent/subtitles/captions.srt",
+      "import_idempotency_key": "subtitle-import-1",
+      "confirm_apply": true
+    },
     "safety": {"allow_destructive": false, "create_backup": true}
   },
   {

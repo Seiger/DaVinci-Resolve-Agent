@@ -32,6 +32,7 @@ class StubCommandClient:
             "duplicate_timeline",
             "set_current_timeline",
             "append_clip",
+            "append_subtitle_file",
             "insert_clip",
             "insert_clips",
             "set_clip_enabled",
@@ -41,6 +42,7 @@ class StubCommandClient:
             "set_clip_transforms",
             "delete_clip",
             "add_marker",
+            "create_subtitles_from_audio",
             "prepare_render_job",
             "start_render_job",
         }:
@@ -57,6 +59,10 @@ class StubCommandClient:
                 "timeline_id": "timeline-1",
                 "asset_ids": ["asset-1"],
             }
+            assert create_backup is False
+            assert allow_destructive is False
+        elif action == "get_subtitle_environment":
+            assert arguments == {"timeline_id": "timeline-1"}
             assert create_backup is False
             assert allow_destructive is False
         elif action == "get_render_job_status":
@@ -120,6 +126,19 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                     }
                 ],
             },
+            "get_subtitle_environment": {
+                "timeline_id": "timeline-1",
+                "subtitle_track_count": 0,
+                "subtitle_item_count": 0,
+                "tracks": [],
+                "auto_caption": {"method_available": True},
+            },
+            "create_subtitles_from_audio": {
+                "timeline_id": "timeline-1",
+                "policy": {"language": "auto"},
+                "subtitle_environment": {"subtitle_item_count": 1},
+                "backup_path": "backup.drp",
+            },
             "get_workspace_snapshot": {
                 "bridge": {"bridge_version": "0.1.0"},
                 "project": {"name": "Test Project"},
@@ -149,6 +168,13 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                     "timeline_id": "timeline-1",
                     "name": "M4 Timeline",
                 }
+            },
+            "append_subtitle_file": {
+                "timeline_id": "timeline-1",
+                "asset_id": "asset-1",
+                "items": [{"timeline_item_id": "subtitle-1"}],
+                "timeline_start_frame": 86400,
+                "timeline_frame_rate": 24.0,
             },
             "ensure_timeline_tracks": {
                 "timeline": {"timeline_id": "timeline-1"},
@@ -269,6 +295,14 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     assert editing_metadata["timeline"]["frame_rate"] == 60.0
     assert editing_metadata["timeline"]["resolution_width"] == 1920
     assert editing_metadata["timeline"]["resolution_height"] == 1080
+    assert client.subtitle_environment("timeline-1")[
+        "subtitle_track_count"
+    ] == 0
+    assert client.create_subtitles_from_audio(
+        "timeline-1",
+        confirm_create=True,
+        idempotency_key="stable-key",
+    )["subtitle_environment"]["subtitle_item_count"] == 1
     assert client.workspace_snapshot()["project"]["name"] == "Test Project"
     assert client.render_environment()["current"]["format"] == "mp4"
     assert client.import_media(
@@ -299,6 +333,14 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "asset-1",
         idempotency_key="stable-key",
     )["asset_id"] == "asset-1"
+    assert client.append_subtitle_file(
+        "timeline-1",
+        "asset-1",
+        "C:/Videos/captions.srt",
+        "subtitle-import-key",
+        confirm_apply=True,
+        idempotency_key="stable-key",
+    )["items"][0]["timeline_item_id"] == "subtitle-1"
     assert client.insert_clip(
         "timeline-1",
         "asset-1",
@@ -389,6 +431,8 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "list_timeline_items",
         "list_media_pool_items",
         "get_editing_metadata",
+        "get_subtitle_environment",
+        "create_subtitles_from_audio",
         "get_workspace_snapshot",
         "get_render_environment",
         "import_media",
@@ -397,6 +441,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "duplicate_timeline",
         "set_current_timeline",
         "append_clip",
+        "append_subtitle_file",
         "insert_clip",
         "insert_clips",
         "set_clip_enabled",

@@ -9,6 +9,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M47 read-only subtitle environment discovery for one canonical timeline,
+  including bounded subtitle tracks/items and documented native auto-caption
+  method/constant availability without invoking an AI operation.
+- MCP `resolve_get_subtitle_environment` with `subtitle.read` capability
+  evidence while `subtitle.auto_caption` remains unknown until a successful
+  confirmed live write.
+- Backup-backed `resolve_create_subtitles_from_audio` with explicit
+  confirmation, fixed automatic-language/default-preset policy, idempotency,
+  and mandatory bounded subtitle readback.
+- Local pinned faster-whisper transcription, deterministic UTF-8 SRT output,
+  receipt-bound Resolve import/append workflow, verified append-anchor
+  placement, strict canonical-item readback, and a durable M47
+  subtitle-generation receipt.
 - M46 streaming PCM analysis/processing for multi-gigabyte WAV inputs without
   loading the complete sample array into memory.
 - Versioned `pcm-dialogue-limit-v2` preset with deterministic limiting,

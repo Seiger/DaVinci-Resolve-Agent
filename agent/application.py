@@ -18,6 +18,7 @@ from agent.finalized_audio_integration import FinalizedAudioIntegrator
 from agent.finalized_render import FinalizedRenderPreparer
 from agent.finalized_render_execution import FinalizedRenderExecutor
 from agent.media import MediaPolicy
+from agent.paths import transcription_models_directory
 from agent.pause_compaction import PauseCompactionApplier, PauseCompactionPreviewer
 from agent.pause_compaction_finalize import PauseCompactionFinalizer
 from agent.picture_in_picture import PictureInPictureComposer
@@ -34,9 +35,11 @@ from agent.rough_cut import (
     RoughCutReviewer,
 )
 from agent.rough_cut_apply import RoughCutApplier
+from agent.subtitles import SubtitleGenerator
 from agent.synchronized_link import SynchronizedScreenLinker
 from agent.synchronized_pair import SynchronizedPairAssembler
 from providers.resolve import ResolveProviderClient
+from providers.transcription import FasterWhisperTranscriber
 
 MAX_COMMAND_TIMEOUT_SECONDS = 300.0
 MAX_FRAME_VALUE = 2_147_483_647
@@ -81,6 +84,24 @@ class ResolveReader(Protocol):
         timeout_seconds: float = 30,
     ) -> dict[str, Any]:
         """Return placement-relevant media metadata and target track counts."""
+
+    def subtitle_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return bounded subtitle tracks and native auto-caption availability."""
+
+    def create_subtitles_from_audio(
+        self,
+        timeline_id: str,
+        *,
+        confirm_create: bool,
+        timeout_seconds: float = 300,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create fixed-policy native subtitles after project backup."""
 
     def workspace_snapshot(
         self,
@@ -157,6 +178,19 @@ class ResolveReader(Protocol):
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Append an asset to a timeline."""
+
+    def append_subtitle_file(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        subtitle_path: str,
+        import_idempotency_key: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Append one receipt-bound SRT and report its placement anchor."""
 
     def insert_clip(
         self,
@@ -573,6 +607,20 @@ class WorkflowOperationAuditor(Protocol):
         """Run one allowlisted local operation with lifecycle audit."""
 
 
+class SubtitleGenerationWorkflow(Protocol):
+    """Local transcription and provider subtitle-application workflow."""
+
+    def generate(
+        self,
+        source_file: str,
+        timeline_id: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 300,
+    ) -> dict[str, Any]:
+        """Generate and apply one bounded subtitle artifact."""
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -597,6 +645,7 @@ class AgentApplication:
         finalized_audio_integrator: FinalizedAudioIntegrationWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
+        subtitle_generator: SubtitleGenerationWorkflow | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -618,6 +667,7 @@ class AgentApplication:
         self._finalized_audio_integrator = finalized_audio_integrator
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
+        self._subtitle_generator = subtitle_generator
         self._workflow_audit = workflow_audit
 
     def status(
@@ -710,6 +760,63 @@ class AgentApplication:
         return self._resolve.editing_metadata(
             timeline_id,
             asset_ids,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+        )
+
+    def resolve_get_subtitle_environment(
+        self,
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Read subtitle tracks and documented native API availability."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        return self._resolve.subtitle_environment(
+            timeline_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+        )
+
+    def resolve_create_subtitles_from_audio(
+        self,
+        timeline_id: str,
+        *,
+        confirm_create: bool = False,
+        timeout_seconds: float = 300,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create and verify native captions for one canonical timeline."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        if confirm_create is not True:
+            raise ValueError("confirm_create must be true.")
+        return self._resolve.create_subtitles_from_audio(
+            timeline_id,
+            confirm_create=True,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def generate_subtitles(
+        self,
+        source_file: str,
+        timeline_id: str,
+        *,
+        confirm_apply: bool = False,
+        timeout_seconds: float = 300,
+    ) -> dict[str, Any]:
+        """Transcribe locally and apply a generated SRT to one timeline."""
+        generator = self._subtitle_generator
+        if generator is None:
+            policy = self._media_policy or MediaPolicy.from_local_config()
+            generator = SubtitleGenerator(
+                FasterWhisperTranscriber(transcription_models_directory()),
+                self._resolve,
+                policy,
+            )
+        return generator.generate(
+            source_file,
+            timeline_id,
+            confirm_apply=confirm_apply,
             timeout_seconds=self._validated_timeout(timeout_seconds),
         )
 

@@ -6,9 +6,13 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 
 Канонічна межа v1 та послідовність наступних етапів зафіксовані в
 [roadmap](docs/roadmap.md).
+Окремий опис M47 наведено в
+[документації транскрипції](docs/transcription.md).
 
-Проєкт завершив **Milestone M46: cleaned-audio integration**; наступний етап —
-M47, транскрипція та субтитри. M46 контрольовано експортує повну аудіодоріжку
+Проєкт виконує **Milestone M47: транскрипція та субтитри**. Read-only discovery
+перевіряє документований Resolve auto-caption API та bounded subtitle items, а
+окремий confirmed write-tool запускає лише fixed-policy `AUTO` captioning після
+backup і вимагає subtitle readback. M46 контрольовано експортує повну аудіодоріжку
 finalized timeline у PCM WAV, потоково обробляє її та повертає валідований
 результат на A2, вимикаючи лише пов'язані source items на A1. Проєкт
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
@@ -311,6 +315,7 @@ Read-only інструменти:
 - `resolve_list_timeline_items`.
 - `resolve_list_media_pool_items`.
 - `resolve_get_editing_metadata`.
+- `resolve_get_subtitle_environment`.
 - `resolve_get_workspace_snapshot`.
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
@@ -331,6 +336,8 @@ Read-only інструменти:
 - `resolve_set_clip_transform`;
 - `resolve_delete_clip`;
 - `resolve_add_marker`.
+- `resolve_create_subtitles_from_audio`.
+- `generate_subtitles`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
 

@@ -16,8 +16,11 @@ from agent.paths import (
     processed_audio_directory,
     render_output_directory,
     runtime_directory,
+    subtitle_output_directory,
+    subtitle_receipts_directory,
     synchronized_links_directory,
     synchronized_pairs_directory,
+    transcription_models_directory,
 )
 
 
@@ -73,6 +76,12 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     assert audio_reports_directory(first_environment) == (
         first_runtime / "audio-reports"
     )
+    assert subtitle_receipts_directory(first_environment) == (
+        first_runtime / "subtitle-receipts"
+    )
+    assert transcription_models_directory(first_environment) == (
+        first_runtime / "models" / "faster-whisper"
+    )
     assert diagnostics_directory(first_environment) == (
         first_runtime / "diagnostics"
     )
@@ -87,6 +96,12 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
         / "Videos"
         / "DaVinciResolveAgent"
         / "renders"
+    )
+    assert subtitle_output_directory(first_environment) == (
+        Path(r"C:\Users\first-user")
+        / "Videos"
+        / "DaVinciResolveAgent"
+        / "subtitles"
     )
     assert audio_source_directory(first_environment) == (
         Path(r"C:\Users\first-user")

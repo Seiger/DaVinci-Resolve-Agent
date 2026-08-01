@@ -51,6 +51,8 @@
         "list_timeline_items",
         "list_media_pool_items",
         "get_editing_metadata",
+        "get_subtitle_environment",
+        "create_subtitles_from_audio",
         "get_workspace_snapshot",
         "get_render_environment",
         "get_render_job_status",
@@ -60,6 +62,7 @@
         "duplicate_timeline",
         "set_current_timeline",
         "append_clip",
+        "append_subtitle_file",
         "insert_clip",
         "insert_clips",
         "set_clip_enabled",
@@ -210,6 +213,62 @@
       "if": {
         "properties": {
           "action": {
+            "const": "get_subtitle_environment"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id"
+            ],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "create_subtitles_from_audio"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id",
+              "confirm_create"
+            ],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "confirm_create": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
             "const": "insert_clip"
           }
         }
@@ -262,6 +321,36 @@
                 "minimum": 1,
                 "maximum": 128
               }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "append_subtitle_file"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": [
+              "timeline_id",
+              "asset_id",
+              "subtitle_path",
+              "import_idempotency_key",
+              "confirm_apply"
+            ],
+            "properties": {
+              "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+              "asset_id": {"type": "string", "minLength": 1, "maxLength": 128},
+              "subtitle_path": {"type": "string", "minLength": 1},
+              "import_idempotency_key": {"type": "string", "minLength": 1, "maxLength": 128},
+              "confirm_apply": {"const": true}
             }
           }
         }
@@ -914,6 +1003,7 @@
               "duplicate_timeline",
               "set_current_timeline",
               "append_clip",
+              "append_subtitle_file",
               "insert_clip",
               "insert_clips",
               "set_clip_enabled",
@@ -923,6 +1013,7 @@
               "set_clip_transforms",
               "delete_clip",
               "add_marker",
+              "create_subtitles_from_audio",
               "prepare_render_job",
               "start_render_job"
             ]

@@ -36,7 +36,7 @@ try {
     }
 
     & $venvPython -c (
-        "import sys, agent, mcp_server; " +
+        "import sys, agent, faster_whisper, mcp_server; " +
         "from pathlib import Path; " +
         "from agent.configuration import load_config, load_default_config; " +
         "load_default_config(); load_config(Path(sys.argv[1])); " +
@@ -63,9 +63,12 @@ try {
         $paths.BackupsRoot,
         $paths.PlansRoot,
         $paths.AudioReportsRoot,
+        $paths.SubtitleReceiptsRoot,
+        $paths.TranscriptionModelsRoot,
         $paths.DiagnosticsRoot,
         $paths.ProcessedAudioRoot,
         $paths.RenderOutputRoot,
+        $paths.SubtitleOutputRoot,
         $paths.LogsRoot,
         $paths.ResolveScriptsRoot
     )

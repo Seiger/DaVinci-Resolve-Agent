@@ -356,3 +356,34 @@ ResolveBridge ручний сценарій має зафіксувати:
   57; immediate replay remained at 57 with one A2 item;
 - result: `verified` on Resolve 21 Free 21.0.3.7 in Windows 10. RMS dBFS remains
   a reference metric, not a LUFS/EBU R128 delivery claim.
+
+### M47 local transcription and subtitle evidence
+
+- UTC execution date: `2026-08-01`;
+- environment: Resolve 21 Free 21.0.3.7, Windows 10, Python 3.12.10;
+- read-only native discovery: `CreateSubtitlesFromAudio` and all required
+  constants present; no initial subtitle track on M42;
+- native write probe on disposable M34: Resolve returned `False`; structured
+  `AUTO_CAPTION_UNAVAILABLE`, backup preserved, capability stayed unverified;
+- SRT behavior probe: one local SRT imported and appended to `Subtitle 1`,
+  canonical item `fba921bf-b914-482a-98c7-299761e0c160` read back;
+- local backend: pinned faster-whisper 1.2.1, `small`, CPU/int8, Ukrainian;
+- 60-second speech probe: 4 segments, `language=uk`, probability `1.0`;
+- applied receipt:
+  `811611522f48183ede4aa456864015a74af4dd859bc4488c3fff8eb88e93ffc5`;
+- target: disposable M34 timeline
+  `07fce28c-00ee-487d-9935-ff701405d48d`;
+- readback: subtitle count `1 → 5`, all four generated Ukrainian texts with
+  canonical IDs and frame bounds; import and append each created one `.drp`
+  backup;
+- exact append-placement recovery on M10 timeline
+  `f98c1e47-fa2e-4d7d-bcdf-e402f91d0a02`: receipt
+  `62c2fd44eba89aa5b9575645f169593dbe01742195340b6a8e477d8bbeaae3ad`,
+  pre-write append frame `86496`, first transcript offset `183` frames, and
+  expected/actual first subtitle frame `86679`;
+- crash-recovery replay reused the existing import/append provider receipts:
+  subtitle items stayed `4 → 4`, backups stayed `64 → 64`, and the same four
+  canonical TimelineItem IDs were independently read back;
+- result: local transcription → deterministic SRT → Resolve subtitle apply
+  is `verified`; native Resolve AI captioning is unsupported in this Free
+  environment.

@@ -135,6 +135,34 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=READ_ONLY_TOOL)
+    async def resolve_get_subtitle_environment(
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Read subtitle items and native auto-caption API availability."""
+        return await asyncio.to_thread(
+            service.resolve_get_subtitle_environment,
+            timeline_id,
+            timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_create_subtitles_from_audio(
+        timeline_id: str,
+        confirm_create: bool = False,
+        timeout_seconds: float = 300,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create fixed AUTO subtitles after backup and verify readback."""
+        return await asyncio.to_thread(
+            service.resolve_create_subtitles_from_audio,
+            timeline_id,
+            confirm_create=confirm_create,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
     async def resolve_get_workspace_snapshot(
         timeout_seconds: float = 30,
     ) -> dict[str, Any]:
@@ -429,6 +457,22 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         return await asyncio.to_thread(
             service.resolve_verify_render_output,
             job_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def generate_subtitles(
+        source_file: str,
+        timeline_id: str,
+        confirm_apply: bool = False,
+        timeout_seconds: float = 300,
+    ) -> dict[str, Any]:
+        """Transcribe locally, write SRT and apply it to one exact timeline."""
+        return await asyncio.to_thread(
+            service.generate_subtitles,
+            source_file,
+            timeline_id,
+            confirm_apply=confirm_apply,
             timeout_seconds=timeout_seconds,
         )
 

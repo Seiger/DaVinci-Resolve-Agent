@@ -45,6 +45,30 @@ If the new job is not an audio-only WAV with the fixed settings, the bridge
 deletes exactly that newly created job through documented `DeleteRenderJob`
 and reports the rejected queue metadata.
 
+M47 begins with the read-only `get_subtitle_environment` action. For one
+canonical timeline it enumerates at most 128 subtitle tracks and 10000 items
+through documented Timeline methods. It also reports whether the documented
+`CreateSubtitlesFromAudio` method and required auto-caption constants are
+present, but does not call the method. Surface availability is not treated as
+proof that Resolve 21 Free can execute the Studio/AI operation;
+`subtitle.auto_caption` therefore remains `unknown` until a confirmed live
+write is independently verified.
+
+The separate `create_subtitles_from_audio` action accepts only a canonical
+timeline ID and `confirm_create=true`. It requires a project backup and uses a
+fixed automatic-language/default-preset policy with 42 characters per line,
+single-line captions and zero-frame gap. A `True` API return is insufficient:
+the action succeeds only when bounded readback finds newly created subtitle
+items. It exposes no model, prompt, language override or arbitrary settings.
+Live Resolve 21 Free 21.0.3.7 returned `False` for this documented native call;
+the bridge reported `AUTO_CAPTION_UNAVAILABLE` and kept the capability
+unverified. M47 therefore applies locally generated SRT through the already
+verified `ImportMedia`/`AppendToTimeline` path instead. The dedicated
+`append_subtitle_file` action binds the SRT path and asset ID to the preceding
+import receipt, records the pre-write timeline end as `append_frame`, and
+requires bounded subtitle readback. Resolve places SRT timestamps relative to
+that append anchor; the action does not claim playhead-based placement.
+
 The one-shot lifecycle is intentional: persistent polling is not enabled until
 live testing proves that it does not block the Resolve UI.
 

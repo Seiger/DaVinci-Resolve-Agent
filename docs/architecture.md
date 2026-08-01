@@ -896,6 +896,50 @@ so a render or loudness failure cannot partially replace active dialogue. The
 local backend invokes no shell decoder and preserves both source and derived
 WAV files. The integration receipt is durable and replay-safe.
 
+## M47 subtitle discovery
+
+```text
+MCP resolve_get_subtitle_environment(timeline_id)
+ ├─ resolve the exact canonical timeline
+ ├─ enumerate bounded subtitle tracks/items
+ ├─ inspect documented auto-caption method/constants
+ └─ report verified=false without invoking the AI write
+
+MCP resolve_create_subtitles_from_audio(confirm_create=true)
+ ├─ require exact timeline + documented API surface
+ ├─ export one project backup
+ ├─ invoke fixed AUTO/default/42/single-line/zero-gap policy
+ └─ require newly created bounded subtitle-item readback
+```
+
+The first M47 slice deliberately separates API-surface discovery from feature
+support. Resolve's local documentation identifies caption creation as a
+Studio/AI scripting API and states that unsupported calls may return `False`.
+Therefore method presence verifies only the read path and cannot promote
+`subtitle.auto_caption` from `unknown`. The guarded write slice implements the
+required confirmation, project backup, fixed caption policy and live readback.
+It reports a safe unsupported error if Resolve 21 Free rejects the documented
+call; a separate local transcription provider remains the fallback boundary.
+
+The live M47 fallback is provider-neutral outside the Resolve adapter:
+
+```text
+MCP generate_subtitles(source_file, timeline_id, confirm_apply=true)
+ ├─ validate source under media.allowed_roots
+ ├─ faster-whisper small / Ukrainian / CPU int8
+ ├─ atomically render deterministic UTF-8 SRT
+ ├─ safe import_media + receipt-bound append_subtitle_file
+ ├─ verify append-frame + transcript-offset placement
+ └─ require exact new canonical subtitle IDs + durable receipt
+```
+
+The transcription provider invokes Python APIs directly and exposes no shell
+or executable arguments. Model cache, SRT output and receipts use platform
+directories; no user- or drive-specific path is embedded in the repository.
+The bridge records the timeline end before documented `AppendToTimeline`; this
+is the SRT placement anchor observed in Resolve 21 Free. It does not claim
+playhead-based or arbitrary mid-timeline subtitle insertion.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

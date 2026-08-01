@@ -60,6 +60,7 @@ messages are not representable in the audit schema.
 
 - read-only `list_timeline_items` with one existing `timeline_id`;
 - read-only `list_media_pool_items` with an empty arguments object;
+- read-only `get_subtitle_environment` with one existing `timeline_id`;
 - read-only `get_workspace_snapshot` with an empty arguments object;
 
 ## Write actions
@@ -301,6 +302,33 @@ placement only. The bridge guards folder cycles and rejects discovery beyond
 1000 folders or 10000 items. Results may include timeline entries returned by
 the documented Folder API; the contract does not infer an undocumented kind.
 
+`get_subtitle_environment` accepts exactly one canonical `timeline_id`. It
+enumerates at most 128 subtitle tracks and 10000 subtitle items through the
+documented Timeline API, returning bounded text, canonical item IDs and frame
+bounds. It additionally inspects the documented native auto-caption method and
+required constants without invoking caption generation. Its `verified=false`
+field and `subtitle.auto_caption=unknown` capability distinguish API-surface
+presence from confirmed support in Resolve 21 Free.
+
+`create_subtitles_from_audio` requires one canonical `timeline_id`, literal
+`confirm_create=true`, `create_backup=true` and an idempotency key. The caller
+cannot choose a model, prompt or raw Resolve setting. The bridge uses only the
+fixed `AUTO` language, default preset, 42 characters per line, single-line and
+zero-gap values. Success requires at least one newly discovered subtitle item;
+otherwise the response is a structured error and the capability is not
+promoted.
+
+The higher-level `generate_subtitles` MCP workflow accepts only a configured
+local source path, canonical timeline ID, literal `confirm_apply=true` and a
+bounded timeout. It uses the fixed local transcription policy, writes SRT under
+the managed Videos directory, then composes existing `import_media` and
+receipt-bound `append_subtitle_file` provider operations. The bridge reports
+the pre-write timeline end as `append_frame`; the workflow requires the first
+subtitle frame to equal that anchor plus the first transcript offset.
+Independent subtitle discovery must find
+exactly one new canonical item per transcript segment before a validated
+`subtitle-generation` receipt is persisted.
+
 `get_workspace_snapshot` performs a fixed composition of the existing
 read-only operations. It returns bridge metadata, current project, timelines,
 current timeline and its items, Media Pool items, and render discovery. It
@@ -318,11 +346,13 @@ partial snapshot.
 - `get_current_timeline`
 - `list_timeline_items`
 - `list_media_pool_items`
+- `get_subtitle_environment`
 - `get_workspace_snapshot`
 - `get_render_environment`
 - `get_render_job_status`
+- `create_subtitles_from_audio`
 
-`list_timeline_items` accepts only `timeline_id`;
+`list_timeline_items` and `get_subtitle_environment` accept only `timeline_id`;
 `get_render_job_status` accepts only `job_id`; every other read action accepts
 an empty `arguments` object. `allow_destructive` must be `false`. There is no
 action for arbitrary batches or for executing Python, Lua, PowerShell, shell

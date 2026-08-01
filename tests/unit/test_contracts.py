@@ -31,6 +31,28 @@ def test_valid_command_contract() -> None:
     validate_contract("command", _valid_command())
 
 
+def test_valid_subtitle_generation_receipt_contract() -> None:
+    validate_contract(
+        "subtitle-generation",
+        {
+            "receipt_id": "a" * 64,
+            "status": "applied",
+            "timeline_id": "timeline-1",
+            "source_file": "C:/Videos/source.wav",
+            "subtitle_file": "C:/Videos/subtitles/result.srt",
+            "backend": "faster-whisper",
+            "model": "small",
+            "language": "uk",
+            "segment_count": 1,
+            "previous_subtitle_item_count": 0,
+            "subtitle_item_count": 1,
+            "timeline_item_ids": ["subtitle-1"],
+            "import_result": {"items": [{"asset_id": "asset-1"}]},
+            "append_result": {"items": [{"timeline_item_id": "subtitle-1"}]},
+        },
+    )
+
+
 def test_valid_rough_cut_approval_contract() -> None:
     validate_contract(
         "rough-cut-approval",
@@ -280,7 +302,9 @@ def test_insert_clips_requires_bounded_placement_batch_and_backup() -> None:
     }
     validate_contract("command", command)
 
-    command["arguments"]["placements"] = []
+    arguments = command["arguments"]
+    assert isinstance(arguments, dict)
+    arguments["placements"] = []
     with pytest.raises(ContractValidationError, match="placements"):
         validate_contract("command", command)
 

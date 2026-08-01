@@ -118,7 +118,10 @@ class FakeTimeline:
         return self._name
 
     def GetTrackCount(self, track_type: str) -> int:
-        return 1
+        return 0 if track_type == "subtitle" else 1
+
+    def GetTrackName(self, track_type: str, index: int) -> str:
+        return f"{track_type}-{index}"
 
     def GetItemListInTrack(
         self,
@@ -127,6 +130,9 @@ class FakeTimeline:
     ) -> list[str]:
         assert index == 1
         return ["item"] if track_type == "video" else []
+
+    def CreateSubtitlesFromAudio(self, settings: dict[object, object]) -> bool:
+        raise AssertionError("Read-only discovery must not create subtitles.")
 
 
 class FakeProject:
@@ -188,6 +194,15 @@ class FakeProjectManager:
 
 
 class FakeResolve:
+    SUBTITLE_LANGUAGE = "subtitle-language"
+    SUBTITLE_CAPTION_PRESET = "subtitle-caption-preset"
+    SUBTITLE_CHARS_PER_LINE = "subtitle-characters-per-line"
+    SUBTITLE_LINE_BREAK = "subtitle-line-break"
+    SUBTITLE_GAP = "subtitle-gap"
+    AUTO_CAPTION_AUTO = "auto-caption-auto"
+    AUTO_CAPTION_SUBTITLE_DEFAULT = "auto-caption-default"
+    AUTO_CAPTION_LINE_SINGLE = "auto-caption-line-single"
+
     def __init__(self, project: FakeProject | None = None) -> None:
         self._project_manager = FakeProjectManager(project)
 
@@ -239,6 +254,39 @@ def test_collect_bridge_state_uses_read_only_documented_api() -> None:
     assert state["capabilities"]["project.read"] is True
     assert state["capabilities"]["timeline.read"] is True
     assert state["capabilities"]["timeline.create"] == "unknown"
+    assert state["capabilities"]["subtitle.read"] == "unknown"
+    assert state["capabilities"]["subtitle.auto_caption"] == "unknown"
+    assert state["capabilities"]["subtitle.import"] == "unknown"
+
+
+def test_subtitle_environment_is_bounded_and_read_only() -> None:
+    resolve = FakeResolve(FakeProject())
+    state = collect_bridge_state(resolve)
+
+    result = command_result(
+        "get_subtitle_environment",
+        state,
+        resolve,
+        {"timeline_id": "id-main"},
+    )
+
+    assert result["timeline_id"] == "id-main"
+    assert result["subtitle_track_count"] == 0
+    assert result["subtitle_item_count"] == 0
+    assert result["tracks"] == []
+    assert result["auto_caption"] == {
+        "method_available": True,
+        "required_constants_available": True,
+        "missing_constants": [],
+        "fixed_policy": {
+            "language": "auto",
+            "caption_preset": "default",
+            "characters_per_line": 42,
+            "line_break": "single",
+            "gap_frames": 0,
+        },
+        "verified": False,
+    }
 
 
 def test_collect_bridge_state_handles_no_open_project() -> None:

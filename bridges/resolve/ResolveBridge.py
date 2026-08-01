@@ -59,6 +59,7 @@ ALLOWED_ACTIONS = {
     "list_timeline_items",
     "list_media_pool_items",
     "get_editing_metadata",
+    "get_subtitle_environment",
     "get_workspace_snapshot",
     "get_render_environment",
     "get_render_job_status",
@@ -68,6 +69,7 @@ ALLOWED_ACTIONS = {
     "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
+    "append_subtitle_file",
     "insert_clip",
     "insert_clips",
     "set_clip_enabled",
@@ -77,6 +79,7 @@ ALLOWED_ACTIONS = {
     "set_clip_transforms",
     "delete_clip",
     "add_marker",
+    "create_subtitles_from_audio",
     "prepare_render_job",
     "start_render_job",
 }
@@ -87,6 +90,7 @@ WRITE_ACTIONS = {
     "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
+    "append_subtitle_file",
     "insert_clip",
     "insert_clips",
     "set_clip_enabled",
@@ -96,6 +100,7 @@ WRITE_ACTIONS = {
     "set_clip_transforms",
     "delete_clip",
     "add_marker",
+    "create_subtitles_from_audio",
     "prepare_render_job",
     "start_render_job",
 }
@@ -104,12 +109,15 @@ CAPABILITY_BY_ACTION = {
     "list_timeline_items": "clip.read",
     "list_media_pool_items": "media.read",
     "get_editing_metadata": "media.metadata.read",
+    "get_subtitle_environment": "subtitle.read",
+    "create_subtitles_from_audio": "subtitle.auto_caption",
     "import_media": "media.import",
     "create_timeline": "timeline.create",
     "ensure_timeline_tracks": "timeline.track.create",
     "duplicate_timeline": "timeline.duplicate",
     "set_current_timeline": "timeline.select",
     "append_clip": "clip.insert",
+    "append_subtitle_file": "subtitle.import",
     "insert_clip": "clip.range_insert",
     "insert_clips": "clip.range_insert",
     "set_clip_enabled": "clip.enable",
@@ -341,6 +349,9 @@ def collect_bridge_state(
         "media.import": "unknown",
         "media.read": "unknown",
         "media.metadata.read": "unknown",
+        "subtitle.read": "unknown",
+        "subtitle.auto_caption": "unknown",
+        "subtitle.import": "unknown",
         "clip.insert": "unknown",
         "clip.read": "unknown",
         "clip.range_insert": "unknown",
@@ -452,6 +463,8 @@ def validate_command(command: Any) -> dict[str, Any]:
         _validate_list_timeline_items_arguments(command["arguments"])
     elif command["action"] == "get_editing_metadata":
         _validate_editing_metadata_arguments(command["arguments"])
+    elif command["action"] == "get_subtitle_environment":
+        _validate_list_timeline_items_arguments(command["arguments"])
     elif command["arguments"] != {}:
         raise ValueError("This read-only action does not accept arguments.")
 
@@ -587,6 +600,30 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
         for field in ("timeline_id", "asset_id"):
             if not isinstance(arguments[field], str) or not arguments[field]:
                 raise ValueError(f"{field} must be a non-empty string.")
+        return
+    if action == "append_subtitle_file":
+        expected = {
+            "timeline_id",
+            "asset_id",
+            "subtitle_path",
+            "import_idempotency_key",
+            "confirm_apply",
+        }
+        if set(arguments) != expected:
+            raise ValueError("append_subtitle_file fields do not match the contract.")
+        for field in ("timeline_id", "asset_id", "import_idempotency_key"):
+            value = arguments[field]
+            if not isinstance(value, str) or not 1 <= len(value) <= 128:
+                raise ValueError(f"{field} must contain 1 to 128 characters.")
+        subtitle_path = arguments["subtitle_path"]
+        if (
+            not isinstance(subtitle_path, str)
+            or not subtitle_path
+            or Path(subtitle_path).suffix.casefold() != ".srt"
+        ):
+            raise ValueError("subtitle_path must identify one SRT file.")
+        if arguments["confirm_apply"] is not True:
+            raise ValueError("confirm_apply must be true.")
         return
     if action == "insert_clip":
         expected = {
@@ -867,6 +904,22 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
         ):
             raise ValueError("duration must be a positive integer.")
         return
+    if action == "create_subtitles_from_audio":
+        if set(arguments) != {"timeline_id", "confirm_create"}:
+            raise ValueError(
+                "create_subtitles_from_audio requires timeline_id and "
+                "confirm_create."
+            )
+        timeline_id = arguments["timeline_id"]
+        if (
+            not isinstance(timeline_id, str)
+            or not timeline_id
+            or len(timeline_id) > 128
+        ):
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        if arguments["confirm_create"] is not True:
+            raise ValueError("confirm_create must be true.")
+        return
     if action == "prepare_render_job":
         if set(arguments) not in (
             {"custom_name"},
@@ -1041,6 +1094,17 @@ def command_result(
             arguments or {}
         )
         return _editing_metadata(resolve, timeline_id, asset_ids)
+    if action == "get_subtitle_environment":
+        if resolve is None:
+            raise BridgeOperationError(
+                "RESOLVE_CONTEXT_REQUIRED",
+                "A live Resolve context is required for subtitle discovery.",
+                retryable=True,
+            )
+        timeline_id = _validate_list_timeline_items_arguments(
+            arguments or {}
+        )
+        return _subtitle_environment(resolve, timeline_id)
     if action == "get_workspace_snapshot":
         if resolve is None:
             raise BridgeOperationError(
@@ -1549,6 +1613,177 @@ def _list_timeline_items(
         "timeline_id": timeline_id,
         "name": str(timeline.GetName()),
         "items": discovered,
+    }
+
+
+def _subtitle_environment(
+    resolve: Any,
+    timeline_id: str,
+) -> dict[str, Any]:
+    """Return bounded subtitle items and documented auto-caption surface."""
+    project_manager = resolve.GetProjectManager()
+    if project_manager is None:
+        raise BridgeOperationError(
+            "PROJECT_MANAGER_UNAVAILABLE",
+            "Resolve.GetProjectManager() returned no object.",
+            retryable=True,
+        )
+    project = project_manager.GetCurrentProject()
+    if project is None:
+        raise BridgeOperationError(
+            "PROJECT_NOT_OPEN",
+            "Open a Resolve project before subtitle discovery.",
+            retryable=True,
+        )
+    timeline = _find_timeline(project, timeline_id)
+    required_timeline_methods = (
+        "GetTrackCount",
+        "GetTrackName",
+        "GetItemListInTrack",
+    )
+    missing = [
+        name
+        for name in required_timeline_methods
+        if not callable(getattr(timeline, name, None))
+    ]
+    if missing:
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "The timeline cannot enumerate subtitle tracks.",
+            details={"missing_methods": missing},
+        )
+
+    track_count = timeline.GetTrackCount("subtitle")
+    if (
+        not isinstance(track_count, int)
+        or isinstance(track_count, bool)
+        or not 0 <= track_count <= 128
+    ):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE",
+            "Timeline.GetTrackCount('subtitle') returned an invalid value.",
+        )
+
+    tracks: list[dict[str, Any]] = []
+    item_count = 0
+    item_methods = (
+        "GetUniqueId",
+        "GetName",
+        "GetDuration",
+        "GetStart",
+        "GetEnd",
+        "GetTrackTypeAndIndex",
+    )
+    for track_index in range(1, track_count + 1):
+        items = timeline.GetItemListInTrack("subtitle", track_index)
+        if not isinstance(items, list):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Timeline.GetItemListInTrack() returned invalid subtitles.",
+                details={"track_index": track_index},
+            )
+        discovered_items: list[dict[str, Any]] = []
+        for item in items:
+            item_count += 1
+            if item_count > 10_000:
+                raise BridgeOperationError(
+                    "DISCOVERY_LIMIT_EXCEEDED",
+                    "Subtitle discovery exceeded 10000 timeline items.",
+                )
+            missing_item_methods = [
+                name
+                for name in item_methods
+                if not callable(getattr(item, name, None))
+            ]
+            if missing_item_methods:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "A subtitle item cannot report bounded metadata.",
+                    details={"missing_methods": missing_item_methods},
+                )
+            actual_track = item.GetTrackTypeAndIndex()
+            if actual_track not in (
+                ["subtitle", track_index],
+                ("subtitle", track_index),
+            ):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Subtitle item track readback does not match enumeration.",
+                )
+            text = str(item.GetName())
+            if not text or len(text) > 4_000:
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Subtitle text must contain 1 to 4000 characters.",
+                )
+            numeric_values = {
+                "duration_frames": item.GetDuration(False),
+                "timeline_start_frame": item.GetStart(False),
+                "timeline_end_frame": item.GetEnd(False),
+            }
+            if any(
+                not isinstance(value, int) or isinstance(value, bool)
+                for value in numeric_values.values()
+            ):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Subtitle item frame readback is invalid.",
+                )
+            timeline_item_id = str(item.GetUniqueId())
+            if not timeline_item_id or len(timeline_item_id) > 128:
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Subtitle item canonical ID must contain 1 to 128 characters.",
+                )
+            discovered_items.append(
+                {
+                    "timeline_item_id": timeline_item_id,
+                    "text": text,
+                    **numeric_values,
+                }
+            )
+        tracks.append(
+            {
+                "track_index": track_index,
+                "name": str(timeline.GetTrackName("subtitle", track_index)),
+                "items": discovered_items,
+            }
+        )
+
+    required_constants = (
+        "SUBTITLE_LANGUAGE",
+        "SUBTITLE_CAPTION_PRESET",
+        "SUBTITLE_CHARS_PER_LINE",
+        "SUBTITLE_LINE_BREAK",
+        "SUBTITLE_GAP",
+        "AUTO_CAPTION_AUTO",
+        "AUTO_CAPTION_SUBTITLE_DEFAULT",
+        "AUTO_CAPTION_LINE_SINGLE",
+    )
+    missing_constants = [
+        name for name in required_constants if getattr(resolve, name, None) is None
+    ]
+    return {
+        "timeline_id": timeline_id,
+        "name": str(timeline.GetName()),
+        "subtitle_track_count": track_count,
+        "subtitle_item_count": item_count,
+        "tracks": tracks,
+        "auto_caption": {
+            "method_available": callable(
+                getattr(timeline, "CreateSubtitlesFromAudio", None)
+            ),
+            "required_constants_available": not missing_constants,
+            "missing_constants": missing_constants,
+            "fixed_policy": {
+                "language": "auto",
+                "caption_preset": "default",
+                "characters_per_line": 42,
+                "line_break": "single",
+                "gap_frames": 0,
+            },
+            "verified": False,
+        },
     }
 
 
@@ -2345,6 +2580,60 @@ def _write_receipt(
     )
 
 
+def _verify_subtitle_import_receipt(
+    state_directory: Path,
+    idempotency_key: str,
+    subtitle_path: str,
+    asset_id: str,
+) -> None:
+    path = _receipt_path(state_directory, idempotency_key)
+    if not path.is_file():
+        raise BridgeOperationError(
+            "SUBTITLE_IMPORT_RECEIPT_REQUIRED",
+            "A verified import receipt is required before subtitle append.",
+        )
+    try:
+        with path.open("r", encoding="utf-8") as source:
+            receipt = json.load(source)
+    except (OSError, json.JSONDecodeError) as error:
+        raise BridgeOperationError(
+            "SUBTITLE_IMPORT_RECEIPT_INVALID",
+            "The subtitle import receipt is unreadable.",
+        ) from error
+    expected_fingerprint = _request_fingerprint(
+        {
+            "provider": "resolve",
+            "action": "import_media",
+            "arguments": {"paths": [subtitle_path]},
+        }
+    )
+    result = receipt.get("result") if isinstance(receipt, dict) else None
+    items = result.get("items") if isinstance(result, dict) else None
+    imported_ids = {
+        item.get("asset_id")
+        for item in items
+        if isinstance(item, dict)
+    } if isinstance(items, list) else set()
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("action") != "import_media"
+        or receipt.get("fingerprint") != expected_fingerprint
+        or asset_id not in imported_ids
+    ):
+        raise BridgeOperationError(
+            "SUBTITLE_IMPORT_RECEIPT_INVALID",
+            "The import receipt does not bind this SRT and asset ID.",
+        )
+
+
+def _subtitle_environment_item_ids(environment: dict[str, Any]) -> set[str]:
+    return {
+        item["timeline_item_id"]
+        for track in environment["tracks"]
+        for item in track["items"]
+    }
+
+
 def _find_render_job(project: Any, job_id: str) -> dict[str, Any]:
     jobs = project.GetRenderJobList()
     if not isinstance(jobs, list):
@@ -2621,6 +2910,7 @@ def _execute_write_command(
     elif action in {
         "ensure_timeline_tracks",
         "append_clip",
+        "append_subtitle_file",
         "insert_clip",
         "insert_clips",
         "set_clip_enabled",
@@ -2630,8 +2920,68 @@ def _execute_write_command(
         "set_clip_transforms",
         "delete_clip",
         "add_marker",
+        "create_subtitles_from_audio",
     }:
         timeline = _find_timeline(project, arguments["timeline_id"])
+        if action == "create_subtitles_from_audio":
+            required_methods = (
+                "CreateSubtitlesFromAudio",
+                "GetItemListInTrack",
+                "GetTrackCount",
+                "GetTrackName",
+            )
+            missing = [
+                name
+                for name in required_methods
+                if not callable(getattr(timeline, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot create and verify native subtitles.",
+                    details={"missing_methods": missing},
+                )
+            if not callable(getattr(project, "SetCurrentTimeline", None)):
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The current project cannot select the subtitle timeline.",
+                    details={"missing_methods": ["SetCurrentTimeline"]},
+                )
+            required_constants = (
+                "SUBTITLE_LANGUAGE",
+                "SUBTITLE_CAPTION_PRESET",
+                "SUBTITLE_CHARS_PER_LINE",
+                "SUBTITLE_LINE_BREAK",
+                "SUBTITLE_GAP",
+                "AUTO_CAPTION_AUTO",
+                "AUTO_CAPTION_SUBTITLE_DEFAULT",
+                "AUTO_CAPTION_LINE_SINGLE",
+            )
+            missing_constants = [
+                name
+                for name in required_constants
+                if getattr(resolve, name, None) is None
+            ]
+            if missing_constants:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "Resolve does not expose the required auto-caption constants.",
+                    details={"missing_constants": missing_constants},
+                )
+            audio_track_count = timeline.GetTrackCount("audio")
+            if (
+                not isinstance(audio_track_count, int)
+                or isinstance(audio_track_count, bool)
+                or audio_track_count < 1
+            ):
+                raise BridgeOperationError(
+                    "TIMELINE_AUDIO_REQUIRED",
+                    "The timeline must contain at least one audio track.",
+                )
+            previous_subtitles = _subtitle_environment(
+                resolve,
+                arguments["timeline_id"],
+            )
         if action == "ensure_timeline_tracks":
             required_track_methods = ("GetTrackCount", "AddTrack")
             missing = [
@@ -2657,7 +3007,7 @@ def _execute_write_command(
                         "Timeline.GetTrackCount() returned an invalid value.",
                         details={"track_type": track_type},
                     )
-        if action in {"append_clip", "insert_clip"}:
+        if action in {"append_clip", "append_subtitle_file", "insert_clip"}:
             root_folder = media_pool.GetRootFolder()
             if root_folder is None:
                 raise BridgeOperationError(
@@ -2666,6 +3016,52 @@ def _execute_write_command(
                     retryable=True,
                 )
             media_item = _find_media_item(root_folder, arguments["asset_id"])
+        if action == "append_subtitle_file":
+            normalized_subtitle_path = _validate_bridge_media_paths(
+                [arguments["subtitle_path"]],
+                directories["state"],
+            )[0]
+            _verify_subtitle_import_receipt(
+                directories["state"],
+                arguments["import_idempotency_key"],
+                normalized_subtitle_path,
+                arguments["asset_id"],
+            )
+            subtitle_required_methods = (
+                "GetEndFrame",
+                "GetSetting",
+                "GetStartFrame",
+            )
+            missing = [
+                name
+                for name in subtitle_required_methods
+                if not callable(getattr(timeline, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot report safe subtitle append placement.",
+                    details={"missing_methods": missing},
+                )
+            previous_subtitles = _subtitle_environment(
+                resolve,
+                arguments["timeline_id"],
+            )
+            timeline_start_frame = timeline.GetStartFrame()
+            append_frame = timeline.GetEndFrame()
+            timeline_frame_rate = _positive_frame_rate_setting(
+                timeline.GetSetting("timelineFrameRate")
+            )
+            if (
+                not isinstance(timeline_start_frame, int)
+                or isinstance(timeline_start_frame, bool)
+                or not isinstance(append_frame, int)
+                or isinstance(append_frame, bool)
+            ):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Resolve returned invalid timeline frame metadata.",
+                )
         if action == "insert_clips":
             root_folder = media_pool.GetRootFolder()
             if root_folder is None:
@@ -3395,6 +3791,43 @@ def _execute_write_command(
                 ],
                 "backup_path": backup_path,
             }
+        elif action == "append_subtitle_file":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested subtitle timeline.",
+                    retryable=True,
+                )
+            appended = media_pool.AppendToTimeline([media_item])
+            if not isinstance(appended, list) or not appended:
+                raise BridgeOperationError(
+                    "SUBTITLE_APPEND_FAILED",
+                    "Resolve did not append the imported SRT.",
+                    retryable=True,
+                )
+            readback = _subtitle_environment(resolve, arguments["timeline_id"])
+            previous_ids = _subtitle_environment_item_ids(previous_subtitles)
+            new_items = [
+                item
+                for track in readback["tracks"]
+                for item in track["items"]
+                if item["timeline_item_id"] not in previous_ids
+            ]
+            if not new_items:
+                raise BridgeOperationError(
+                    "SUBTITLE_READBACK_FAILED",
+                    "Resolve did not report new imported subtitle items.",
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "asset_id": arguments["asset_id"],
+                "subtitle_path": normalized_subtitle_path,
+                "timeline_start_frame": timeline_start_frame,
+                "append_frame": append_frame,
+                "timeline_frame_rate": timeline_frame_rate,
+                "items": new_items,
+                "backup_path": backup_path,
+            }
         elif action == "insert_clip":
             if project.SetCurrentTimeline(timeline) is not True:
                 raise BridgeOperationError(
@@ -3800,6 +4233,57 @@ def _execute_write_command(
                 "custom_data": custom_data,
                 "backup_path": backup_path,
             }
+        elif action == "create_subtitles_from_audio":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested subtitle timeline.",
+                    retryable=True,
+                )
+            settings = {
+                resolve.SUBTITLE_LANGUAGE: resolve.AUTO_CAPTION_AUTO,
+                resolve.SUBTITLE_CAPTION_PRESET: (
+                    resolve.AUTO_CAPTION_SUBTITLE_DEFAULT
+                ),
+                resolve.SUBTITLE_CHARS_PER_LINE: 42,
+                resolve.SUBTITLE_LINE_BREAK: resolve.AUTO_CAPTION_LINE_SINGLE,
+                resolve.SUBTITLE_GAP: 0,
+            }
+            if timeline.CreateSubtitlesFromAudio(settings) is not True:
+                raise BridgeOperationError(
+                    "AUTO_CAPTION_UNAVAILABLE",
+                    "Resolve did not accept native subtitle generation. "
+                    "This operation may be unavailable in Resolve Free.",
+                    details={"timeline_id": arguments["timeline_id"]},
+                )
+            readback = _subtitle_environment(
+                resolve,
+                arguments["timeline_id"],
+            )
+            if (
+                readback["subtitle_item_count"]
+                <= previous_subtitles["subtitle_item_count"]
+            ):
+                raise BridgeOperationError(
+                    "SUBTITLE_READBACK_FAILED",
+                    "Resolve accepted auto-caption but created no subtitle items.",
+                    details={
+                        "previous_item_count": previous_subtitles[
+                            "subtitle_item_count"
+                        ],
+                        "actual_item_count": readback["subtitle_item_count"],
+                    },
+                )
+            readback["auto_caption"]["verified"] = True
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "policy": readback["auto_caption"]["fixed_policy"],
+                "previous_subtitle_item_count": previous_subtitles[
+                    "subtitle_item_count"
+                ],
+                "subtitle_environment": readback,
+                "backup_path": backup_path,
+            }
         elif action == "prepare_render_job":
             custom_name = _validate_render_name(arguments["custom_name"])
             profile_name = arguments.get(
@@ -4175,6 +4659,15 @@ def process_command_file(
                 _record_verified_capability(
                     directories["state"],
                     "media.metadata.read",
+                )
+            if (
+                command["action"] == "get_subtitle_environment"
+                and directories is not None
+            ):
+                state["capabilities"]["subtitle.read"] = True
+                _record_verified_capability(
+                    directories["state"],
+                    "subtitle.read",
                 )
         response = {
             "protocol_version": PROTOCOL_VERSION,

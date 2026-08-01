@@ -28,6 +28,18 @@ M7 adds the empty-argument read-only `get_render_environment` command and the
 strict `prepare_render_job` write command. The latter accepts only
 `custom_name` and requires backup.
 
+M47 adds read-only `get_subtitle_environment` for one canonical timeline. It
+returns bounded subtitle tracks/items plus native method/constant availability
+without invoking caption generation. No language, model, prompt, arbitrary API
+arguments, code execution, or timeline mutation is representable.
+The paired `create_subtitles_from_audio` write accepts only the same timeline
+ID and literal confirmation. It requires backup and fixes every documented
+caption option; success requires newly created bounded subtitle-item readback.
+`subtitle-generation.schema.json` defines the durable local-provider receipt:
+one source/timeline binding, generated SRT, backend/model/language evidence,
+exact segment/item counts and canonical IDs, verified append-anchor placement,
+anchor evidence source, plus the two provider step results.
+
 M8 adds `get_render_job_status` and `start_render_job`; both accept only a safe
 opaque `job_id`. Start requires backup and can target only a fixed-policy job
 proven by an M7 preparation receipt. Arbitrary render settings, deletion,

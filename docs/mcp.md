@@ -11,9 +11,10 @@ Read-only інструменти:
 - `resolve_get_timeline`;
 - `resolve_list_timeline_items`;
 - `resolve_list_media_pool_items`;
+- `resolve_get_subtitle_environment`;
 - `resolve_get_workspace_snapshot`;
-- `resolve_get_render_options`.
-- `resolve_get_render_job_status`.
+- `resolve_get_render_options`;
+- `resolve_get_render_job_status`;
 - `resolve_verify_render_output`.
 
 Write-інструменти M4:
@@ -30,6 +31,8 @@ Write-інструменти M4:
 - `resolve_set_clip_transform`;
 - `resolve_delete_clip`;
 - `resolve_add_marker`.
+- `resolve_create_subtitles_from_audio`.
+- `generate_subtitles`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
 
@@ -256,6 +259,29 @@ raw `GetClipProperty` snapshots, metadata та Resolve object handles не
 обмежено 1000 folders і 10000 items.
 Live discovery у Resolve 21 Free 21.0.3.7 повернув п'ять items у `Master`,
 зокрема source MKV із відомим `asset_id`, і не створив project backup.
+
+`resolve_get_subtitle_environment` приймає один canonical `timeline_id` і
+повертає bounded subtitle tracks/items через документовані
+`GetTrackCount("subtitle")`, `GetTrackName` та `GetItemListInTrack`. Окремий
+блок `auto_caption` лише перевіряє присутність документованого
+`CreateSubtitlesFromAudio` і потрібних constants. Tool не запускає AI,
+не створює backup і не змінює timeline. `verified=false` не дозволяє трактувати
+наявність методу як підтверджену підтримку Resolve 21 Free.
+
+`resolve_create_subtitles_from_audio` вимагає canonical `timeline_id` і
+`confirm_create=true`. Він створює `.drp` backup, застосовує тільки fixed
+`AUTO`/default/42 characters/single-line/zero-gap policy та вважає операцію
+успішною лише після появи нових subtitle items у bounded readback. Модель,
+prompt, raw settings і довільний код не приймаються.
+
+`generate_subtitles` є робочим M47 fallback для Resolve Free. Tool приймає
+дозволений локальний `source_file`, canonical `timeline_id` і
+`confirm_apply=true`; модель та inference policy не задаються caller-ом. Він
+локально створює SRT, виконує backup-backed import/append і вимагає exact count
+та canonical IDs у незалежному subtitle readback. Placement перевіряється
+відносно `append_frame` — кінця таймлайна перед документованим
+`AppendToTimeline`; довільне вставлення в середину timeline не заявляється.
+Replay applied receipt не повторює transcription, import або append.
 
 `resolve_get_editing_metadata` є read-only підготовкою до точного placement.
 Він приймає canonical `timeline_id` і від 1 до 100 явних `asset_ids`, читає

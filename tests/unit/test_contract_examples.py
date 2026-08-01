@@ -18,6 +18,7 @@ WRITE_ACTIONS = {
     "duplicate_timeline",
     "set_current_timeline",
     "append_clip",
+    "append_subtitle_file",
     "insert_clip",
     "insert_clips",
     "set_clip_enabled",
@@ -27,6 +28,7 @@ WRITE_ACTIONS = {
     "set_clip_transforms",
     "delete_clip",
     "add_marker",
+    "create_subtitles_from_audio",
     "prepare_render_job",
     "start_render_job",
 }

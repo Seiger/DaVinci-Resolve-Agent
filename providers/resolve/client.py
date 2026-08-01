@@ -126,6 +126,62 @@ class ResolveProviderClient:
             )
         return value
 
+    def subtitle_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return bounded subtitle items and native auto-caption availability."""
+        result = self._client.request(
+            provider="resolve",
+            action="get_subtitle_environment",
+            arguments={"timeline_id": timeline_id},
+            timeout_seconds=timeout_seconds,
+        )
+        value = self._object_value("get_subtitle_environment", result)
+        if (
+            not isinstance(value.get("tracks"), list)
+            or not isinstance(value.get("auto_caption"), dict)
+            or not isinstance(value.get("subtitle_track_count"), int)
+            or not isinstance(value.get("subtitle_item_count"), int)
+        ):
+            raise BridgeProtocolError(
+                "Resolve get_subtitle_environment response is invalid."
+            )
+        return value
+
+    def create_subtitles_from_audio(
+        self,
+        timeline_id: str,
+        *,
+        confirm_create: bool,
+        timeout_seconds: float = 300,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create native auto-captions with one fixed backed-up policy."""
+        result = self._client.request(
+            provider="resolve",
+            action="create_subtitles_from_audio",
+            arguments={
+                "timeline_id": timeline_id,
+                "confirm_create": confirm_create,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        value = self._object_value("create_subtitles_from_audio", result)
+        if (
+            not isinstance(value.get("policy"), dict)
+            or not isinstance(value.get("subtitle_environment"), dict)
+            or not isinstance(value.get("backup_path"), str)
+        ):
+            raise BridgeProtocolError(
+                "Resolve create_subtitles_from_audio response is invalid."
+            )
+        return value
+
     def workspace_snapshot(
         self,
         timeout_seconds: float = 30,
@@ -286,6 +342,34 @@ class ResolveProviderClient:
             create_backup=True,
         )
         return self._object_value("append_clip", result)
+
+    def append_subtitle_file(
+        self,
+        timeline_id: str,
+        asset_id: str,
+        subtitle_path: str,
+        import_idempotency_key: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Append one receipt-bound SRT and report its placement anchor."""
+        result = self._client.request(
+            provider="resolve",
+            action="append_subtitle_file",
+            arguments={
+                "timeline_id": timeline_id,
+                "asset_id": asset_id,
+                "subtitle_path": subtitle_path,
+                "import_idempotency_key": import_idempotency_key,
+                "confirm_apply": confirm_apply,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("append_subtitle_file", result)
 
     def insert_clip(
         self,

@@ -24,7 +24,9 @@
 - **M46 — завершено** — інтеграція очищеного звуку в timeline: керований
   audio-only WAV export, потокова локальна обробка, validation gate і bounded
   A2 replacement із вимкненням source A1.
-- **M47** — транскрипція та субтитри.
+- **M47 — завершено** — native capability probe, локальна українська
+  faster-whisper транскрипція, deterministic SRT та backup-backed apply з
+  canonical subtitle readback.
 - **M48** — декларативні MCP editing recipes.
 - **M49** — керовані титри, zoom та reframing.
 - **M50** — baseline end-to-end монтаж і QA.
