@@ -877,6 +877,25 @@ class StubEditingRecipeRunner:
         }
 
 
+class StubBaselineEditWorkflow:
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "ready", "arguments": kwargs}
+
+    def start(self, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "status": "started",
+            "receipt_id": "f" * 64,
+            "arguments": kwargs,
+        }
+
+    def status(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "status": "complete",
+            "receipt_id": receipt_id,
+            "arguments": kwargs,
+        }
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1563,6 +1582,45 @@ def test_application_lists_previews_and_runs_editing_recipe() -> None:
         "get_editing_recipe",
         "preview_editing_recipe",
         "run_editing_recipe",
+    ]
+
+
+def test_application_previews_starts_and_inspects_baseline_edit() -> None:
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        baseline_edit_service=StubBaselineEditWorkflow(),
+        workflow_audit=audit,
+    )
+    ids = {
+        "finalization_receipt_id": "a" * 64,
+        "audio_integration_receipt_id": "b" * 64,
+        "subtitle_receipt_id": "c" * 64,
+        "visual_treatment_receipt_id": "d" * 64,
+    }
+
+    preview = application.preview_baseline_edit(**ids, timeout_seconds=20)
+    started = application.start_baseline_render(
+        **ids,
+        custom_name="Baseline",
+        profile="youtube-2160p-h264-v1",
+        confirm_render=True,
+        timeout_seconds=25,
+    )
+    status = application.get_baseline_render_status(
+        "f" * 64,
+        timeout_seconds=15,
+    )
+
+    assert preview["status"] == "ready"
+    assert preview["arguments"]["timeout_seconds"] == 20
+    assert started["status"] == "started"
+    assert started["arguments"]["profile"] == "youtube-2160p-h264-v1"
+    assert status["status"] == "complete"
+    assert audit.operations == [
+        "preview_baseline_edit",
+        "start_baseline_render",
+        "get_baseline_render_status",
     ]
 
 

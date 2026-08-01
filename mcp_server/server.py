@@ -674,6 +674,60 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             timeout_seconds=timeout_seconds,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_baseline_edit(
+        finalization_receipt_id: str,
+        audio_integration_receipt_id: str,
+        subtitle_receipt_id: str | None = None,
+        visual_treatment_receipt_id: str | None = None,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Verify one baseline edit from canonical receipts and live readback."""
+        return await asyncio.to_thread(
+            service.preview_baseline_edit,
+            finalization_receipt_id=finalization_receipt_id,
+            audio_integration_receipt_id=audio_integration_receipt_id,
+            subtitle_receipt_id=subtitle_receipt_id,
+            visual_treatment_receipt_id=visual_treatment_receipt_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def start_baseline_render(
+        finalization_receipt_id: str,
+        audio_integration_receipt_id: str,
+        custom_name: str,
+        profile: str = DEFAULT_RENDER_PROFILE,
+        confirm_render: bool = False,
+        subtitle_receipt_id: str | None = None,
+        visual_treatment_receipt_id: str | None = None,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Start a uniquely named render after successful baseline edit QA."""
+        return await asyncio.to_thread(
+            service.start_baseline_render,
+            finalization_receipt_id=finalization_receipt_id,
+            audio_integration_receipt_id=audio_integration_receipt_id,
+            subtitle_receipt_id=subtitle_receipt_id,
+            visual_treatment_receipt_id=visual_treatment_receipt_id,
+            custom_name=custom_name,
+            profile=profile,
+            confirm_render=confirm_render,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_baseline_render_status(
+        receipt_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Re-run live QA and inspect one exact baseline render output."""
+        return await asyncio.to_thread(
+            service.get_baseline_render_status,
+            receipt_id,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,

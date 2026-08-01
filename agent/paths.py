@@ -177,6 +177,13 @@ def visual_treatments_directory(
     return runtime_directory(environment) / "visual-treatments"
 
 
+def baseline_edit_runs_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for baseline end-to-end edit runs."""
+    return runtime_directory(environment) / "baseline-edit-runs"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

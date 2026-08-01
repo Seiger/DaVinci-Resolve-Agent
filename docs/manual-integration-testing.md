@@ -443,3 +443,43 @@ controls або production timeline для першої acceptance-переві�
 - result: append-only standard-title insertion plus static zoom/reframing is
   `verified` on this Resolve 21 Free environment. Smart Reframe, title-text
   mutation, Fusion controls and animated templates remain outside M49.
+
+### M50 baseline end-to-end acceptance
+
+Статус: `verified` у DaVinci Resolve 21.0.3 Free 2 серпня 2026 року. Bridge M50
+не змінює, тому достатньо вже запущеної сумісної сесії ResolveBridge.
+
+1. На одному disposable final timeline підготуй applied M43 і M46 receipt.
+   M47/M49 передавай лише як опційні enhancement receipt з того самого
+   timeline. Не використовуй M47/M49 receipt з M34, якщо M43/M46 належать M42.
+2. Виклич `preview_baseline_edit` з M43/M46 та, за наявності, M47/M49 receipt
+   IDs. Очікується
+   `status=ready`, усі checks `passed`, без backup або render job.
+3. Окремо підтвердь `start_baseline_render(confirm_render=true)` з новим
+   `custom_name` та allowlisted 1080p/4K profile.
+4. Зафіксуй M50, M44 і M45 receipt IDs, deterministic render name, job ID та
+   backup count.
+5. Опитуй `get_baseline_render_status`, доки він не поверне `complete`; звір
+   `JobStatus=Complete`, managed path, ненульовий MP4 і повторно успішний QA.
+6. Повтори exact start request: receipt, job ID та backup count не повинні
+   змінитися.
+
+Live acceptance має зафіксувати Resolve edition/version, timeline ID,
+обов'язкові й передані опційні input receipt IDs, профіль, output size та
+точний результат replay. Для поточного M42 acceptance застосовуй M49 лише з
+static transform без append-only title; M47 не додавай, доки SRT placement на
+непорожньому timeline не буде вирівняно й окремо підтверджено.
+
+Фактичний M50 acceptance виконано на `M42 Pause Compaction Apply`
+(`7e430372-841d-4f6f-99ac-8647f6d75a31`) лише з core M43/M46:
+
+- QA: 6 passed, 0 failed;
+- M50 receipt: `e291c710c569f1cdb8fc4d1cda30c5c75e898217534623a0528125924221c78a`;
+- M44 receipt: `39a13fd725f6472fda51f05ddc0b43abfe48cb5ce15917dd6227fc147229224a`;
+- M45 receipt: `c91e318cf83c56a5be9b84526330ef57a5180b9e188a697af113c6305eb48f2e`;
+- profile: `youtube-1080p-h264-v1`, 1920×1080, H.264/MP4, 24 fps, AAC;
+- job ID: `5997af88-9c3a-4d92-9f7b-858385f82e15`;
+- output: `M50 Baseline Acceptance-e291c710c569.mp4`, 2 094 880 932 bytes;
+- output SHA-256: `84d870ffdcf2ee2a908cc02e57d772544e13acad05bb3189856ac6579cc4eff6`;
+- M44/M45 створили два safety backups; exact replay зберіг усі receipt і job
+  ID без нового job.

@@ -33,7 +33,10 @@
   insertion за exact timecode та provider-neutral static zoom/reframing із
   preview, capability gates, unchanged-item verification і durable replay;
   Smart Reframe/Fusion виключені.
-- **M50** — baseline end-to-end монтаж і QA.
+- **M50 — завершено** — mandatory M43/M46 core, optional M47/M49 enhancements,
+  canonical receipt convergence, read-only live QA та deterministic confirmed
+  render через перевірені M44/M45 примітиви; live 1080p acceptance і exact
+  replay перевірені в Resolve 21.0.3 Free.
 - **M51** — B-roll planning, review та bounded application.
 - **M52** — складні анімації й reusable templates.
 - **M53** — кольорокорекція, presets та visual QC.

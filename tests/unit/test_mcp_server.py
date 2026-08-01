@@ -192,6 +192,23 @@ class StubResolveReader:
     ) -> dict[str, Any]:
         return {"timeline_id": timeline_id, "asset_id": asset_id}
 
+    def insert_title(
+        self,
+        timeline_id: str,
+        title_name: str,
+        timecode: str,
+        *,
+        confirm_insert: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline_id": timeline_id,
+            "title_name": title_name,
+            "requested_timecode": timecode,
+            "confirm_insert": confirm_insert,
+        }
+
     def append_subtitle_file(
         self,
         timeline_id: str,
@@ -723,6 +740,17 @@ class StubEditingRecipeRunner:
         return {"recipe_id": recipe_id, "inputs": inputs, "status": "applied"}
 
 
+class StubBaselineEditWorkflow:
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "ready", "arguments": kwargs}
+
+    def start(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "started", "receipt_id": "f" * 64}
+
+    def status(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "complete", "receipt_id": receipt_id}
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -769,6 +797,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         audio_report_inspector=StubAudioReportInspector(),
         subtitle_generator=StubSubtitleGenerator(),
         editing_recipe_runner=StubEditingRecipeRunner(),
+        baseline_edit_service=StubBaselineEditWorkflow(),
         workflow_audit=workflow_audit,
     )
     server = create_server(application)
@@ -803,6 +832,11 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             recipe_list_annotations = annotations["list_editing_recipes"]
             recipe_preview_annotations = annotations["preview_editing_recipe"]
             recipe_run_annotations = annotations["run_editing_recipe"]
+            baseline_preview_annotations = annotations["preview_baseline_edit"]
+            baseline_start_annotations = annotations["start_baseline_render"]
+            baseline_status_annotations = annotations[
+                "get_baseline_render_status"
+            ]
             compaction_annotations = annotations[
                 "preview_synchronized_pause_compaction"
             ]
@@ -862,6 +896,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert recipe_list_annotations is not None
             assert recipe_preview_annotations is not None
             assert recipe_run_annotations is not None
+            assert baseline_preview_annotations is not None
+            assert baseline_start_annotations is not None
+            assert baseline_status_annotations is not None
             assert compaction_annotations is not None
             assert compaction_apply_annotations is not None
             assert finalized_render_annotations is not None
@@ -897,6 +934,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert recipe_list_annotations.read_only_hint is True
             assert recipe_preview_annotations.read_only_hint is True
             assert recipe_run_annotations.read_only_hint is False
+            assert baseline_preview_annotations.read_only_hint is True
+            assert baseline_start_annotations.read_only_hint is False
+            assert baseline_status_annotations.read_only_hint is True
             assert compaction_annotations.read_only_hint is True
             assert compaction_apply_annotations.read_only_hint is False
             assert finalized_render_annotations.read_only_hint is False
@@ -1144,6 +1184,26 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "confirm_execute": True,
                     },
                 ),
+                "baseline_preview": await client.call_tool(
+                    "preview_baseline_edit",
+                    {
+                        "finalization_receipt_id": "a" * 64,
+                        "audio_integration_receipt_id": "b" * 64,
+                    },
+                ),
+                "baseline_started": await client.call_tool(
+                    "start_baseline_render",
+                    {
+                        "finalization_receipt_id": "a" * 64,
+                        "audio_integration_receipt_id": "b" * 64,
+                        "custom_name": "M50 Baseline",
+                        "confirm_render": True,
+                    },
+                ),
+                "baseline_status": await client.call_tool(
+                    "get_baseline_render_status",
+                    {"receipt_id": "f" * 64},
+                ),
                 "compaction": await client.call_tool(
                     "preview_synchronized_pause_compaction",
                     {
@@ -1278,6 +1338,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "run_editing_recipe",
             "preview_visual_treatment",
             "apply_visual_treatment",
+            "preview_baseline_edit",
+            "start_baseline_render",
+            "get_baseline_render_status",
             "compose_webcam_picture_in_picture",
             "link_synchronized_screen_pair",
             "preview_synchronized_pause_compaction",
@@ -1378,6 +1441,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["recipe_detail"].structured_content["recipe_version"] == "1.0"
     assert results["recipe_preview"].structured_content["status"] == "ready"
     assert results["recipe_run"].structured_content["status"] == "applied"
+    assert results["baseline_preview"].structured_content["status"] == "ready"
+    assert results["baseline_started"].structured_content["status"] == "started"
+    assert results["baseline_status"].structured_content["status"] == "complete"
     assert results["compaction"].structured_content["status"] == "preview"
     assert results["compaction_apply"].structured_content["status"] == "applied"
     assert results["compaction_finalized"].structured_content["status"] == (
@@ -1409,6 +1475,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "get_editing_recipe",
         "preview_editing_recipe",
         "run_editing_recipe",
+        "preview_baseline_edit",
+        "start_baseline_render",
+        "get_baseline_render_status",
         "preview_synchronized_pause_compaction",
         "apply_synchronized_pause_compaction",
         "finalize_synchronized_pause_compaction",

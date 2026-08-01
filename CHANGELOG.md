@@ -9,6 +9,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M50 canonical baseline edit QA binding required applied M43 rough cut and M46
+  cleaned audio plus optional M47 subtitles and M49 visual treatment to one
+  exact timeline.
+- Read-only `preview_baseline_edit`, confirmed `start_baseline_render` and
+  read-only `get_baseline_render_status` with live identity/bounds checks,
+  deterministic output naming and durable replay through M44/M45.
+- Explicit blocking of mixed disposable/final timeline receipts before any
+  render preparation or project backup.
+- M50 live acceptance in Resolve 21.0.3 Free with 6/6 core QA, one completed
+  managed 1080p job, validated MP4 output and exact replay without a new job.
+- Correct M50 completion aggregation against the canonical M45
+  `output.validation.passed` result.
 - M49 `resolve_insert_title` over documented standard-title insertion with
   exact timecode, explicit confirmation, project backup, playhead restoration,
   canonical item readback and capability promotion only after live success.

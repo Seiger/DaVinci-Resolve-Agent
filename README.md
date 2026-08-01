@@ -12,9 +12,19 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 [документації editing recipes](docs/editing-recipes.md).
 Опис M49 наведено в
 [документації visual treatment](docs/visual-treatment.md).
+Опис M50 наведено в
+[документації baseline edit](docs/baseline-edit.md).
 
-Проєкт виконує **Milestone M49: керовані титри, zoom і reframing**. Новий
-preview/apply workflow поєднує лише документовані статичні clip transforms і
+Проєкт виконує **Milestone M50: baseline end-to-end монтаж і QA**. M50 вимагає
+applied M43/M46 receipt одного timeline, а M47/M49 приймає як опційні
+enhancement receipt. Він повторно перевіряє live item/subtitle identities та
+bounds і тільки після успішного read-only QA дозволяє confirmed deterministic
+MP4/H.264 render через вже перевірені M44/M45 примітиви. Реалізація автоматично
+блокує змішування receipt з різних disposable timeline. Live acceptance M50
+завершено в DaVinci Resolve 21.0.3 Free: core QA 6/6, один керований 1080p job,
+валідний MP4 та безпечний deterministic replay.
+
+M49 preview/apply workflow поєднує лише документовані статичні clip transforms і
 вставку встановленого стандартного title за exact timecode. Він не викликає
 Studio-only Smart Reframe, не змінює Fusion controls і не приймає довільних
 Resolve properties. M48 пакетований
@@ -579,6 +589,7 @@ py -3.12 -m venv .venv
 [rough cut](docs/rough-cut.md), [audio workflow](docs/audio-workflow.md),
 [editing recipes](docs/editing-recipes.md),
 [visual treatment](docs/visual-treatment.md),
+[baseline edit](docs/baseline-edit.md),
 [rollback](docs/rollback.md).
 Основні вимоги продукту зафіксовані в
 [SPECIFICATION.md](SPECIFICATION.md).

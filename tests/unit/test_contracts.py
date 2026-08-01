@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 
 import pytest
 
@@ -395,7 +396,7 @@ def test_insert_title_requires_exact_timecode_confirmation_and_backup() -> None:
     }
     validate_contract("command", command)
 
-    command["arguments"]["timecode"] = "five seconds"
+    cast(dict[str, Any], command["arguments"])["timecode"] = "five seconds"
     with pytest.raises(ContractValidationError, match="timecode"):
         validate_contract("command", command)
 

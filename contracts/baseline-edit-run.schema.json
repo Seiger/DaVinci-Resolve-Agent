@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/baseline-edit-run.schema.json",
+  "title": "DaVinci Resolve Agent M50 baseline render run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["baseline_edit_version", "receipt_id", "status", "inputs", "target", "qa", "render"],
+  "properties": {
+    "baseline_edit_version": {"const": "1.0"},
+    "receipt_id": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["in_progress", "started"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finalization_receipt_id", "audio_integration_receipt_id", "subtitle_receipt_id", "visual_treatment_receipt_id", "custom_name", "profile"],
+      "properties": {
+        "finalization_receipt_id": {"$ref": "#/$defs/sha256"},
+        "audio_integration_receipt_id": {"$ref": "#/$defs/sha256"},
+        "subtitle_receipt_id": {"$ref": "#/$defs/optional_sha256"},
+        "visual_treatment_receipt_id": {"$ref": "#/$defs/optional_sha256"},
+        "custom_name": {"type": "string", "minLength": 1, "maxLength": 96},
+        "profile": {"enum": ["youtube-1080p-h264-v1", "youtube-2160p-h264-v1"]}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "timeline_name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "qa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_edit_version", "status", "inputs", "target", "checks", "summary"],
+      "properties": {
+        "baseline_edit_version": {"const": "1.0"},
+        "status": {"const": "ready"},
+        "inputs": {"type": "object"},
+        "target": {"type": "object"},
+        "checks": {"type": "array", "minItems": 6, "maxItems": 32},
+        "summary": {"type": "object"}
+      }
+    },
+    "render": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["custom_name", "preparation_receipt_id", "execution_receipt_id"],
+      "properties": {
+        "custom_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "preparation_receipt_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "execution_receipt_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "optional_sha256": {
+      "anyOf": [
+        {"$ref": "#/$defs/sha256"},
+        {"type": "null"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "started"}}},
+      "then": {
+        "properties": {
+          "render": {
+            "properties": {
+              "preparation_receipt_id": {"type": "string"},
+              "execution_receipt_id": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

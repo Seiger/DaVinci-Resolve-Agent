@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/baseline-edit-qa.schema.json",
+  "title": "DaVinci Resolve Agent M50 baseline edit QA",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["baseline_edit_version", "status", "inputs", "target", "checks", "summary"],
+  "properties": {
+    "baseline_edit_version": {"const": "1.0"},
+    "status": {"enum": ["ready", "blocked"]},
+    "inputs": {"$ref": "#/$defs/receipt_inputs"},
+    "target": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["timeline_id", "timeline_name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status", "message"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 64},
+          "status": {"enum": ["passed", "failed"]},
+          "message": {"type": "string", "minLength": 1, "maxLength": 512}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "failed"],
+      "properties": {
+        "passed": {"type": "integer", "minimum": 0, "maximum": 32},
+        "failed": {"type": "integer", "minimum": 0, "maximum": 32}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "receipt_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finalization_receipt_id", "audio_integration_receipt_id", "subtitle_receipt_id", "visual_treatment_receipt_id"],
+      "properties": {
+        "finalization_receipt_id": {"$ref": "#/$defs/sha256"},
+        "audio_integration_receipt_id": {"$ref": "#/$defs/sha256"},
+        "subtitle_receipt_id": {"$ref": "#/$defs/optional_sha256"},
+        "visual_treatment_receipt_id": {"$ref": "#/$defs/optional_sha256"}
+      }
+    },
+    "optional_sha256": {
+      "anyOf": [
+        {"$ref": "#/$defs/sha256"},
+        {"type": "null"}
+      ]
+    }
+  }
+}

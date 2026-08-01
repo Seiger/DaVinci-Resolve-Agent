@@ -3134,6 +3134,7 @@ def _execute_write_command(
                     "The timeline cannot insert a standard title at an exact timecode.",
                     details={"missing_methods": missing},
                 )
+            assert callable(get_timecode)
             previous_timecode = get_timecode()
             if not isinstance(previous_timecode, str) or not previous_timecode:
                 raise BridgeOperationError(
@@ -4001,7 +4002,7 @@ def _execute_write_command(
                     retryable=True,
                     details={"title_name": arguments["title_name"]},
                 )
-            required_item_methods = (
+            required_title_item_methods = (
                 "GetUniqueId",
                 "GetName",
                 "GetStart",
@@ -4011,7 +4012,7 @@ def _execute_write_command(
             )
             missing = [
                 name
-                for name in required_item_methods
+                for name in required_title_item_methods
                 if not callable(getattr(title_item, name, None))
             ]
             if missing:
@@ -4138,7 +4139,7 @@ def _execute_write_command(
                     retryable=True,
                 )
             item = inserted[0]
-            required_item_methods = (
+            required_single_item_methods = (
                 "GetUniqueId",
                 "GetName",
                 "GetStart",
@@ -4149,7 +4150,7 @@ def _execute_write_command(
             )
             missing = [
                 name
-                for name in required_item_methods
+                for name in required_single_item_methods
                 if not callable(getattr(item, name, None))
             ]
             if missing:
@@ -4213,7 +4214,7 @@ def _execute_write_command(
                         ),
                     },
                 )
-            required_item_methods = (
+            required_batch_item_methods = (
                 "GetUniqueId",
                 "GetName",
                 "GetStart",
@@ -4228,7 +4229,7 @@ def _execute_write_command(
             ):
                 missing = [
                     name
-                    for name in required_item_methods
+                    for name in required_batch_item_methods
                     if not callable(getattr(item, name, None))
                 ]
                 if missing:

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any, Protocol, TypeVar
 
 from agent.audio_workflow import AudioReportInspector, DialogueAudioWorkflow
+from agent.baseline_edit import BaselineEditWorkflow
 from agent.bridge_state import (
     DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
     bridge_is_healthy,
@@ -678,6 +679,41 @@ class VisualTreatmentService(Protocol):
         timeout_seconds: float = 30,
     ) -> dict[str, Any]: ...
 
+
+class BaselineEditService(Protocol):
+    """Baseline edit QA and deterministic final-render boundary."""
+
+    def preview(
+        self,
+        *,
+        finalization_receipt_id: str,
+        audio_integration_receipt_id: str,
+        subtitle_receipt_id: str | None = None,
+        visual_treatment_receipt_id: str | None = None,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def start(
+        self,
+        *,
+        finalization_receipt_id: str,
+        audio_integration_receipt_id: str,
+        custom_name: str,
+        profile: str,
+        confirm_render: bool,
+        subtitle_receipt_id: str | None = None,
+        visual_treatment_receipt_id: str | None = None,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def status(
+        self,
+        receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -705,6 +741,7 @@ class AgentApplication:
         subtitle_generator: SubtitleGenerationWorkflow | None = None,
         editing_recipe_runner: EditingRecipeWorkflow | None = None,
         visual_treatment_service: VisualTreatmentService | None = None,
+        baseline_edit_service: BaselineEditService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -729,6 +766,7 @@ class AgentApplication:
         self._subtitle_generator = subtitle_generator
         self._editing_recipe_runner = editing_recipe_runner
         self._visual_treatment = visual_treatment_service
+        self._baseline_edit = baseline_edit_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -1614,6 +1652,78 @@ class AgentApplication:
         return VisualTreatmentWorkflow(
             gateway=self._resolve,
             capabilities=capabilities,
+        )
+
+    def preview_baseline_edit(
+        self,
+        *,
+        finalization_receipt_id: str,
+        audio_integration_receipt_id: str,
+        subtitle_receipt_id: str | None = None,
+        visual_treatment_receipt_id: str | None = None,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Run read-only M50 receipt and live timeline QA."""
+        return self._run_local_workflow(
+            "preview_baseline_edit",
+            lambda: self._baseline_edit_service().preview(
+                finalization_receipt_id=finalization_receipt_id,
+                audio_integration_receipt_id=audio_integration_receipt_id,
+                subtitle_receipt_id=subtitle_receipt_id,
+                visual_treatment_receipt_id=visual_treatment_receipt_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def start_baseline_render(
+        self,
+        *,
+        finalization_receipt_id: str,
+        audio_integration_receipt_id: str,
+        custom_name: str,
+        profile: str = DEFAULT_RENDER_PROFILE,
+        confirm_render: bool,
+        subtitle_receipt_id: str | None = None,
+        visual_treatment_receipt_id: str | None = None,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Start one deterministic render only after successful M50 QA."""
+        return self._run_local_workflow(
+            "start_baseline_render",
+            lambda: self._baseline_edit_service().start(
+                finalization_receipt_id=finalization_receipt_id,
+                audio_integration_receipt_id=audio_integration_receipt_id,
+                subtitle_receipt_id=subtitle_receipt_id,
+                visual_treatment_receipt_id=visual_treatment_receipt_id,
+                custom_name=custom_name,
+                profile=profile,
+                confirm_render=confirm_render,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def get_baseline_render_status(
+        self,
+        receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Re-run QA and inspect the exact M50 managed render."""
+        return self._run_local_workflow(
+            "get_baseline_render_status",
+            lambda: self._baseline_edit_service().status(
+                receipt_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _baseline_edit_service(self) -> BaselineEditService:
+        if self._baseline_edit is not None:
+            return self._baseline_edit
+        return BaselineEditWorkflow(
+            gateway=self._resolve,
+            render_preparer=self._finalized_render_preparation_service(),
+            render_executor=self._finalized_render_execution_service(),
         )
 
     def compose_webcam_picture_in_picture(

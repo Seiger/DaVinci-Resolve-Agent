@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/baseline-edit-status.schema.json",
+  "title": "DaVinci Resolve Agent M50 baseline render status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["receipt_id", "status", "target", "qa", "render"],
+  "properties": {
+    "receipt_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["in_progress", "complete"]},
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "timeline_name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "qa": {
+      "type": "object",
+      "required": ["baseline_edit_version", "status", "inputs", "target", "checks", "summary"],
+      "properties": {"status": {"enum": ["ready", "blocked"]}}
+    },
+    "render": {
+      "type": "object",
+      "required": ["live", "output"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "complete"}}},
+      "then": {
+        "properties": {
+          "qa": {"properties": {"status": {"const": "ready"}}}
+        }
+      }
+    }
+  ]
+}
