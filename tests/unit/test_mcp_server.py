@@ -697,6 +697,32 @@ class StubSubtitleGenerator:
         return {"status": "applied", "timeline_id": timeline_id}
 
 
+class StubEditingRecipeRunner:
+    def list_recipes(self) -> dict[str, Any]:
+        return {"recipes": [{"recipe_id": "tutorial-layout-v1"}], "count": 1}
+
+    def get_recipe(self, recipe_id: str) -> dict[str, Any]:
+        return {"recipe_id": recipe_id, "recipe_version": "1.0"}
+
+    def preview(
+        self,
+        recipe_id: str,
+        inputs: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {"recipe_id": recipe_id, "inputs": inputs, "status": "ready"}
+
+    def run(
+        self,
+        recipe_id: str,
+        inputs: dict[str, Any],
+        *,
+        confirm_execute: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        assert confirm_execute is True
+        return {"recipe_id": recipe_id, "inputs": inputs, "status": "applied"}
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -742,6 +768,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         audio_processor=StubAudioProcessor(),
         audio_report_inspector=StubAudioReportInspector(),
         subtitle_generator=StubSubtitleGenerator(),
+        editing_recipe_runner=StubEditingRecipeRunner(),
         workflow_audit=workflow_audit,
     )
     server = create_server(application)
@@ -773,6 +800,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             link_annotations = annotations[
                 "link_synchronized_screen_pair"
             ]
+            recipe_list_annotations = annotations["list_editing_recipes"]
+            recipe_preview_annotations = annotations["preview_editing_recipe"]
+            recipe_run_annotations = annotations["run_editing_recipe"]
             compaction_annotations = annotations[
                 "preview_synchronized_pause_compaction"
             ]
@@ -829,6 +859,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert sync_annotations is not None
             assert pip_annotations is not None
             assert link_annotations is not None
+            assert recipe_list_annotations is not None
+            assert recipe_preview_annotations is not None
+            assert recipe_run_annotations is not None
             assert compaction_annotations is not None
             assert compaction_apply_annotations is not None
             assert finalized_render_annotations is not None
@@ -861,6 +894,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert sync_annotations.read_only_hint is False
             assert pip_annotations.read_only_hint is False
             assert link_annotations.read_only_hint is False
+            assert recipe_list_annotations.read_only_hint is True
+            assert recipe_preview_annotations.read_only_hint is True
+            assert recipe_run_annotations.read_only_hint is False
             assert compaction_annotations.read_only_hint is True
             assert compaction_apply_annotations.read_only_hint is False
             assert finalized_render_annotations.read_only_hint is False
@@ -1085,6 +1121,29 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "confirm_link": True,
                     },
                 ),
+                "recipe_list": await client.call_tool(
+                    "list_editing_recipes",
+                    {},
+                ),
+                "recipe_detail": await client.call_tool(
+                    "get_editing_recipe",
+                    {"recipe_id": "tutorial-layout-v1"},
+                ),
+                "recipe_preview": await client.call_tool(
+                    "preview_editing_recipe",
+                    {
+                        "recipe_id": "tutorial-layout-v1",
+                        "inputs": {"synchronized_pair_receipt_id": "a" * 64},
+                    },
+                ),
+                "recipe_run": await client.call_tool(
+                    "run_editing_recipe",
+                    {
+                        "recipe_id": "tutorial-layout-v1",
+                        "inputs": {"synchronized_pair_receipt_id": "a" * 64},
+                        "confirm_execute": True,
+                    },
+                ),
                 "compaction": await client.call_tool(
                     "preview_synchronized_pause_compaction",
                     {
@@ -1212,6 +1271,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "preview_rough_cut_apply",
             "apply_rough_cut",
             "sync_screen_and_webcam",
+            "list_editing_recipes",
+            "get_editing_recipe",
+            "preview_editing_recipe",
+            "run_editing_recipe",
             "compose_webcam_picture_in_picture",
             "link_synchronized_screen_pair",
             "preview_synchronized_pause_compaction",
@@ -1308,6 +1371,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["synced"].structured_content["status"] == "applied"
     assert results["composed"].structured_content["transform"]["zoom"] == 0.25
     assert results["screen_linked"].structured_content["status"] == "applied"
+    assert results["recipe_list"].structured_content["count"] == 1
+    assert results["recipe_detail"].structured_content["recipe_version"] == "1.0"
+    assert results["recipe_preview"].structured_content["status"] == "ready"
+    assert results["recipe_run"].structured_content["status"] == "applied"
     assert results["compaction"].structured_content["status"] == "preview"
     assert results["compaction_apply"].structured_content["status"] == "applied"
     assert results["compaction_finalized"].structured_content["status"] == (
@@ -1335,6 +1402,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "sync_screen_and_webcam",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
+        "list_editing_recipes",
+        "get_editing_recipe",
+        "preview_editing_recipe",
+        "run_editing_recipe",
         "preview_synchronized_pause_compaction",
         "apply_synchronized_pause_compaction",
         "finalize_synchronized_pause_compaction",

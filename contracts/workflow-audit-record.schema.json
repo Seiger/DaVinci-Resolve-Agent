@@ -55,6 +55,10 @@
         "sync_screen_and_webcam",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
+        "list_editing_recipes",
+        "get_editing_recipe",
+        "preview_editing_recipe",
+        "run_editing_recipe",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports"
@@ -114,7 +118,11 @@
             "enum": [
               "sync_screen_and_webcam",
               "compose_webcam_picture_in_picture",
-              "link_synchronized_screen_pair"
+              "link_synchronized_screen_pair",
+              "list_editing_recipes",
+              "get_editing_recipe",
+              "preview_editing_recipe",
+              "run_editing_recipe"
             ]
           }
         }

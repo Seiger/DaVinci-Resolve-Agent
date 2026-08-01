@@ -95,6 +95,7 @@ function Get-AgentPaths {
         PlansRoot = Join-Path $runtimeRoot "plans"
         AudioReportsRoot = Join-Path $runtimeRoot "audio-reports"
         SubtitleReceiptsRoot = Join-Path $runtimeRoot "subtitle-receipts"
+        EditingRecipeRunsRoot = Join-Path $runtimeRoot "editing-recipe-runs"
         TranscriptionModelsRoot = Join-Path (
             Join-Path $runtimeRoot "models"
         ) "faster-whisper"

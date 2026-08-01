@@ -7,6 +7,7 @@ from agent.paths import (
     audio_source_directory,
     config_directory,
     diagnostics_directory,
+    editing_recipe_runs_directory,
     finalized_audio_extractions_directory,
     finalized_audio_integrations_directory,
     finalized_render_executions_directory,
@@ -78,6 +79,9 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     )
     assert subtitle_receipts_directory(first_environment) == (
         first_runtime / "subtitle-receipts"
+    )
+    assert editing_recipe_runs_directory(first_environment) == (
+        first_runtime / "editing-recipe-runs"
     )
     assert transcription_models_directory(first_environment) == (
         first_runtime / "models" / "faster-whisper"

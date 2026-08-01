@@ -329,6 +329,14 @@ Independent subtitle discovery must find
 exactly one new canonical item per transcript segment before a validated
 `subtitle-generation` receipt is persisted.
 
+M48 editing recipes are local application contracts, not bridge commands.
+`list_editing_recipes`, `get_editing_recipe` and `preview_editing_recipe` are
+read-only. `run_editing_recipe` requires literal confirmation and accepts only
+a canonical packaged recipe ID plus bounded scalar inputs. The action allowlist
+and argument mapping are code-owned; recipe data cannot name an arbitrary MCP
+tool, bridge action, provider method, property or executable command. Applied
+steps are persisted after each successful underlying idempotent workflow.
+
 `get_workspace_snapshot` performs a fixed composition of the existing
 read-only operations. It returns bridge metadata, current project, timelines,
 current timeline and its items, Media Pool items, and render discovery. It

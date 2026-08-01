@@ -22,6 +22,7 @@ from agent.paths import transcription_models_directory
 from agent.pause_compaction import PauseCompactionApplier, PauseCompactionPreviewer
 from agent.pause_compaction_finalize import PauseCompactionFinalizer
 from agent.picture_in_picture import PictureInPictureComposer
+from agent.recipes import EditingRecipeRunner
 from agent.rendering import (
     DEFAULT_RENDER_PROFILE,
     validate_render_job_id,
@@ -621,6 +622,29 @@ class SubtitleGenerationWorkflow(Protocol):
         """Generate and apply one bounded subtitle artifact."""
 
 
+class EditingRecipeWorkflow(Protocol):
+    """Validated declarative editing recipe boundary."""
+
+    def list_recipes(self) -> dict[str, Any]: ...
+
+    def get_recipe(self, recipe_id: str) -> dict[str, Any]: ...
+
+    def preview(
+        self,
+        recipe_id: str,
+        inputs: dict[str, Any],
+    ) -> dict[str, Any]: ...
+
+    def run(
+        self,
+        recipe_id: str,
+        inputs: dict[str, Any],
+        *,
+        confirm_execute: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -646,6 +670,7 @@ class AgentApplication:
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         subtitle_generator: SubtitleGenerationWorkflow | None = None,
+        editing_recipe_runner: EditingRecipeWorkflow | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -668,6 +693,7 @@ class AgentApplication:
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._subtitle_generator = subtitle_generator
+        self._editing_recipe_runner = editing_recipe_runner
         self._workflow_audit = workflow_audit
 
     def status(
@@ -1426,6 +1452,60 @@ class AgentApplication:
                 "capabilities", {}
             ),
         )
+
+    def list_editing_recipes(self) -> dict[str, Any]:
+        """List packaged declarative editing recipes without Resolve writes."""
+        return self._run_local_workflow(
+            "list_editing_recipes",
+            self._editing_recipe_service().list_recipes,
+        )
+
+    def get_editing_recipe(self, recipe_id: str) -> dict[str, Any]:
+        """Return one validated packaged editing recipe."""
+        return self._run_local_workflow(
+            "get_editing_recipe",
+            lambda: self._editing_recipe_service().get_recipe(recipe_id),
+        )
+
+    def preview_editing_recipe(
+        self,
+        recipe_id: str,
+        inputs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Preview normalized inputs, steps and capability gates."""
+        return self._run_local_workflow(
+            "preview_editing_recipe",
+            lambda: self._editing_recipe_service().preview(recipe_id, inputs),
+        )
+
+    def run_editing_recipe(
+        self,
+        recipe_id: str,
+        inputs: dict[str, Any],
+        *,
+        confirm_execute: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Execute one exact packaged recipe with durable step replay."""
+        return self._run_local_workflow(
+            "run_editing_recipe",
+            lambda: self._editing_recipe_service().run(
+                recipe_id,
+                inputs,
+                confirm_execute=confirm_execute,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _editing_recipe_service(self) -> EditingRecipeWorkflow:
+        if self._editing_recipe_runner is not None:
+            return self._editing_recipe_runner
+
+        def capabilities() -> dict[str, Any]:
+            discovered = self.status()["bridge"].get("capabilities", {})
+            return discovered if isinstance(discovered, dict) else {}
+
+        return EditingRecipeRunner(actions=self, capabilities=capabilities)
 
     def compose_webcam_picture_in_picture(
         self,

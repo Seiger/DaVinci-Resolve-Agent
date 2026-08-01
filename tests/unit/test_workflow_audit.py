@@ -173,6 +173,29 @@ def test_workflow_audit_records_finalized_render_as_delivery(
 @pytest.mark.parametrize(
     "operation",
     [
+        "list_editing_recipes",
+        "get_editing_recipe",
+        "preview_editing_recipe",
+        "run_editing_recipe",
+    ],
+)
+def test_workflow_audit_records_m48_recipe_operations_as_editing(
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    audit = WorkflowAuditLog(tmp_path, FixedClock())
+
+    audit.run(operation, lambda: {"receipt_id": "private"})
+    record = read_json_object(next((tmp_path / "workflow").glob("*.json")))
+
+    assert record["operation"] == operation
+    assert record["category"] == "editing"
+    assert "receipt_id" not in str(record)
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
         "start_finalized_timeline_render",
         "get_finalized_timeline_render_status",
     ],

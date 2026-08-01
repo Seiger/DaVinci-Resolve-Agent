@@ -64,6 +64,7 @@ try {
         $paths.PlansRoot,
         $paths.AudioReportsRoot,
         $paths.SubtitleReceiptsRoot,
+        $paths.EditingRecipeRunsRoot,
         $paths.TranscriptionModelsRoot,
         $paths.DiagnosticsRoot,
         $paths.ProcessedAudioRoot,

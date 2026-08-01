@@ -27,7 +27,8 @@
 - **M47 — завершено** — native capability probe, локальна українська
   faster-whisper транскрипція, deterministic SRT та backup-backed apply з
   canonical subtitle readback.
-- **M48** — декларативні MCP editing recipes.
+- **M48 — завершено** — пакетовані allowlisted MCP editing recipes,
+  capability-aware preview, confirmed execution і durable per-step replay.
 - **M49** — керовані титри, zoom та reframing.
 - **M50** — baseline end-to-end монтаж і QA.
 - **M51** — B-roll planning, review та bounded application.

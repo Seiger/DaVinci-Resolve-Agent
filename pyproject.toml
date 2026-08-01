@@ -49,7 +49,7 @@ include-package-data = true
 version = {attr = "agent.__version__"}
 
 [tool.setuptools.package-data]
-config = ["*.toml"]
+config = ["*.toml", "recipes/*.json"]
 contracts = ["*.json", "examples/*.json"]
 
 [tool.pytest.ini_options]

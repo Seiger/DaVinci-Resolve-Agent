@@ -1,0 +1,49 @@
+{
+  "recipe_version": "1.0",
+  "recipe_id": "tutorial-layout-v1",
+  "name": "Tutorial synchronized layout",
+  "description": "Apply the verified webcam picture-in-picture layout and link the synchronized screen video/audio pair.",
+  "inputs": [
+    {
+      "name": "synchronized_pair_receipt_id",
+      "kind": "receipt_id",
+      "required": true
+    },
+    {
+      "name": "size_percent",
+      "kind": "number",
+      "required": false,
+      "default": 25.0,
+      "minimum": 10.0,
+      "maximum": 50.0
+    },
+    {
+      "name": "center_x_percent",
+      "kind": "number",
+      "required": false,
+      "default": 82.0,
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    {
+      "name": "center_y_percent",
+      "kind": "number",
+      "required": false,
+      "default": 82.0,
+      "minimum": 0.0,
+      "maximum": 100.0
+    }
+  ],
+  "steps": [
+    {
+      "step_id": "webcam-layout",
+      "action": "compose_webcam_picture_in_picture",
+      "required_capabilities": ["clip.transform", "media.metadata.read"]
+    },
+    {
+      "step_id": "screen-link",
+      "action": "link_synchronized_screen_pair",
+      "required_capabilities": ["clip.link"]
+    }
+  ]
+}

@@ -584,6 +584,44 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             timeout_seconds=timeout_seconds,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def list_editing_recipes() -> dict[str, Any]:
+        """List packaged allowlisted editing recipes."""
+        return await asyncio.to_thread(service.list_editing_recipes)
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_editing_recipe(recipe_id: str) -> dict[str, Any]:
+        """Return one validated packaged editing recipe."""
+        return await asyncio.to_thread(service.get_editing_recipe, recipe_id)
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_editing_recipe(
+        recipe_id: str,
+        inputs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Preview exact steps and capability gates without Resolve writes."""
+        return await asyncio.to_thread(
+            service.preview_editing_recipe,
+            recipe_id,
+            inputs,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def run_editing_recipe(
+        recipe_id: str,
+        inputs: dict[str, Any],
+        confirm_execute: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Execute one packaged recipe with confirmation and durable replay."""
+        return await asyncio.to_thread(
+            service.run_editing_recipe,
+            recipe_id,
+            inputs,
+            confirm_execute=confirm_execute,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,

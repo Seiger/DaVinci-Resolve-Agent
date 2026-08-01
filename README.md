@@ -8,8 +8,13 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 [roadmap](docs/roadmap.md).
 Окремий опис M47 наведено в
 [документації транскрипції](docs/transcription.md).
+Опис M48 наведено в
+[документації editing recipes](docs/editing-recipes.md).
 
-Проєкт виконує **Milestone M47: транскрипція та субтитри**. Read-only discovery
+Проєкт виконує **Milestone M48: декларативні editing recipes**. Пакетований
+allowlisted recipe можна list/get/preview без змін Resolve і виконати лише з
+явним confirmation, live capability gates та durable покроковим receipt.
+M47 read-only discovery
 перевіряє документований Resolve auto-caption API та bounded subtitle items, а
 окремий confirmed write-tool запускає лише fixed-policy `AUTO` captioning після
 backup і вимагає subtitle readback. M46 контрольовано експортує повну аудіодоріжку
@@ -320,6 +325,9 @@ Read-only інструменти:
 - `resolve_get_render_options`.
 - `resolve_get_render_job_status`.
 - `resolve_verify_render_output`.
+- `list_editing_recipes`.
+- `get_editing_recipe`.
+- `preview_editing_recipe`.
 
 Безпечні write-інструменти:
 
@@ -340,6 +348,7 @@ Read-only інструменти:
 - `generate_subtitles`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
+- `run_editing_recipe`.
 
 Локальні rough-cut інструменти:
 
@@ -360,6 +369,11 @@ Read-only інструменти:
 - `start_finalized_timeline_audio`.
 - `get_finalized_timeline_audio_status`.
 - `apply_finalized_timeline_audio`.
+
+Recipe M48 `tutorial-layout-v1` декларативно компонує вже перевірені
+`compose_webcam_picture_in_picture` та `link_synchronized_screen_pair`.
+Довільні action lists, MCP tool names, kwargs або executable code через recipe
+не приймаються. Деталі: [editing recipes](docs/editing-recipes.md).
 
 Локальний audio-інструмент M6:
 
@@ -538,6 +552,7 @@ py -3.12 -m venv .venv
 [встановлення у Windows](docs/installation-windows.md),
 [архітектуру](docs/architecture.md), [MCP](docs/mcp.md) та
 [rough cut](docs/rough-cut.md), [audio workflow](docs/audio-workflow.md),
+[editing recipes](docs/editing-recipes.md),
 [rollback](docs/rollback.md).
 Основні вимоги продукту зафіксовані в
 [SPECIFICATION.md](SPECIFICATION.md).

@@ -827,6 +827,37 @@ class StubAudioReportInspector:
         }
 
 
+class StubEditingRecipeRunner:
+    def list_recipes(self) -> dict[str, Any]:
+        return {"recipes": [{"recipe_id": "tutorial-layout-v1"}], "count": 1}
+
+    def get_recipe(self, recipe_id: str) -> dict[str, Any]:
+        return {"recipe_id": recipe_id, "recipe_version": "1.0"}
+
+    def preview(
+        self,
+        recipe_id: str,
+        inputs: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {"recipe_id": recipe_id, "inputs": inputs, "status": "ready"}
+
+    def run(
+        self,
+        recipe_id: str,
+        inputs: dict[str, Any],
+        *,
+        confirm_execute: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        assert confirm_execute is True
+        return {
+            "recipe_id": recipe_id,
+            "inputs": inputs,
+            "status": "applied",
+            "timeout_seconds": timeout_seconds,
+        }
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1470,6 +1501,41 @@ def test_application_inspects_audio_reports_without_resolve_call() -> None:
         "list_audio_reports",
     ]
     assert resolve.timeouts == []
+
+
+def test_application_lists_previews_and_runs_editing_recipe() -> None:
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        editing_recipe_runner=StubEditingRecipeRunner(),
+        workflow_audit=audit,
+    )
+    inputs = {"synchronized_pair_receipt_id": "a" * 64}
+
+    listing = application.list_editing_recipes()
+    detail = application.get_editing_recipe("tutorial-layout-v1")
+    preview = application.preview_editing_recipe(
+        "tutorial-layout-v1",
+        inputs,
+    )
+    result = application.run_editing_recipe(
+        "tutorial-layout-v1",
+        inputs,
+        confirm_execute=True,
+        timeout_seconds=45,
+    )
+
+    assert listing["count"] == 1
+    assert detail["recipe_version"] == "1.0"
+    assert preview["status"] == "ready"
+    assert result["status"] == "applied"
+    assert result["timeout_seconds"] == 45
+    assert audit.operations == [
+        "list_editing_recipes",
+        "get_editing_recipe",
+        "preview_editing_recipe",
+        "run_editing_recipe",
+    ]
 
 
 @pytest.mark.parametrize("timeout_seconds", [0, -1, 301])

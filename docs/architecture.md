@@ -940,6 +940,25 @@ The bridge records the timeline end before documented `AppendToTimeline`; this
 is the SRT placement anchor observed in Resolve 21 Free. It does not claim
 playhead-based or arbitrary mid-timeline subtitle insertion.
 
+## M48 declarative editing recipes
+
+```text
+packaged JSON recipe
+ ├─ Draft 2020-12 contract validation
+ ├─ fixed action/capability declaration
+ ├─ read-only input/default/capability preview
+ └─ confirmed application action dispatcher
+      ├─ compose_webcam_picture_in_picture
+      └─ link_synchronized_screen_pair
+```
+
+Recipes are provider-neutral orchestration data above `AgentApplication`; they
+never enter the Resolve bridge as a batch or executable expression. The M48
+dispatcher has a code-owned action allowlist and fixed argument mapping. A
+SHA-256 run receipt binds the complete recipe definition and persists each
+applied step atomically, so interruption can resume only pending work while
+completed underlying workflow receipts replay.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

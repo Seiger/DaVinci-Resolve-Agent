@@ -40,6 +40,13 @@ one source/timeline binding, generated SRT, backend/model/language evidence,
 exact segment/item counts and canonical IDs, verified append-anchor placement,
 anchor evidence source, plus the two provider step results.
 
+M48 adds `editing-recipe.schema.json` for packaged declarative definitions and
+`editing-recipe-run.schema.json` for durable per-step execution receipts. The
+initial action enum contains only the verified M39 layout and M40 link
+workflows. Recipes cannot encode arbitrary provider calls, MCP dispatch or
+executable code. A run receipt binds the SHA-256 of the complete definition,
+so changed packaged steps cannot replay a stale result under the same ID.
+
 M8 adds `get_render_job_status` and `start_render_job`; both accept only a safe
 opaque `job_id`. Start requires backup and can target only a fixed-policy job
 proven by an M7 preparation receipt. Arbitrary render settings, deletion,

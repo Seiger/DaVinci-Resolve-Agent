@@ -163,6 +163,13 @@ def subtitle_receipts_directory(
     return runtime_directory(environment) / "subtitle-receipts"
 
 
+def editing_recipe_runs_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for declarative editing recipe runs."""
+    return runtime_directory(environment) / "editing-recipe-runs"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

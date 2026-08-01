@@ -387,3 +387,21 @@ ResolveBridge ручний сценарій має зафіксувати:
 - result: local transcription → deterministic SRT → Resolve subtitle apply
   is `verified`; native Resolve AI captioning is unsupported in this Free
   environment.
+
+### M48 declarative editing recipe evidence
+
+- UTC execution date: `2026-08-02`;
+- environment: Resolve 21 Free 21.0.3.7, Windows 10, Python 3.12.10;
+- MCP recipe: `tutorial-layout-v1` over canonical M38 receipt
+  `09e1cdece4e1d2b8f848059422691bec6cabb9952cf351706148d9e26f048b2a`;
+- discovery returned one packaged recipe; preview returned `ready` with exact
+  ordered actions `compose_webcam_picture_in_picture` then
+  `link_synchronized_screen_pair`;
+- applied recipe receipt:
+  `bc4119ed1f0c0f940bf252d700c35d9db62058a9f8bb2f20d62519f3dd6dd8fc`,
+  bound to recipe definition SHA-256
+  `8cd6bb498197621d00088d557b01efda4aafcc4fac532b08273d26fba1602215`;
+- both steps returned `applied`; immediate replay returned an identical receipt;
+- underlying M39/M40 receipts were reused, so Resolve backups stayed `64 → 64`;
+- result: packaged recipe discovery, read-only preview, confirmed execution and
+  idempotent replay are `verified` through the MCP server on this environment.

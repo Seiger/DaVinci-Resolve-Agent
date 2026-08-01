@@ -16,6 +16,9 @@ Read-only інструменти:
 - `resolve_get_render_options`;
 - `resolve_get_render_job_status`;
 - `resolve_verify_render_output`.
+- `list_editing_recipes`.
+- `get_editing_recipe`.
+- `preview_editing_recipe`.
 
 Write-інструменти M4:
 
@@ -35,6 +38,7 @@ Write-інструменти M4:
 - `generate_subtitles`.
 - `resolve_prepare_render_job`.
 - `resolve_start_render_job`.
+- `run_editing_recipe`.
 
 Локальні rough-cut інструменти:
 
@@ -282,6 +286,14 @@ prompt, raw settings і довільний код не приймаються.
 відносно `append_frame` — кінця таймлайна перед документованим
 `AppendToTimeline`; довільне вставлення в середину timeline не заявляється.
 Replay applied receipt не повторює transcription, import або append.
+
+M48 tools `list_editing_recipes`, `get_editing_recipe` та
+`preview_editing_recipe` є read-only. Preview нормалізує defaults і повертає
+точні steps та missing live capabilities. `run_editing_recipe` вимагає
+`confirm_execute=true` й виконує лише packaged allowlisted actions із fixed
+argument mapping. Поточний `tutorial-layout-v1` компонує M39 PIP та M40 screen
+link для одного canonical M38 receipt. Recipe не може передати shell, Python,
+Lua, PowerShell, Resolve expression, MCP tool name або довільний action.
 
 `resolve_get_editing_metadata` є read-only підготовкою до точного placement.
 Він приймає canonical `timeline_id` і від 1 до 100 явних `asset_ids`, читає

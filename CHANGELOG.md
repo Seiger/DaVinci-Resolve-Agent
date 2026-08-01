@@ -9,6 +9,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M48 packaged declarative editing recipe contracts, bounded discovery and
+  read-only capability-aware preview tools.
+- Confirmed `run_editing_recipe` execution for the allowlisted synchronized
+  tutorial layout, with atomic per-step progress, idempotent replay and no
+  arbitrary actions, arguments, code, or MCP dispatch.
+- Resolve 21 Free live MCP validation of `tutorial-layout-v1`, including ready
+  preview, two applied steps, identical replay and no additional project backup.
 - M47 read-only subtitle environment discovery for one canonical timeline,
   including bounded subtitle tracks/items and documented native auto-caption
   method/constant availability without invoking an AI operation.
