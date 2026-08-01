@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/picture-in-picture-result.schema.json",
+  "title": "DaVinci Resolve Agent M39 picture-in-picture result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["layout_version", "receipt_id", "status", "inputs", "source", "timeline_resolution", "transform", "operation"],
+  "properties": {
+    "layout_version": {"const": "1.0"},
+    "receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "status": {"enum": ["in_progress", "applied"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["synchronized_pair_receipt_id", "size_percent", "center_x_percent", "center_y_percent"],
+      "properties": {
+        "synchronized_pair_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "size_percent": {"type": "number", "minimum": 10, "maximum": 50},
+        "center_x_percent": {"type": "number", "minimum": 0, "maximum": 100},
+        "center_y_percent": {"type": "number", "minimum": 0, "maximum": 100}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "webcam_asset_id", "webcam_timeline_item_id"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "webcam_asset_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "webcam_timeline_item_id": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "timeline_resolution": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1}
+      }
+    },
+    "transform": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["position_x", "position_y", "zoom"],
+      "properties": {
+        "position_x": {"type": "number"},
+        "position_y": {"type": "number"},
+        "zoom": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.5}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "status", "result"],
+      "properties": {
+        "operation": {"const": "set_webcam_transform"},
+        "status": {"enum": ["pending", "applied"]},
+        "result": {"type": ["object", "null"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "applied"}}},
+      "then": {
+        "properties": {
+          "timeline_resolution": {"type": "object"},
+          "transform": {"type": "object"},
+          "operation": {
+            "properties": {
+              "status": {"const": "applied"},
+              "result": {"type": "object"}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

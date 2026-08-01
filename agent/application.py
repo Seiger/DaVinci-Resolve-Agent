@@ -14,6 +14,7 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.media import MediaPolicy
+from agent.picture_in_picture import PictureInPictureComposer
 from agent.rendering import (
     DEFAULT_RENDER_PROFILE,
     validate_render_job_id,
@@ -346,6 +347,22 @@ class SynchronizedPairWorkflow(Protocol):
         """Create and populate one synchronized V1/A1/V2 timeline."""
 
 
+class PictureInPictureWorkflow(Protocol):
+    """Provider-neutral synchronized webcam layout boundary."""
+
+    def compose(
+        self,
+        *,
+        synchronized_pair_receipt_id: str,
+        size_percent: float,
+        center_x_percent: float,
+        center_y_percent: float,
+        confirm_layout: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply one normalized picture-in-picture webcam layout."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -392,6 +409,7 @@ class AgentApplication:
         rough_cut_inspector: RoughCutPlanInspector | None = None,
         rough_cut_applier: RoughCutPlanApplier | None = None,
         synchronized_pair_assembler: SynchronizedPairWorkflow | None = None,
+        picture_in_picture_composer: PictureInPictureWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -404,6 +422,7 @@ class AgentApplication:
         self._rough_cut_inspector = rough_cut_inspector
         self._rough_cut_applier = rough_cut_applier
         self._synchronized_pair_assembler = synchronized_pair_assembler
+        self._picture_in_picture_composer = picture_in_picture_composer
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -1096,6 +1115,39 @@ class AgentApplication:
         if self._synchronized_pair_assembler is not None:
             return self._synchronized_pair_assembler
         return SynchronizedPairAssembler(
+            gateway=self._resolve,
+            capabilities=lambda: self.status()["bridge"].get(
+                "capabilities", {}
+            ),
+        )
+
+    def compose_webcam_picture_in_picture(
+        self,
+        *,
+        synchronized_pair_receipt_id: str,
+        size_percent: float = 25.0,
+        center_x_percent: float = 82.0,
+        center_y_percent: float = 82.0,
+        confirm_layout: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply a normalized layout to the webcam item created by M38."""
+        return self._run_local_workflow(
+            "compose_webcam_picture_in_picture",
+            lambda: self._picture_in_picture_service().compose(
+                synchronized_pair_receipt_id=synchronized_pair_receipt_id,
+                size_percent=size_percent,
+                center_x_percent=center_x_percent,
+                center_y_percent=center_y_percent,
+                confirm_layout=confirm_layout,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _picture_in_picture_service(self) -> PictureInPictureWorkflow:
+        if self._picture_in_picture_composer is not None:
+            return self._picture_in_picture_composer
+        return PictureInPictureComposer(
             gateway=self._resolve,
             capabilities=lambda: self.status()["bridge"].get(
                 "capabilities", {}

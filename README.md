@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M38: synchronized pair assembly**. Він
+Проєкт перебуває на етапі **Milestone M39: webcam picture-in-picture**. Він
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -25,6 +25,12 @@ M38 додає provider-neutral workflow `sync_screen_and_webcam`: він ств
 новий timeline, готує V1/A1/V2 та розміщує screen video, screen audio і webcam
 video з signed offset. Кожен write має окремий backup та derived idempotency
 key, а progress receipt дозволяє безпечно продовжити перервану операцію.
+M39 додає `compose_webcam_picture_in_picture`: workflow бере лише завершений
+receipt M38, читає live resolution timeline і переводить нормалізовані
+координати кадру в документовані `Pan`/`Tilt`/`ZoomX`/`ZoomY`. Маски, crop,
+Fusion і довільні Resolve properties не входять до цього етапу.
+Live-перевірка у Resolve 21 Free 21.0.3.7 підтвердила 1920×1080 metadata,
+Pan/Tilt `614.4/-345.6`, Zoom `0.25`, один backup і replay без нової зміни.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -283,6 +289,7 @@ Read-only інструменти:
 - `get_rough_cut_plan`.
 - `list_rough_cut_plans`.
 - `sync_screen_and_webcam`.
+- `compose_webcam_picture_in_picture`.
 
 Локальний audio-інструмент M6:
 
@@ -321,6 +328,14 @@ webcam assets, signed `webcam_offset_ms` у межах ±30 секунд та
 на A1 та webcam video на V2. Webcam audio, trim, split і pause removal не
 виконуються. Результат перевіряється через bounded TimelineItem readback;
 фактичні stream extents після можливого Resolve clamp є авторитетними.
+
+`compose_webcam_picture_in_picture` приймає canonical receipt ID завершеного
+M38, `size_percent` від 10 до 50, координати центру `center_x_percent` і
+`center_y_percent` від 0 до 100 та `confirm_layout=true`. Нуль координат —
+лівий/верхній край кадру. Workflow читає live width/height timeline, застосовує
+transform лише до canonical webcam item V2 і вимагає exact property readback.
+Default 25/82/82 дає компактну розкладку праворуч унизу; кругла маска,
+рамка, crop і Fusion поки не реалізовані.
 
 `clean_dialogue_audio` працює без Resolve та приймає allowlisted 16-bit PCM
 WAV. Preset виконує детерміноване RMS leveling із peak guard, зберігає

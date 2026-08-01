@@ -40,6 +40,7 @@ Write-інструменти M4:
 - `get_rough_cut_plan`.
 - `list_rough_cut_plans`.
 - `sync_screen_and_webcam`.
+- `compose_webcam_picture_in_picture`.
 - `preview_rough_cut_apply`.
 - `apply_rough_cut`.
 
@@ -244,8 +245,10 @@ Live discovery у Resolve 21 Free 21.0.3.7 повернув п'ять items у `
 `resolve_get_editing_metadata` є read-only підготовкою до точного placement.
 Він приймає canonical `timeline_id` і від 1 до 100 явних `asset_ids`, читає
 лише bounded `MediaPoolItem.GetClipProperty("Frames")` та
-`GetClipProperty("FPS")`, а також `Timeline.GetTrackCount("video"|"audio")`.
-Відповідь повертає нормалізований FPS цільового timeline, кількість його
+`GetClipProperty("FPS")`, а також `Timeline.GetTrackCount("video"|"audio")`
+і named settings `timelineFrameRate`, `timelineResolutionWidth`,
+`timelineResolutionHeight`. Відповідь повертає нормалізовані FPS і resolution
+цільового timeline, кількість його
 tracks, а для assets — `duration_frames: int` і `frame_rate: float`. Raw
 timeline settings і clip-property snapshots,
 файлові шляхи, Resolve handles і будь-які write-операції не входять до
@@ -287,3 +290,12 @@ primitives. Він вимагає `confirm_sync=true`, двох різних can
 розміщує webcam пізніше, негативний — screen пізніше. Мілісекунди округлюються
 до найближчого target timeline frame; source bounds залишаються у frames
 відповідного asset. `timeout_seconds` застосовується до кожного primitive.
+
+`compose_webcam_picture_in_picture` працює лише з canonical applied receipt
+від `sync_screen_and_webcam`. Він приймає bounded `size_percent` 10–50,
+`center_x_percent`/`center_y_percent` 0–100 і `confirm_layout=true`. Координати
+нормалізовано від лівого верхнього кута кадру; application service переводить
+їх у документовані Resolve Pan/Tilt за live resolution timeline. Workflow
+змінює лише webcam V2, створює один backup-backed transform і перевіряє exact
+Pan/Tilt/Zoom readback. Raw property names, crop, masks, Fusion, keyframes і
+довільний код не приймаються.

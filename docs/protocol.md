@@ -109,11 +109,11 @@ increment readback after every documented `Timeline.AddTrack` call. Added
 audio tracks use the fixed `stereo` subtype. The action cannot remove tracks,
 change existing track types, or accept raw Resolve options.
 
-`get_editing_metadata` reads the documented target
-`Timeline.GetSetting("timelineFrameRate")` in addition to bounded track counts
-and requested asset `Frames`/`FPS`. It normalizes the target frame rate to a
-positive float, including the documented drop-frame suffix, and never returns
-a raw setting snapshot.
+`get_editing_metadata` reads the documented target named settings
+`timelineFrameRate`, `timelineResolutionWidth`, and
+`timelineResolutionHeight` in addition to bounded track counts and requested
+asset `Frames`/`FPS`. It normalizes FPS to a positive float and dimensions to
+positive integers, and never returns a raw setting snapshot.
 
 ## M38 synchronized pair workflow
 
@@ -135,6 +135,17 @@ capabilities. Its SHA-256 receipt stores progress after each primitive. Every
 write derives a stable command idempotency key, so a retry resumes pending
 steps and a completed retry returns the stored result. It accepts no paths,
 raw clipInfo, arbitrary operation list, webcam audio, trim, split, or delete.
+
+## M39 synchronized webcam layout
+
+`compose_webcam_picture_in_picture` is another application workflow rather
+than a bridge action. It accepts one applied M38 receipt, a bounded 10–50%
+size, normalized 0–100 frame-center coordinates and explicit confirmation.
+The application derives Pan/Tilt/Zoom from live target dimensions and invokes
+only the existing `set_clip_transform` primitive for the receipt's canonical
+webcam item. A SHA-256 layout receipt records the resolution, transform and
+exact property readback for stable replay. Raw Resolve properties, crop,
+masks, Fusion, keyframes, expressions and arbitrary code remain unavailable.
 
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed

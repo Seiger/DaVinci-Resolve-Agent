@@ -62,6 +62,7 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "preview_rough_cut_apply",
         "apply_rough_cut",
         "sync_screen_and_webcam",
+        "compose_webcam_picture_in_picture",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports",

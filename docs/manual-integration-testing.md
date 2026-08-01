@@ -203,3 +203,21 @@ ResolveBridge ручний сценарій має зафіксувати:
   nor results;
 - result: `verified` on this exact environment; positive/negative non-zero
   offsets remain simulation-tested, and other versions/editions remain pending.
+
+### M39 synchronized webcam picture-in-picture evidence
+
+- UTC execution: `2026-08-01T14:21:06Z`;
+- platform: Windows 10 build 19045, Python 3.12.10;
+- Resolve: DaVinci Resolve 21.0.3.7 Free, edition operator-confirmed;
+- source: applied M38 receipt `09e1cdece4e1d2b8f848059422691bec6cabb9952cf351706148d9e26f048b2a`;
+- target: webcam TimelineItem `2eb5e9ef-42ac-4b23-982d-04340b6197f2` on V2
+  of `M38 Synchronized Pair Test`;
+- bounded metadata: target resolution 1920×1080;
+- normalized input: size `25%`, center X/Y `82%/82%`;
+- exact readback: Pan `614.4`, Tilt `-345.6`, ZoomX/ZoomY `0.25`, ZoomGang
+  enabled; previous values were Pan/Tilt `0/0`, ZoomX/ZoomY `1.0`;
+- safety: one `.drp` backup, canonical SHA-256 layout receipt
+  `2f196e85b811f3c9bb14ba7203b5a01f77f4316405e54dcf1b63c97f6d597894`;
+- replay: backup count remained 37 before and after, with the identical receipt;
+- result: `verified` on this exact environment; masks, crop, borders, Fusion,
+  and other Resolve versions/editions remain outside verified scope.

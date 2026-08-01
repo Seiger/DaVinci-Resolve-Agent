@@ -751,6 +751,23 @@ the transport protect the gap between a successful provider write and the
 next local progress write. The workflow creates a new timeline instead of
 modifying an existing edit and never applies pause removal.
 
+## M39 synchronized webcam layout
+
+```text
+MCP compose_webcam_picture_in_picture
+ └─ load and validate one applied M38 receipt
+     ├─ recover canonical timeline, webcam asset, and webcam TimelineItem IDs
+     ├─ read named target timeline width/height settings
+     ├─ map normalized frame center and bounded size to Pan/Tilt/Zoom
+     └─ set the webcam transform and verify exact property readback
+```
+
+The application owns normalized coordinates and the durable layout receipt;
+the Resolve provider owns the documented property mapping and project backup.
+This boundary remains usable by future editor providers. M39 does not claim
+visual masking, cropping, borders, Fusion composition, or source-aspect-aware
+collision avoidance.
+
 ## Future providers
 
 Resolve-specific imports and object handling remain within the Resolve adapter.

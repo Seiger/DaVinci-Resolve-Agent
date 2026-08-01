@@ -1102,10 +1102,16 @@ def _editing_metadata(
         timeline_frame_rate = _positive_frame_rate_setting(
             get_setting_call("timelineFrameRate")
         )
+        timeline_width = _positive_integer_setting(
+            get_setting_call("timelineResolutionWidth")
+        )
+        timeline_height = _positive_integer_setting(
+            get_setting_call("timelineResolutionHeight")
+        )
     except ValueError:
         raise BridgeOperationError(
             "INVALID_RESOLVE_RESPONSE",
-            "Timeline.GetSetting() returned an invalid timelineFrameRate.",
+            "Timeline.GetSetting() returned invalid bounded editing metadata.",
         ) from None
 
     requested = set(asset_ids)
@@ -1218,6 +1224,8 @@ def _editing_metadata(
             "video_track_count": tracks["video"],
             "audio_track_count": tracks["audio"],
             "frame_rate": timeline_frame_rate,
+            "resolution_width": timeline_width,
+            "resolution_height": timeline_height,
         },
         "assets": assets,
     }
@@ -1249,6 +1257,11 @@ def _positive_frame_rate_setting(value: Any) -> float:
             normalized = normalized[:-3].strip()
         value = normalized
     return _positive_number_property(value)
+
+
+def _positive_integer_setting(value: Any) -> int:
+    """Normalize a documented positive whole-number timeline setting."""
+    return _positive_integer_property(value)
 
 
 def _positive_integer_property(value: Any) -> int:

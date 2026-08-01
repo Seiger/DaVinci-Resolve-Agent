@@ -69,6 +69,13 @@ def synchronized_pairs_directory(
     return runtime_directory(environment) / "synchronized-pairs"
 
 
+def picture_in_picture_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for synchronized webcam layouts."""
+    return runtime_directory(environment) / "picture-in-picture"
+
+
 def audio_reports_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

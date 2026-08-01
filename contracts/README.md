@@ -54,6 +54,11 @@ timeline, target FPS, three fixed placements, five allowlisted primitive
 results and final readback. `in_progress` receipts make partial execution
 resumable; the contract contains canonical asset IDs but no source paths.
 
+M39 adds `picture-in-picture-result.schema.json`. It binds a bounded normalized
+webcam layout to one completed M38 receipt, stores target timeline resolution,
+the derived Pan/Tilt/Zoom transform and the allowlisted primitive result. It
+does not add a bridge command or expose raw Resolve properties.
+
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that
 applying the draft is unsupported in M5.

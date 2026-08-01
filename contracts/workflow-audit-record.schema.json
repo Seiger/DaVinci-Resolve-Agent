@@ -43,6 +43,7 @@
         "get_rough_cut_plan",
         "list_rough_cut_plans",
         "sync_screen_and_webcam",
+        "compose_webcam_picture_in_picture",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports"
@@ -96,7 +97,10 @@
       "if": {
         "properties": {
           "operation": {
-            "const": "sync_screen_and_webcam"
+            "enum": [
+              "sync_screen_and_webcam",
+              "compose_webcam_picture_in_picture"
+            ]
           }
         }
       },

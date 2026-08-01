@@ -1096,6 +1096,8 @@ def test_editing_metadata_is_bounded_read_only_discovery(
             "video_track_count": 1,
             "audio_track_count": 1,
             "frame_rate": 60.0,
+            "resolution_width": 1920,
+            "resolution_height": 1080,
         },
         "assets": [
             {

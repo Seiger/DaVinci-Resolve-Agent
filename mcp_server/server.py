@@ -539,6 +539,26 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def compose_webcam_picture_in_picture(
+        synchronized_pair_receipt_id: str,
+        size_percent: float = 25.0,
+        center_x_percent: float = 82.0,
+        center_y_percent: float = 82.0,
+        confirm_layout: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Lay out the synchronized webcam using normalized frame coordinates."""
+        return await asyncio.to_thread(
+            service.compose_webcam_picture_in_picture,
+            synchronized_pair_receipt_id=synchronized_pair_receipt_id,
+            size_percent=size_percent,
+            center_x_percent=center_x_percent,
+            center_y_percent=center_y_percent,
+            confirm_layout=confirm_layout,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
         preset: str = "pcm-dialogue-level-v1",

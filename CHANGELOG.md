@@ -9,6 +9,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M39 provider-neutral `compose_webcam_picture_in_picture` workflow over one
+  completed M38 receipt, normalized frame coordinates, bounded 10–50% zoom,
+  explicit confirmation, exact Resolve property readback, and durable replay.
+- Bounded target timeline width/height discovery through documented named
+  `Timeline.GetSetting` calls; no raw settings snapshot is exposed.
+- Resolve 21 Free 21.0.3.7 live verification of a 1920×1080 webcam layout with
+  exact Pan/Tilt/Zoom readback, one backup, and zero replay writes.
 - M38 provider-neutral `sync_screen_and_webcam` workflow for a new V1/A1/V2
   timeline using live target FPS and bounded signed synchronization offset.
 - Durable step-level progress receipt, derived primitive idempotency keys,

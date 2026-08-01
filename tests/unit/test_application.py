@@ -481,6 +481,31 @@ class StubSynchronizedPairAssembler:
         return {"status": "applied", "timeline": {"name": timeline_name}}
 
 
+class StubPictureInPictureComposer:
+    def __init__(self) -> None:
+        self.arguments: dict[str, Any] = {}
+
+    def compose(
+        self,
+        *,
+        synchronized_pair_receipt_id: str,
+        size_percent: float,
+        center_x_percent: float,
+        center_y_percent: float,
+        confirm_layout: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.arguments = {
+            "synchronized_pair_receipt_id": synchronized_pair_receipt_id,
+            "size_percent": size_percent,
+            "center_x_percent": center_x_percent,
+            "center_y_percent": center_y_percent,
+            "confirm_layout": confirm_layout,
+            "timeout_seconds": timeout_seconds,
+        }
+        return {"status": "applied", "transform": {"zoom": 0.25}}
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -855,6 +880,36 @@ def test_application_runs_synchronized_pair_workflow() -> None:
         "timeout_seconds": 45,
     }
     assert audit.operations == ["sync_screen_and_webcam"]
+
+
+def test_application_runs_picture_in_picture_workflow() -> None:
+    composer = StubPictureInPictureComposer()
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        picture_in_picture_composer=composer,
+        workflow_audit=audit,
+    )
+
+    result = application.compose_webcam_picture_in_picture(
+        synchronized_pair_receipt_id="a" * 64,
+        size_percent=25,
+        center_x_percent=82,
+        center_y_percent=82,
+        confirm_layout=True,
+        timeout_seconds=45,
+    )
+
+    assert result["status"] == "applied"
+    assert composer.arguments == {
+        "synchronized_pair_receipt_id": "a" * 64,
+        "size_percent": 25,
+        "center_x_percent": 82,
+        "center_y_percent": 82,
+        "confirm_layout": True,
+        "timeout_seconds": 45,
+    }
+    assert audit.operations == ["compose_webcam_picture_in_picture"]
 
 
 def test_application_processes_audio_without_resolve_call() -> None:

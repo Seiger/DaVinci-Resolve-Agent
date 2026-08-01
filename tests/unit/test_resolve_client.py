@@ -106,6 +106,8 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                     "video_track_count": 1,
                     "audio_track_count": 1,
                     "frame_rate": 60.0,
+                    "resolution_width": 1920,
+                    "resolution_height": 1080,
                 },
                 "assets": [
                     {
@@ -248,6 +250,8 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     editing_metadata = client.editing_metadata("timeline-1", ["asset-1"])
     assert editing_metadata["assets"][0]["frame_rate"] == 60.0
     assert editing_metadata["timeline"]["frame_rate"] == 60.0
+    assert editing_metadata["timeline"]["resolution_width"] == 1920
+    assert editing_metadata["timeline"]["resolution_height"] == 1080
     assert client.workspace_snapshot()["project"]["name"] == "Test Project"
     assert client.render_environment()["current"]["format"] == "mp4"
     assert client.import_media(
