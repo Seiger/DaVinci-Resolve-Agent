@@ -250,6 +250,33 @@ def test_insert_clip_requires_bounded_track_and_frame_arguments() -> None:
         validate_contract("command", command)
 
 
+def test_insert_clips_requires_bounded_placement_batch_and_backup() -> None:
+    command = _valid_command()
+    command["action"] = "insert_clips"
+    command["arguments"] = {
+        "timeline_id": "timeline-1",
+        "placements": [
+            {
+                "asset_id": "asset-1",
+                "source_start_frame": 10,
+                "source_end_frame": 240,
+                "position_frames": 0,
+                "track_type": "video",
+                "track_index": 1,
+            }
+        ],
+    }
+    command["safety"] = {
+        "allow_destructive": False,
+        "create_backup": True,
+    }
+    validate_contract("command", command)
+
+    command["arguments"]["placements"] = []
+    with pytest.raises(ContractValidationError, match="placements"):
+        validate_contract("command", command)
+
+
 def test_set_clip_enabled_requires_ids_boolean_and_backup() -> None:
     command = _valid_command()
     command["action"] = "set_clip_enabled"

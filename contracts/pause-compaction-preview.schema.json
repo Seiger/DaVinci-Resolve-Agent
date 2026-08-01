@@ -8,7 +8,7 @@
   "properties": {
     "preview_version": {"const": "1.0"},
     "status": {"const": "preview"},
-    "apply_supported": {"const": false},
+    "apply_supported": {"type": "boolean"},
     "plan_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "plan_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "synchronized_pair_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
@@ -69,12 +69,12 @@
     },
     "required_capabilities": {
       "type": "array",
-      "const": ["clip.insert", "timeline.create", "timeline.track.create"]
+      "const": ["clip.range_insert", "clip.read", "timeline.create", "timeline.track.create"]
     },
     "unsupported_capabilities": {
       "type": "array",
       "uniqueItems": true,
-      "items": {"enum": ["clip.insert", "timeline.create", "timeline.track.create"]}
+      "items": {"enum": ["clip.range_insert", "clip.read", "timeline.create", "timeline.track.create"]}
     }
   },
   "$defs": {

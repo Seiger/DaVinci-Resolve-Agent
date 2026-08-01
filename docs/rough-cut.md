@@ -128,8 +128,18 @@ applied M38 receipt, звіряє їхній offset і source filenames, а `pro
 перетворює на kept half-open intervals. Для кожного interval створюються точні
 майбутні placements screen video V1, screen audio A1 і webcam video V2.
 Source bounds використовують FPS asset, record positions — FPS target timeline.
-M41 нічого не застосовує; write, backup, resumable receipt і readback належать
-окремому M42.
+M41 нічого не застосовує; він повідомляє apply readiness лише за verified live
+capabilities.
+
+## M42: apply compacted timeline
+
+`apply_synchronized_pause_compaction` вимагає `confirm_apply=true`, повторно
+перевіряє approved plan, M38 binding і live metadata, після чого створює новий
+timeline. V1/A1/V2 placements передаються одним bounded batch insert, тому
+кількість pause cuts не множить кількість project backups. Durable receipt
+фіксує create/tracks/insert steps і дозволяє безпечно повторити перерваний або
+вже завершений запит. Після вставки workflow звіряє canonical item IDs і frame
+bounds через `list_timeline_items`. Вихідний timeline не модифікується.
 
 ## Деінсталяція
 

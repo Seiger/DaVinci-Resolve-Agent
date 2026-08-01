@@ -9,6 +9,15 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M42 confirmed `apply_synchronized_pause_compaction` workflow that rebuilds
+  approved kept ranges on a new V1/A1/V2 timeline with a durable receipt,
+  explicit confirmation, and final canonical-ID readback.
+- Bounded `insert_clips` provider command mapped to the documented batched
+  `MediaPool.AppendToTimeline([{clipInfo}, ...])` API with one project backup,
+  track/lock validation, and idempotent replay.
+- Resolve 21 Free 21.0.3.7 live M42 apply with one new timeline, six persisted
+  items, three write-step backups, preserved M38 source items, and replay with
+  no additional timeline or backup.
 - M41 read-only `preview_synchronized_pause_compaction` workflow that converts
   approved millisecond cuts into bounded kept V1/A1/V2 source-frame ranges
   without undocumented split or trim APIs.

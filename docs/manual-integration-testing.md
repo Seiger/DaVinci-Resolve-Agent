@@ -261,4 +261,30 @@ ResolveBridge ручний сценарій має зафіксувати:
   reads completed and the bridge remained `ready`; the following online
   `verify.ps1` reported a 0.3 s heartbeat age;
 - result: `verified` read-only preview on this exact environment; actual
-  compacted timeline creation remains intentionally unsupported until M42.
+  compacted timeline creation was verified separately in M42.
+
+### M42 pause compaction apply evidence
+
+- UTC execution: `2026-08-01T16:09Z`;
+- platform: Windows 10 build 19045, Python 3.12.10;
+- Resolve: DaVinci Resolve 21.0.3.7 Free, edition operator-confirmed;
+- inputs: M41 plan
+  `c0d5d8a6bb6ce60fd085faceb9ad8a9a69290dac1cec07a15bf2c064dd548793`
+  and applied M38 receipt
+  `09e1cdece4e1d2b8f848059422691bec6cabb9952cf351706148d9e26f048b2a`;
+- preview: `apply_supported=true`, no unsupported capabilities, one 560 ms cut,
+  two kept intervals, six placements, and 178,907 target frames;
+- target: `M42 Pause Compaction Apply`, canonical timeline ID
+  `7e430372-841d-4f6f-99ac-8647f6d75a31`;
+- apply receipt:
+  `b645865e2743554f2f20e5cc3109b72e7a86b6017aef620fd779509f859fe33d`;
+- result: create timeline, ensure tracks, and one six-placement batch insert all
+  reported `applied`; final `list_timeline_items` found 6/6 canonical IDs;
+- source safety: project timeline count changed 7 to 8, while all 3/3 canonical
+  M38 source items remained present;
+- backups: 39 to 42, exactly one distinct `.drp` for each of the three write
+  steps; immediate replay remained at 8 timelines and 42 backups;
+- frame readback: both kept segments began at target offsets 0 and 8 frames;
+  the second segment used source frame 53, confirming a non-zero ranged insert;
+- result: `verified` on this exact environment. Screen video/audio segment
+  linking and webcam picture-in-picture propagation are not part of M42.

@@ -33,6 +33,7 @@ class StubCommandClient:
             "set_current_timeline",
             "append_clip",
             "insert_clip",
+            "insert_clips",
             "set_clip_enabled",
             "set_clips_linked",
             "set_clip_transform",
@@ -180,6 +181,10 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 "asset_id": "asset-1",
                 "item": {"source_start_frame": 0, "source_end_frame": 240},
             },
+            "insert_clips": {
+                "timeline_id": "timeline-1",
+                "items": [{"timeline_item_id": "item-1"}],
+            },
             "set_clip_enabled": {
                 "timeline_id": "timeline-1",
                 "timeline_item_id": "item-1",
@@ -292,6 +297,20 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         1,
         idempotency_key="stable-key",
     )["item"]["source_end_frame"] == 240
+    assert client.insert_clips(
+        "timeline-1",
+        [
+            {
+                "asset_id": "asset-1",
+                "source_start_frame": 0,
+                "source_end_frame": 240,
+                "position_frames": 0,
+                "track_type": "video",
+                "track_index": 1,
+            }
+        ],
+        idempotency_key="stable-key",
+    )["items"][0]["timeline_item_id"] == "item-1"
     assert client.set_clip_enabled(
         "timeline-1",
         "item-1",
@@ -355,6 +374,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "set_current_timeline",
         "append_clip",
         "insert_clip",
+        "insert_clips",
         "set_clip_enabled",
         "set_clips_linked",
         "set_clip_transform",

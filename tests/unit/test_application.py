@@ -546,6 +546,29 @@ class StubPauseCompactionPreviewer:
         return {"status": "preview", "apply_supported": False}
 
 
+class StubPauseCompactionApplier:
+    def __init__(self) -> None:
+        self.arguments: dict[str, Any] = {}
+
+    def apply(
+        self,
+        *,
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.arguments = {
+            "plan_id": plan_id,
+            "synchronized_pair_receipt_id": synchronized_pair_receipt_id,
+            "target_timeline_name": target_timeline_name,
+            "confirm_apply": confirm_apply,
+            "timeout_seconds": timeout_seconds,
+        }
+        return {"status": "applied", "placement_count": 6}
+
+
 class StubAudioProcessor:
     def __init__(self) -> None:
         self.source_file = ""
@@ -1000,6 +1023,34 @@ def test_application_previews_synchronized_pause_compaction() -> None:
         "timeout_seconds": 45,
     }
     assert audit.operations == ["preview_synchronized_pause_compaction"]
+
+
+def test_application_applies_synchronized_pause_compaction() -> None:
+    applier = StubPauseCompactionApplier()
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        pause_compaction_applier=applier,
+        workflow_audit=audit,
+    )
+
+    result = application.apply_synchronized_pause_compaction(
+        plan_id="a" * 64,
+        synchronized_pair_receipt_id="b" * 64,
+        target_timeline_name="M42 Apply",
+        confirm_apply=True,
+        timeout_seconds=45,
+    )
+
+    assert result == {"status": "applied", "placement_count": 6}
+    assert applier.arguments == {
+        "plan_id": "a" * 64,
+        "synchronized_pair_receipt_id": "b" * 64,
+        "target_timeline_name": "M42 Apply",
+        "confirm_apply": True,
+        "timeout_seconds": 45,
+    }
+    assert audit.operations == ["apply_synchronized_pause_compaction"]
 
 
 def test_application_processes_audio_without_resolve_call() -> None:

@@ -19,6 +19,7 @@ WRITE_ACTIONS = {
     "set_current_timeline",
     "append_clip",
     "insert_clip",
+    "insert_clips",
     "set_clip_enabled",
     "set_clips_linked",
     "set_clip_transform",

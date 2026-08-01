@@ -43,6 +43,7 @@
         "get_rough_cut_plan",
         "list_rough_cut_plans",
         "preview_synchronized_pause_compaction",
+        "apply_synchronized_pause_compaction",
         "sync_screen_and_webcam",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
@@ -87,7 +88,8 @@
               "approve_rough_cut",
               "get_rough_cut_plan",
               "list_rough_cut_plans",
-              "preview_synchronized_pause_compaction"
+              "preview_synchronized_pause_compaction",
+              "apply_synchronized_pause_compaction"
             ]
           }
         }

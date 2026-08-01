@@ -73,6 +73,7 @@ The allowlist additionally contains:
 - `set_current_timeline` with one existing `timeline_id`;
 - `append_clip` with `timeline_id` and `asset_id`;
 - `insert_clip` with IDs, source bounds, timeline-relative position, and track;
+- `insert_clips` with one timeline ID and 1 to 3003 bounded placements;
 - `set_clip_enabled` with timeline ID, item ID, and boolean enabled state;
 - `set_clips_linked` with timeline ID, bounded unique item IDs, and link state;
 - `set_clip_transform` with timeline/item IDs and a bounded transform subset;
@@ -166,7 +167,20 @@ offset and bounded source names, then complements ordered half-open cuts into
 kept intervals. Each interval is mapped independently into source frames using
 the asset FPS and record frames using target timeline FPS. The canonical
 preview contract is bounded to 1000 cuts and 3003 placements, performs no
-Resolve write, and keeps `apply_supported=false` for M42.
+Resolve write, and reports apply readiness from verified live capabilities.
+
+## M42 pause compaction apply
+
+`apply_synchronized_pause_compaction` requires `confirm_apply=true`, recomputes
+the current M41 preview, and rejects a changed approval, source binding,
+metadata result, or in-progress preview hash. It creates a new timeline,
+ensures V1/A1/V2, and sends all planned ranges through one `insert_clips`
+provider operation. The provider maps the fixed placements to the documented
+batched `MediaPool.AppendToTimeline([{clipInfo}, ...])` form. It checks every
+track and lock state before the backup and write. Returned item IDs, tracks,
+source bounds, and a shared timeline origin are checked before a separate
+`list_timeline_items` persistence readback. Three step-level keys plus the
+provider receipt make replay resumable without editing the source timeline.
 
 `prepare_render_job` independently rejects paths and invalid Windows filename
 characters, derives the output directory from `USERPROFILE`, loads the fixed
@@ -189,7 +203,9 @@ per-job record blocks a second start under a different key.
 Resolve `mediaType`, derives `recordFrame` as
 `Timeline.GetStartFrame() + position_frames`, checks the track exists and is
 unlocked, and returns documented TimelineItem source/timeline bounds and track
-readback. It does not mutate existing items.
+readback. It does not mutate existing items. `insert_clips` applies the same
+documented mapping to a bounded list with one backup and one
+`AppendToTimeline` call for the full batch.
 
 `set_clip_enabled` locates one video/audio TimelineItem by documented unique
 ID, verifies its track is unlocked, creates a project backup, calls

@@ -319,6 +319,28 @@ class ResolveProviderClient:
         )
         return self._object_value("insert_clip", result)
 
+    def insert_clips(
+        self,
+        timeline_id: str,
+        placements: list[dict[str, Any]],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert bounded source ranges in one backed-up provider operation."""
+        result = self._client.request(
+            provider="resolve",
+            action="insert_clips",
+            arguments={
+                "timeline_id": timeline_id,
+                "placements": placements,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("insert_clips", result)
+
     def set_clip_enabled(
         self,
         timeline_id: str,

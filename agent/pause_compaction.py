@@ -5,19 +5,22 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Callable
 from pathlib import Path, PureWindowsPath
 from typing import Any, Protocol
 
 from agent.contracts import validate_contract
-from agent.paths import synchronized_pairs_directory
+from agent.paths import pause_compactions_directory, synchronized_pairs_directory
 from agent.rough_cut import RoughCutInspector
-from transports.filesystem import read_json_object
+from transports.filesystem import atomic_write_json, read_json_object
 
 PREVIEW_VERSION = "1.0"
+APPLY_VERSION = "1.0"
 MAX_CUTS = 1_000
 MAX_FRAME_VALUE = 2_147_483_647
-FUTURE_APPLY_CAPABILITIES = (
-    "clip.insert",
+APPLY_CAPABILITIES = (
+    "clip.range_insert",
+    "clip.read",
     "timeline.create",
     "timeline.track.create",
 )
@@ -39,10 +42,61 @@ class PauseCompactionGateway(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class PauseCompactionApplyGateway(PauseCompactionGateway, Protocol):
+    """Provider-neutral bounded writes required by M42."""
+
+    def create_timeline(
+        self,
+        name: str,
+        *,
+        timeout_seconds: float,
+        idempotency_key: str,
+    ) -> dict[str, Any]: ...
+
+    def ensure_timeline_tracks(
+        self,
+        timeline_id: str,
+        video_track_count: int,
+        audio_track_count: int,
+        *,
+        timeout_seconds: float,
+        idempotency_key: str,
+    ) -> dict[str, Any]: ...
+
+    def insert_clips(
+        self,
+        timeline_id: str,
+        placements: list[dict[str, Any]],
+        *,
+        timeout_seconds: float,
+        idempotency_key: str,
+    ) -> dict[str, Any]: ...
+
+    def timeline_items(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float,
+    ) -> dict[str, Any]: ...
+
+
 class RoughCutPlanReader(Protocol):
     """Approved rough-cut detail reader required by M41."""
 
     def get_plan(self, plan_id: str) -> dict[str, Any]: ...
+
+
+class PauseCompactionPreview(Protocol):
+    """Deterministic preview boundary reused by the M42 applier."""
+
+    def preview(
+        self,
+        *,
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
 
 
 class PauseCompactionPreviewer:
@@ -112,7 +166,7 @@ class PauseCompactionPreviewer:
         output_duration_ms = source_duration_ms - removed_duration_ms
         unsupported = sorted(
             capability
-            for capability in FUTURE_APPLY_CAPABILITIES
+            for capability in APPLY_CAPABILITIES
             if self._capabilities.get(capability) is not True
         )
         output_duration_frames = _milliseconds_to_frames(
@@ -125,7 +179,7 @@ class PauseCompactionPreviewer:
         result = {
             "preview_version": PREVIEW_VERSION,
             "status": "preview",
-            "apply_supported": False,
+            "apply_supported": not unsupported,
             "plan_id": plan_id,
             "plan_sha256": plan_sha256,
             "synchronized_pair_receipt_id": synchronized_pair_receipt_id,
@@ -140,7 +194,7 @@ class PauseCompactionPreviewer:
             "cuts": cuts,
             "kept_intervals": kept_intervals,
             "placements": placements,
-            "required_capabilities": list(FUTURE_APPLY_CAPABILITIES),
+            "required_capabilities": list(APPLY_CAPABILITIES),
             "unsupported_capabilities": unsupported,
         }
         validate_contract("pause-compaction-preview", result)
@@ -181,6 +235,353 @@ class PauseCompactionPreviewer:
                 "Synchronized-pair receipt must be fully applied."
             )
         return receipt
+
+
+class PauseCompactionApplier:
+    """Create a new compacted timeline with durable batch-insert replay safety."""
+
+    def __init__(
+        self,
+        *,
+        gateway: PauseCompactionApplyGateway,
+        capabilities: Callable[[], dict[str, Any]],
+        previewer: PauseCompactionPreview,
+        receipts_root: Path | None = None,
+    ) -> None:
+        self._gateway = gateway
+        self._capabilities = capabilities
+        self._previewer = previewer
+        self._receipts_root = (
+            pause_compactions_directory()
+            if receipts_root is None
+            else receipts_root
+        )
+
+    def apply(
+        self,
+        *,
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply one current preview to a new V1/A1/V2 timeline."""
+        _validate_request(
+            plan_id,
+            synchronized_pair_receipt_id,
+            target_timeline_name,
+            timeout_seconds,
+        )
+        if confirm_apply is not True:
+            raise PauseCompactionError("confirm_apply must be true.")
+        inputs = {
+            "plan_id": plan_id,
+            "synchronized_pair_receipt_id": synchronized_pair_receipt_id,
+            "target_timeline_name": target_timeline_name.strip(),
+        }
+        receipt_id = _apply_receipt_id(inputs)
+        receipt_path = self._receipts_root / f"{receipt_id}.json"
+        existing: dict[str, Any] | None = None
+        if receipt_path.is_file():
+            existing = read_json_object(receipt_path)
+            validate_contract("pause-compaction-result", existing)
+            if existing.get("receipt_id") != receipt_id or existing.get(
+                "inputs"
+            ) != inputs:
+                raise PauseCompactionError(
+                    "Stored pause-compaction inputs do not match the request."
+                )
+            if existing.get("status") == "applied":
+                return existing
+
+        capabilities = self._capabilities()
+        unsupported = [
+            name
+            for name in APPLY_CAPABILITIES
+            if capabilities.get(name) is not True
+        ]
+        if unsupported:
+            raise PauseCompactionError(
+                "Required Resolve capabilities are not verified: "
+                + ", ".join(unsupported)
+            )
+        preview = self._previewer.preview(
+            plan_id=plan_id,
+            synchronized_pair_receipt_id=synchronized_pair_receipt_id,
+            target_timeline_name=inputs["target_timeline_name"],
+            timeout_seconds=timeout_seconds,
+        )
+        validate_contract("pause-compaction-preview", preview)
+        if preview.get("apply_supported") is not True:
+            raise PauseCompactionError(
+                "Current pause-compaction preview is not apply-supported."
+            )
+        preview_sha256 = _canonical_sha256(preview)
+        if existing is None:
+            receipt = _new_apply_receipt(
+                receipt_id,
+                inputs,
+                preview_sha256,
+                preview,
+            )
+            self._persist(receipt_path, receipt)
+        else:
+            receipt = existing
+            if (
+                receipt.get("preview_sha256") != preview_sha256
+                or receipt.get("preview") != preview
+            ):
+                raise PauseCompactionError(
+                    "Current pause-compaction preview no longer matches the "
+                    "in-progress receipt."
+                )
+
+        create_result = self._apply_step(
+            receipt_path,
+            receipt,
+            0,
+            lambda: self._gateway.create_timeline(
+                inputs["target_timeline_name"],
+                timeout_seconds=timeout_seconds,
+                idempotency_key=_apply_step_key(receipt_id, "create"),
+            ),
+        )
+        timeline = _timeline_result(create_result, inputs["target_timeline_name"])
+        receipt["timeline"] = timeline
+        self._persist(receipt_path, receipt)
+
+        self._apply_step(
+            receipt_path,
+            receipt,
+            1,
+            lambda: self._gateway.ensure_timeline_tracks(
+                timeline["timeline_id"],
+                2,
+                1,
+                timeout_seconds=timeout_seconds,
+                idempotency_key=_apply_step_key(receipt_id, "tracks"),
+            ),
+        )
+        placements = [
+            _provider_placement(placement)
+            for placement in preview["placements"]
+        ]
+        insert_result = self._apply_step(
+            receipt_path,
+            receipt,
+            2,
+            lambda: self._gateway.insert_clips(
+                timeline["timeline_id"],
+                placements,
+                timeout_seconds=timeout_seconds,
+                idempotency_key=_apply_step_key(receipt_id, "insert"),
+            ),
+        )
+        inserted_items = _verify_batch_result(
+            timeline["timeline_id"], placements, insert_result
+        )
+        readback = self._gateway.timeline_items(
+            timeline["timeline_id"],
+            timeout_seconds=timeout_seconds,
+        )
+        _verify_apply_readback(timeline["timeline_id"], inserted_items, readback)
+        receipt["readback"] = readback
+        receipt["status"] = "applied"
+        self._persist(receipt_path, receipt)
+        return receipt
+
+    def _apply_step(
+        self,
+        receipt_path: Path,
+        receipt: dict[str, Any],
+        operation_index: int,
+        callback: Callable[[], dict[str, Any]],
+    ) -> dict[str, Any]:
+        operation = receipt["operations"][operation_index]
+        if operation["status"] == "applied":
+            result = operation.get("result")
+            if not isinstance(result, dict):
+                raise PauseCompactionError(
+                    "Stored applied operation has no object result."
+                )
+            return result
+        result = callback()
+        if not isinstance(result, dict):
+            raise PauseCompactionError(
+                f"{operation['operation']} returned an invalid result."
+            )
+        operation["status"] = "applied"
+        operation["result"] = result
+        self._persist(receipt_path, receipt)
+        return result
+
+    def _persist(self, path: Path, receipt: dict[str, Any]) -> None:
+        validate_contract("pause-compaction-preview", receipt["preview"])
+        validate_contract("pause-compaction-result", receipt)
+        self._receipts_root.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(path, receipt)
+
+
+def _apply_receipt_id(inputs: dict[str, Any]) -> str:
+    return _canonical_sha256(
+        {"apply_version": APPLY_VERSION, "inputs": inputs}
+    )
+
+
+def _apply_step_key(receipt_id: str, step: str) -> str:
+    return f"{receipt_id}:{step}"
+
+
+def _new_apply_receipt(
+    receipt_id: str,
+    inputs: dict[str, Any],
+    preview_sha256: str,
+    preview: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "apply_version": APPLY_VERSION,
+        "receipt_id": receipt_id,
+        "status": "in_progress",
+        "inputs": inputs,
+        "preview_sha256": preview_sha256,
+        "preview": preview,
+        "timeline": None,
+        "placement_count": len(preview["placements"]),
+        "operations": [
+            {"operation": operation, "status": "pending", "result": None}
+            for operation in (
+                "create_timeline",
+                "ensure_timeline_tracks",
+                "insert_clips",
+            )
+        ],
+        "readback": None,
+    }
+
+
+def _timeline_result(
+    result: dict[str, Any], expected_name: str
+) -> dict[str, str]:
+    timeline = result.get("timeline")
+    if not isinstance(timeline, dict):
+        raise PauseCompactionError("Timeline creation returned no timeline.")
+    timeline_id = timeline.get("timeline_id")
+    name = timeline.get("name")
+    if not isinstance(timeline_id, str) or not timeline_id:
+        raise PauseCompactionError("Created timeline has no canonical ID.")
+    if name != expected_name:
+        raise PauseCompactionError(
+            "Created timeline name does not match the request."
+        )
+    return {"timeline_id": timeline_id, "name": expected_name}
+
+
+def _provider_placement(placement: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: placement[key]
+        for key in (
+            "asset_id",
+            "source_start_frame",
+            "source_end_frame",
+            "position_frames",
+            "track_type",
+            "track_index",
+        )
+    }
+
+
+def _verify_batch_result(
+    timeline_id: str,
+    placements: list[dict[str, Any]],
+    result: dict[str, Any],
+) -> list[dict[str, Any]]:
+    items = result.get("items")
+    if result.get("timeline_id") != timeline_id or not isinstance(items, list):
+        raise PauseCompactionError("Batched insertion result is invalid.")
+    if len(items) != len(placements):
+        raise PauseCompactionError(
+            "Batched insertion did not return every planned item."
+        )
+    origins: set[int] = set()
+    item_ids: set[str] = set()
+    verified: list[dict[str, Any]] = []
+    for placement_index, (placement, item) in enumerate(
+        zip(placements, items, strict=True)
+    ):
+        if not isinstance(item, dict):
+            raise PauseCompactionError("A batched insertion item is invalid.")
+        item_id = item.get("timeline_item_id")
+        timeline_start = item.get("timeline_start_frame")
+        timeline_end = item.get("timeline_end_frame")
+        source_start = item.get("source_start_frame")
+        source_end = item.get("source_end_frame")
+        if (
+            item.get("placement_index") != placement_index
+            or item.get("asset_id") != placement["asset_id"]
+            or item.get("track_type") != placement["track_type"]
+            or item.get("track_index") != placement["track_index"]
+            or not isinstance(item_id, str)
+            or not item_id
+            or item_id in item_ids
+            or not isinstance(timeline_start, int)
+            or isinstance(timeline_start, bool)
+            or not isinstance(timeline_end, int)
+            or isinstance(timeline_end, bool)
+            or timeline_end <= timeline_start
+            or not isinstance(source_start, int)
+            or isinstance(source_start, bool)
+            or source_start != placement["source_start_frame"]
+            or not isinstance(source_end, int)
+            or isinstance(source_end, bool)
+            or not source_start < source_end <= placement["source_end_frame"]
+        ):
+            raise PauseCompactionError(
+                f"Batched insertion readback failed at placement {placement_index}."
+            )
+        item_ids.add(item_id)
+        origins.add(timeline_start - placement["position_frames"])
+        verified.append(item)
+    if len(origins) != 1:
+        raise PauseCompactionError(
+            "Batched insertion positions do not share one timeline origin."
+        )
+    return verified
+
+
+def _verify_apply_readback(
+    timeline_id: str,
+    inserted_items: list[dict[str, Any]],
+    readback: dict[str, Any],
+) -> None:
+    raw_items = readback.get("items")
+    if readback.get("timeline_id") != timeline_id or not isinstance(
+        raw_items, list
+    ):
+        raise PauseCompactionError("Compacted timeline readback is invalid.")
+    discovered = {
+        item.get("timeline_item_id"): item
+        for item in raw_items
+        if isinstance(item, dict)
+        and isinstance(item.get("timeline_item_id"), str)
+    }
+    compared_fields = (
+        "track_type",
+        "track_index",
+        "timeline_start_frame",
+        "timeline_end_frame",
+        "source_start_frame",
+        "source_end_frame",
+    )
+    for inserted in inserted_items:
+        actual = discovered.get(inserted["timeline_item_id"])
+        if not isinstance(actual, dict) or any(
+            actual.get(field) != inserted.get(field)
+            for field in compared_fields
+        ):
+            raise PauseCompactionError(
+                "Compacted timeline item did not persist exactly as inserted."
+            )
 
 
 def _validate_request(

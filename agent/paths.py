@@ -83,6 +83,13 @@ def synchronized_links_directory(
     return runtime_directory(environment) / "synchronized-links"
 
 
+def pause_compactions_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for synchronized pause-compaction applies."""
+    return runtime_directory(environment) / "pause-compactions"
+
+
 def audio_reports_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

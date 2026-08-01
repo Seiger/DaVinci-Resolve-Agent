@@ -141,7 +141,8 @@ def _write_pair(root: Path, *, offset_ms: int = 0) -> None:
 def _capabilities() -> dict[str, bool]:
     return {
         "media.metadata.read": True,
-        "clip.insert": True,
+        "clip.range_insert": True,
+        "clip.read": True,
         "timeline.create": True,
         "timeline.track.create": True,
     }
@@ -168,7 +169,7 @@ def test_preview_converts_cuts_to_kept_frame_placements(tmp_path: Path) -> None:
     )
 
     assert result["status"] == "preview"
-    assert result["apply_supported"] is False
+    assert result["apply_supported"] is True
     assert result["timeline"] == {
         "frame_rate": 24.0,
         "source_duration_ms": 10000,

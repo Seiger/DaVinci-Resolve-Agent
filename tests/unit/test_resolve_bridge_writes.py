@@ -211,7 +211,7 @@ class FakeTimeline:
 
     def GetIsTrackLocked(self, track_type: str, track_index: int) -> bool:
         assert track_type in {"video", "audio"}
-        assert track_index == 1
+        assert 1 <= track_index <= self.track_counts[track_type]
         return False
 
     def GetItemListInTrack(
@@ -299,24 +299,29 @@ class FakeMediaPool:
 
     def AppendToTimeline(self, items: list[Any]) -> list[FakeTimelineItem]:
         if isinstance(items[0], dict):
-            clip_info = items[0]
-            media_item = cast(FakeMediaItem, clip_info["mediaPoolItem"])
-            self.appended.append(media_item)
-            track_type = "video" if clip_info["mediaType"] == 1 else "audio"
-            duration = clip_info["endFrame"] - clip_info["startFrame"]
-            item = FakeTimelineItem(
-                f"item-{len(self.appended)}",
-                media_item.GetName(),
-                timeline_start=clip_info["recordFrame"],
-                timeline_end=clip_info["recordFrame"] + duration,
-                source_start=clip_info["startFrame"],
-                source_end=clip_info["endFrame"],
-                track_type=track_type,
-                track_index=clip_info["trackIndex"],
-            )
-            if self._project.current_timeline is not None:
-                self._project.current_timeline.items.append(item)
-            return [item]
+            inserted: list[FakeTimelineItem] = []
+            for raw_clip_info in items:
+                clip_info = cast(dict[str, Any], raw_clip_info)
+                media_item = cast(FakeMediaItem, clip_info["mediaPoolItem"])
+                self.appended.append(media_item)
+                track_type = (
+                    "video" if clip_info["mediaType"] == 1 else "audio"
+                )
+                duration = clip_info["endFrame"] - clip_info["startFrame"]
+                item = FakeTimelineItem(
+                    f"item-{len(self.appended)}",
+                    media_item.GetName(),
+                    timeline_start=clip_info["recordFrame"],
+                    timeline_end=clip_info["recordFrame"] + duration,
+                    source_start=clip_info["startFrame"],
+                    source_end=clip_info["endFrame"],
+                    track_type=track_type,
+                    track_index=clip_info["trackIndex"],
+                )
+                if self._project.current_timeline is not None:
+                    self._project.current_timeline.items.append(item)
+                inserted.append(item)
+            return inserted
         media_items = cast(list[FakeMediaItem], items)
         self.appended.extend(media_items)
         item = FakeTimelineItem(
@@ -855,6 +860,82 @@ def test_ranged_clip_insert_is_backed_up_and_replay_safe(
     }
     assert len(resolve.project.media_pool.appended) == 1
     assert resolve.project_manager.export_count == 1
+    assert state["capabilities"]["clip.range_insert"] is True
+
+
+def test_batched_ranged_insert_uses_one_backup_and_is_replay_safe(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("M42 Compacted")
+    timeline.track_counts["video"] = 2
+    resolve.project.SetCurrentTimeline(timeline)
+    screen = FakeMediaItem("screen", "screen.mkv")
+    webcam = FakeMediaItem("webcam", "webcam.mkv")
+    resolve.project.media_pool.root.clips.extend([screen, webcam])
+    state = collect_bridge_state(resolve)
+    placements = [
+        {
+            "asset_id": "screen",
+            "source_start_frame": 0,
+            "source_end_frame": 119,
+            "position_frames": 0,
+            "track_type": "video",
+            "track_index": 1,
+        },
+        {
+            "asset_id": "screen",
+            "source_start_frame": 0,
+            "source_end_frame": 119,
+            "position_frames": 0,
+            "track_type": "audio",
+            "track_index": 1,
+        },
+        {
+            "asset_id": "webcam",
+            "source_start_frame": 12,
+            "source_end_frame": 119,
+            "position_frames": 5,
+            "track_type": "video",
+            "track_index": 2,
+        },
+    ]
+    first = _command(
+        "batch-first",
+        "insert_clips",
+        {"timeline_id": timeline.GetUniqueId(), "placements": placements},
+        idempotency_key="stable-batch-insert",
+    )
+    replay = _command(
+        "batch-replay",
+        "insert_clips",
+        first["arguments"],
+        idempotency_key="stable-batch-insert",
+    )
+
+    first_response = _run_command(tmp_path, resolve, state, first)
+    replay_response = _run_command(tmp_path, resolve, state, replay)
+
+    assert first_response["status"] == "success"
+    assert first_response["result"] == replay_response["result"]
+    assert len(first_response["result"]["items"]) == 3
+    assert first_response["result"]["items"][2] == {
+        "placement_index": 2,
+        "asset_id": "webcam",
+        "timeline_item_id": "item-3",
+        "name": "webcam.mkv",
+        "timeline_start_frame": 86405,
+        "timeline_end_frame": 86512,
+        "source_start_frame": 12,
+        "source_end_frame": 119,
+        "track_type": "video",
+        "track_index": 2,
+    }
+    assert len(resolve.project.media_pool.appended) == 3
+    assert resolve.project_manager.export_count == 1
+    assert replay_response["warnings"] == [
+        "Returned the stored idempotent result."
+    ]
     assert state["capabilities"]["clip.range_insert"] is True
 
 

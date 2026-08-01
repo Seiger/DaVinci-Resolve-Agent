@@ -4,7 +4,7 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 відеоредакторів. Перший провайдер працює з DaVinci Resolve 21 Free у Windows,
 але ядро не залежить від конкретного редактора.
 
-Проєкт перебуває на етапі **Milestone M41: pause compaction preview**. Він
+Проєкт перебуває на етапі **Milestone M42: pause compaction apply**. Він
 установлює внутрішній скрипт Resolve, перевіряє канонічні JSON-контракти,
 обмінюється командами через локальний файловий транспорт і надає фіксовані
 read-only та безпечні write-інструменти через stdio. M5 також створює локальні
@@ -38,7 +38,12 @@ M40 додає `link_synchronized_screen_pair`: workflow бере canonical scre
 M41 додає read-only `preview_synchronized_pause_compaction`: approved M5 cuts
 перетворюються на kept source-frame ranges для нового V1/A1/V2 timeline без
 недокументованих split/trim API. Live preview підтвердив один cut 560 ms,
-шість placements і відсутність backup; write-apply залишається M42.
+шість placements і відсутність backup.
+M42 додає підтверджений `apply_synchronized_pause_compaction`: він повторно
+перевіряє preview, створює лише новий timeline, готує V1/A1/V2 і вставляє всі
+kept ranges одним bounded batch-викликом із backup та durable replay receipt.
+Live-перевірка у Resolve 21 Free створила 6/6 items у новому timeline, зберегла
+вихідні 3/3 items, а replay не створив додаткових timeline або backup.
 M6 створює похідний PCM WAV і канонічний before/after report, не змінюючи
 оригінал. Розширене редагування, довільна конфігурація рендеру й декодування
 медіаконтейнерів ще не реалізовані.
@@ -300,6 +305,7 @@ Read-only інструменти:
 - `compose_webcam_picture_in_picture`.
 - `link_synchronized_screen_pair`.
 - `preview_synchronized_pause_compaction`.
+- `apply_synchronized_pause_compaction`.
 
 Локальний audio-інструмент M6:
 
@@ -356,8 +362,15 @@ readback містив ID іншого. Webcam V2, інші clips і доріжк
 M38 receipt і нову назву target timeline. Tool read-only звіряє approval hash,
 sync offset, назви source assets і live FPS, після чого повертає cuts, kept
 intervals та точні майбутні insert operations у source/target frame domains.
-Він не створює timeline, clips або backup і завжди повертає
-`apply_supported=false` до реалізації M42.
+Він не створює timeline, clips або backup і повертає `apply_supported`
+відповідно до live verified capabilities.
+
+`apply_synchronized_pause_compaction` має ті самі plan/receipt/name inputs і
+обов'язковий `confirm_apply=true`. Він повторно формує та хешує preview, створює
+новий timeline, забезпечує V1/A1/V2, а всі placements передає провайдеру одним
+bounded `insert_clips`. Перед кожною з трьох write-операцій створюється backup;
+provider і workflow receipts роблять replay і відновлення після переривання
+ідемпотентними. Вихідний M38 timeline не змінюється.
 
 `clean_dialogue_audio` працює без Resolve та приймає allowlisted 16-bit PCM
 WAV. Preset виконує детерміноване RMS leveling із peak guard, зберігає

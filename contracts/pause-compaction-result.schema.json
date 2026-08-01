@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/pause-compaction-result.schema.json",
+  "title": "DaVinci Resolve Agent M42 pause compaction result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apply_version", "receipt_id", "status", "inputs", "preview_sha256", "preview", "timeline", "placement_count", "operations", "readback"],
+  "properties": {
+    "apply_version": {"const": "1.0"},
+    "receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "status": {"enum": ["in_progress", "applied"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_id", "synchronized_pair_receipt_id", "target_timeline_name"],
+      "properties": {
+        "plan_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "synchronized_pair_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "target_timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "preview_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "preview": {"type": "object"},
+    "timeline": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["timeline_id", "name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "placement_count": {"type": "integer", "minimum": 1, "maximum": 3003},
+    "operations": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation", "status", "result"],
+        "properties": {
+          "operation": {"enum": ["create_timeline", "ensure_timeline_tracks", "insert_clips"]},
+          "status": {"enum": ["pending", "applied"]},
+          "result": {"type": ["object", "null"]}
+        }
+      }
+    },
+    "readback": {"type": ["object", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "applied"}}},
+      "then": {
+        "properties": {
+          "timeline": {"type": "object"},
+          "operations": {
+            "items": {
+              "properties": {
+                "status": {"const": "applied"},
+                "result": {"type": "object"}
+              }
+            }
+          },
+          "readback": {"type": "object"}
+        }
+      }
+    }
+  ]
+}

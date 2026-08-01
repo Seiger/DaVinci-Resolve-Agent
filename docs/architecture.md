@@ -798,8 +798,24 @@ MCP preview_synchronized_pause_compaction
 Resolve 21 exposes no documented split or trim TimelineItem operation. M41
 therefore plans a non-destructive rebuild through the existing documented
 insert primitive instead of emulating unsupported edits. The preview performs
-no writes and intentionally reports `apply_supported=false`; M42 will own the
-separate confirmation, durable progress receipt, writes, and final readback.
+no writes and reports readiness only from live verified capabilities.
+
+## M42 confirmed pause compaction
+
+```text
+MCP apply_synchronized_pause_compaction(confirm_apply=true)
+ ├─ recompute and hash current M41 preview
+ ├─ durable receipt: create timeline → ensure V1/A1/V2
+ ├─ one backed-up insert_clips batch for every kept range
+ └─ verify returned IDs/bounds → list_timeline_items persistence readback
+```
+
+The batch primitive accepts provider-neutral placement fields only. The Resolve
+adapter alone maps them to the documented list form of `AppendToTimeline`.
+Step-level workflow keys and the bridge command receipt protect replay after a
+transport interruption. The source M38 timeline remains unchanged; a failed
+apply can leave only the new disposable target timeline, with project backups
+available before each write step.
 
 ## Future providers
 

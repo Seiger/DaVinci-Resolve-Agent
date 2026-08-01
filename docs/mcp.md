@@ -43,6 +43,7 @@ Write-інструменти M4:
 - `compose_webcam_picture_in_picture`.
 - `link_synchronized_screen_pair`.
 - `preview_synchronized_pause_compaction`.
+- `apply_synchronized_pause_compaction`.
 - `preview_rough_cut_apply`.
 - `apply_rough_cut`.
 
@@ -309,10 +310,17 @@ TimelineItem IDs. Workflow вимагає verified `clip.link`, створює �
 backup-backed link, перевіряє взаємні IDs через `GetLinkedItems()` і зберігає
 durable receipt. Webcam item та інші clips не входять до операції.
 
-`preview_synchronized_pause_compaction` є read-only підготовкою до M42. Він
+`preview_synchronized_pause_compaction` є read-only підготовкою до apply. Він
 приймає approved rough-cut plan, applied M38 receipt і bounded нову назву
 timeline. Tool звіряє approval SHA-256, sync offset, source filenames і live
 metadata, перетворює ordered non-overlapping cuts у kept intervals та повертає
-майбутні V1/A1/V2 `insert_clip` аргументи. Час plan залишається в ms, source
+майбутні V1/A1/V2 placement аргументи. Час plan залишається в ms, source
 bounds переводяться за FPS кожного asset, а record positions — за FPS target
 timeline. Жоден timeline, clip або backup не створюється.
+
+`apply_synchronized_pause_compaction` вимагає `confirm_apply=true` і не приймає
+довільних команд або `clipInfo`. Tool повторно обчислює M41 preview, створює
+новий timeline, готує V1/A1/V2 та виконує один bounded batch insert для всіх
+kept ranges. Workflow зберігає durable progress receipt, а фінальний readback
+має знайти кожен canonical TimelineItem ID з тими самими track/source/timeline
+bounds. Source M38 timeline не змінюється.

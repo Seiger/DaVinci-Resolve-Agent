@@ -589,6 +589,24 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def apply_synchronized_pause_compaction(
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Create a new synchronized timeline from approved kept ranges."""
+        return await asyncio.to_thread(
+            service.apply_synchronized_pause_compaction,
+            plan_id=plan_id,
+            synchronized_pair_receipt_id=synchronized_pair_receipt_id,
+            target_timeline_name=target_timeline_name,
+            confirm_apply=confirm_apply,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def clean_dialogue_audio(
         source_file: str,
         preset: str = "pcm-dialogue-level-v1",

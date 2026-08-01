@@ -67,7 +67,13 @@ cannot address webcam or arbitrary timeline items.
 M41 adds `pause-compaction-preview.schema.json`. It binds an approved M5 plan
 to one applied M38 receipt and records bounded cuts, kept intervals, target
 duration, and exact future V1/A1/V2 insert arguments. The preview is read-only
-and keeps `apply_supported=false` until a separate write milestone.
+and reports apply readiness from verified live capabilities.
+
+M42 adds bounded `insert_clips` command arguments and
+`pause-compaction-result.schema.json`. The command accepts only one timeline ID
+and 1 to 3003 fixed placement objects; arbitrary Resolve `clipInfo` fields are
+not exposed. The result persists the exact preview hash, three step results,
+new timeline identity, placement count, and final readback.
 
 `rough-cut-plan.schema.json` is a separate M5 artifact contract rather than a
 bridge command. It requires a pending human review and explicitly states that

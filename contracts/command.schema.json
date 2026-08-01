@@ -61,6 +61,7 @@
         "set_current_timeline",
         "append_clip",
         "insert_clip",
+        "insert_clips",
         "set_clip_enabled",
         "set_clips_linked",
         "set_clip_transform",
@@ -258,6 +259,48 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 128
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "insert_clips"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "additionalProperties": false,
+            "required": ["timeline_id", "placements"],
+            "properties": {
+              "timeline_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "placements": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3003,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["asset_id", "source_start_frame", "source_end_frame", "position_frames", "track_type", "track_index"],
+                  "properties": {
+                    "asset_id": {"type": "string", "minLength": 1, "maxLength": 128},
+                    "source_start_frame": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+                    "source_end_frame": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+                    "position_frames": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+                    "track_type": {"enum": ["video", "audio"]},
+                    "track_index": {"type": "integer", "minimum": 1, "maximum": 128}
+                  }
+                }
               }
             }
           }
@@ -786,6 +829,7 @@
               "set_current_timeline",
               "append_clip",
               "insert_clip",
+              "insert_clips",
               "set_clip_enabled",
               "set_clips_linked",
               "set_clip_transform",

@@ -14,7 +14,7 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.media import MediaPolicy
-from agent.pause_compaction import PauseCompactionPreviewer
+from agent.pause_compaction import PauseCompactionApplier, PauseCompactionPreviewer
 from agent.picture_in_picture import PictureInPictureComposer
 from agent.rendering import (
     DEFAULT_RENDER_PROFILE,
@@ -167,6 +167,16 @@ class ResolveReader(Protocol):
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Insert a bounded source range on one timeline track."""
+
+    def insert_clips(
+        self,
+        timeline_id: str,
+        placements: list[dict[str, Any]],
+        *,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert bounded source ranges in one provider operation."""
 
     def set_clip_enabled(
         self,
@@ -392,6 +402,21 @@ class PauseCompactionWorkflow(Protocol):
         """Return kept-range V1/A1/V2 placements without editing Resolve."""
 
 
+class PauseCompactionApplyWorkflow(Protocol):
+    """Provider-neutral confirmed pause-removal rebuild boundary."""
+
+    def apply(
+        self,
+        *,
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Create one new timeline from approved kept ranges."""
+
+
 class DialogueAudioProcessor(Protocol):
     """Provider-neutral M6 dialogue workflow."""
 
@@ -441,6 +466,7 @@ class AgentApplication:
         picture_in_picture_composer: PictureInPictureWorkflow | None = None,
         synchronized_screen_linker: SynchronizedLinkWorkflow | None = None,
         pause_compaction_previewer: PauseCompactionWorkflow | None = None,
+        pause_compaction_applier: PauseCompactionApplyWorkflow | None = None,
         audio_processor: DialogueAudioProcessor | None = None,
         audio_report_inspector: AudioReportReader | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
@@ -456,6 +482,7 @@ class AgentApplication:
         self._picture_in_picture_composer = picture_in_picture_composer
         self._synchronized_screen_linker = synchronized_screen_linker
         self._pause_compaction_previewer = pause_compaction_previewer
+        self._pause_compaction_applier = pause_compaction_applier
         self._audio_processor = audio_processor
         self._audio_report_inspector = audio_report_inspector
         self._workflow_audit = workflow_audit
@@ -1244,6 +1271,49 @@ class AgentApplication:
                 if self._rough_cut_inspector is None
                 else self._rough_cut_inspector
             ),
+        )
+
+    def apply_synchronized_pause_compaction(
+        self,
+        *,
+        plan_id: str,
+        synchronized_pair_receipt_id: str,
+        target_timeline_name: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Create a new compacted synchronized timeline after confirmation."""
+        return self._run_local_workflow(
+            "apply_synchronized_pause_compaction",
+            lambda: self._pause_compaction_apply_service().apply(
+                plan_id=plan_id,
+                synchronized_pair_receipt_id=synchronized_pair_receipt_id,
+                target_timeline_name=target_timeline_name,
+                confirm_apply=confirm_apply,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _pause_compaction_apply_service(self) -> PauseCompactionApplyWorkflow:
+        if self._pause_compaction_applier is not None:
+            return self._pause_compaction_applier
+        def capabilities() -> dict[str, Any]:
+            discovered = self.status()["bridge"].get("capabilities", {})
+            return discovered if isinstance(discovered, dict) else {}
+
+        previewer = PauseCompactionPreviewer(
+            gateway=self._resolve,
+            capabilities=capabilities(),
+            inspector=(
+                None
+                if self._rough_cut_inspector is None
+                else self._rough_cut_inspector
+            ),
+        )
+        return PauseCompactionApplier(
+            gateway=self._resolve,
+            capabilities=capabilities,
+            previewer=previewer,
         )
 
     def _rough_cut_apply_service(self) -> RoughCutPlanApplier:
