@@ -49,6 +49,19 @@ def test_clip_metadata_numeric_properties_are_strictly_normalized() -> None:
         _positive_integer_property(23.976)
 
 
+class FakeColorGraph:
+    def GetNumNodes(self) -> int:
+        return 1
+
+    def GetNodeLabel(self, node_index: int) -> str:
+        assert node_index == 1
+        return "Primary"
+
+    def GetLUT(self, node_index: int) -> str:
+        assert node_index == 1
+        return ""
+
+
 class FakeTimelineItem:
     def __init__(
         self,
@@ -62,6 +75,7 @@ class FakeTimelineItem:
         track_type: str = "video",
         track_index: int = 1,
         generated: bool = False,
+        fusion_comp_count: int = 0,
     ) -> None:
         self._item_id = item_id
         self._name = name
@@ -72,6 +86,7 @@ class FakeTimelineItem:
         self._track_type = track_type
         self._track_index = track_index
         self._generated = generated
+        self._fusion_comp_count = fusion_comp_count
         self._enabled = True
         self._linked_items: list[FakeTimelineItem] = []
         self._properties: dict[str, bool | float] = {
@@ -83,6 +98,10 @@ class FakeTimelineItem:
             "RotationAngle": 0.0,
             "Opacity": 100.0,
         }
+        self._color_graph = FakeColorGraph()
+        self._current_version = "Version 1"
+        self._color_versions = ["Version 1"]
+        self._cdl: dict[str, str] | None = None
 
     def GetUniqueId(self) -> str:
         return self._item_id
@@ -114,6 +133,9 @@ class FakeTimelineItem:
     def GetTrackTypeAndIndex(self) -> list[str | int]:
         return [self._track_type, self._track_index]
 
+    def GetFusionCompCount(self) -> int:
+        return self._fusion_comp_count
+
     def SetClipEnabled(self, enabled: bool) -> bool:
         self._enabled = enabled
         return True
@@ -130,6 +152,34 @@ class FakeTimelineItem:
 
     def GetProperty(self, key: str) -> bool | float:
         return self._properties[key]
+
+    def GetCurrentVersion(self) -> dict[str, str | int]:
+        return {"versionName": self._current_version, "versionType": 0}
+
+    def GetVersionNameList(self, version_type: int) -> list[str]:
+        assert version_type == 0
+        return list(self._color_versions)
+
+    def GetNodeGraph(self) -> FakeColorGraph:
+        return self._color_graph
+
+    def SetCDL(self, values: dict[str, str]) -> bool:
+        self._cdl = dict(values)
+        return True
+
+    def AddVersion(self, version_name: str, version_type: int) -> bool:
+        assert version_name
+        assert version_type == 0
+        self._color_versions.append(version_name)
+        return True
+
+    def LoadVersionByName(self, version_name: str, version_type: int) -> bool:
+        assert version_name
+        assert version_type == 0
+        if version_name not in self._color_versions:
+            return False
+        self._current_version = version_name
+        return True
 
 
 class FakeFolder:
@@ -167,6 +217,7 @@ class FakeTimeline:
         self.added_tracks: list[tuple[str, str | None]] = []
         self.subtitle_settings: dict[object, object] | None = None
         self.current_timecode = "01:00:10:00"
+        self.clamp_timecode = False
 
     def GetUniqueId(self) -> str:
         return self._timeline_id
@@ -211,7 +262,8 @@ class FakeTimeline:
         return self.current_timecode
 
     def SetCurrentTimecode(self, timecode: str) -> bool:
-        self.current_timecode = timecode
+        if not self.clamp_timecode:
+            self.current_timecode = timecode
         return True
 
     def InsertTitleIntoTimeline(self, title_name: str) -> FakeTimelineItem:
@@ -229,6 +281,28 @@ class FakeTimeline:
             track_type="video",
             track_index=1,
             generated=True,
+        )
+        self.items.append(item)
+        return item
+
+    def InsertFusionTitleIntoTimeline(
+        self, title_name: str
+    ) -> FakeTimelineItem:
+        hours, minutes, seconds, frames = (
+            int(part) for part in self.current_timecode.split(":")
+        )
+        timeline_start = (
+            ((hours * 60 + minutes) * 60 + seconds) * 60 + frames
+        )
+        item = FakeTimelineItem(
+            f"animation-{len(self.items) + 1}",
+            title_name,
+            timeline_start=timeline_start,
+            timeline_end=timeline_start + 120,
+            track_type="video",
+            track_index=1,
+            generated=True,
+            fusion_comp_count=1,
         )
         self.items.append(item)
         return item
@@ -774,6 +848,259 @@ def test_standard_title_insert_is_confirmed_backed_up_and_replay_safe(
     )
     assert occupied["status"] == "error"
     assert occupied["error"]["code"] == "TITLE_APPEND_ONLY"
+    assert resolve.project_manager.export_count == 1
+
+
+def test_packaged_animation_template_discovery_insert_and_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    appdata = tmp_path / "appdata"
+    monkeypatch.setenv("APPDATA", str(appdata))
+    template_target = (
+        appdata
+        / "Blackmagic Design"
+        / "DaVinci Resolve"
+        / "Support"
+        / "Fusion"
+        / "Templates"
+        / "Edit"
+        / "Titles"
+        / "DaVinci Agent Accent Card.setting"
+    )
+    template_target.parent.mkdir(parents=True)
+    template_target.write_bytes(
+        Path(
+            "config/fusion_templates/Edit/Titles/"
+            "DaVinci Agent Accent Card.setting"
+        ).read_bytes()
+    )
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Animation Test")
+    timeline.items.append(
+        FakeTimelineItem(
+            "animation-source",
+            "source.mkv",
+            timeline_start=215880,
+            timeline_end=216000,
+        )
+    )
+    resolve.project.current_timeline = timeline
+    state = collect_bridge_state(resolve)
+    environment_command = _command(
+        "animation-environment",
+        "get_animation_template_environment",
+        {"timeline_id": timeline.GetUniqueId()},
+    )
+    environment_command["safety"]["create_backup"] = False
+    environment = _run_command(
+        tmp_path, resolve, state, environment_command
+    )
+
+    assert environment["status"] == "success"
+    assert environment["result"]["ready"] is True
+    assert environment["result"]["templates"] == [
+        {
+            "template_id": "accent-card-v1",
+            "resolve_name": "DaVinci Agent Accent Card",
+            "installed": True,
+            "sha256_matches": True,
+        }
+    ]
+
+    command = _command(
+        "insert-animation",
+        "insert_animation_template",
+        {
+            "timeline_id": timeline.GetUniqueId(),
+            "template_id": "accent-card-v1",
+            "timecode": "01:00:00:00",
+            "confirm_insert": True,
+        },
+    )
+    first = _run_command(tmp_path, resolve, state, command)
+    replay = _run_command(tmp_path, resolve, state, command)
+
+    assert first["status"] == "success"
+    assert replay["result"] == first["result"]
+    assert first["result"]["template_id"] == "accent-card-v1"
+    assert first["result"]["fusion_comp_count"] == 1
+    assert first["result"]["item"]["name"] == "DaVinci Agent Accent Card"
+    assert timeline.GetCurrentTimecode() == "01:00:10:00"
+    assert resolve.project_manager.export_count == 1
+    assert state["capabilities"]["animation.template.insert"] is True
+
+    future = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "future-animation",
+            "insert_animation_template",
+            {
+                "timeline_id": timeline.GetUniqueId(),
+                "template_id": "accent-card-v1",
+                "timecode": "01:00:03:00",
+                "confirm_insert": True,
+            },
+        ),
+    )
+    assert future["status"] == "error"
+    assert future["error"]["code"] == "ANIMATION_TEMPLATE_APPEND_ONLY"
+    assert resolve.project_manager.export_count == 1
+
+
+def test_color_environment_is_read_only_and_skips_generated_items(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Color Test")
+    timeline.items.extend(
+        [
+            FakeTimelineItem(
+                "media-video",
+                "source.mkv",
+                timeline_start=86400,
+                timeline_end=86520,
+            ),
+            FakeTimelineItem(
+                "generated-title",
+                "Title",
+                timeline_start=86520,
+                timeline_end=86640,
+                generated=True,
+            ),
+        ]
+    )
+    resolve.project.current_timeline = timeline
+    state = collect_bridge_state(resolve)
+    command = _command(
+        "color-environment",
+        "get_color_environment",
+        {"timeline_id": timeline.GetUniqueId()},
+    )
+    command["safety"]["create_backup"] = False
+
+    response = _run_command(tmp_path, resolve, state, command)
+
+    assert response["status"] == "success"
+    assert response["result"]["ready"] is True
+    assert response["result"]["apply_candidate"] is True
+    assert [
+        item["timeline_item_id"] for item in response["result"]["items"]
+    ] == ["media-video"]
+    assert response["result"]["items"][0]["nodes"] == [
+        {"index": 1, "label": "Primary", "lut": ""}
+    ]
+    assert resolve.project_manager.export_count == 0
+
+
+def test_apply_color_preset_uses_fixed_cdl_and_new_local_version(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Color Apply")
+    item = FakeTimelineItem(
+        "media-video",
+        "source.mkv",
+        timeline_start=86400,
+        timeline_end=86520,
+    )
+    timeline.items.append(item)
+    resolve.project.current_timeline = timeline
+    state = collect_bridge_state(resolve)
+
+    response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "color-apply",
+            "apply_color_preset",
+            {
+                "timeline_id": timeline.GetUniqueId(),
+                "timeline_item_ids": ["media-video"],
+                "preset_id": "tutorial-clean-v1",
+                "confirm_apply": True,
+            },
+        ),
+    )
+
+    assert response["status"] == "success"
+    assert response["result"]["version_name"] == (
+        "DaVinci Agent Tutorial Clean v1"
+    )
+    assert response["result"]["items"][0]["node_index"] == 1
+    assert item._current_version == "DaVinci Agent Tutorial Clean v1"
+    assert item._cdl == {
+        "NodeIndex": "1",
+        "Slope": "1.03 1.03 1.03",
+        "Offset": "0.0 0.0 0.0",
+        "Power": "1.0 1.0 1.0",
+        "Saturation": "1.05",
+    }
+    assert resolve.project_manager.export_count == 1
+
+
+def test_animation_template_rejects_clamped_playhead_before_insertion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    appdata = tmp_path / "appdata"
+    monkeypatch.setenv("APPDATA", str(appdata))
+    template_target = (
+        appdata
+        / "Blackmagic Design"
+        / "DaVinci Resolve"
+        / "Support"
+        / "Fusion"
+        / "Templates"
+        / "Edit"
+        / "Titles"
+        / "DaVinci Agent Accent Card.setting"
+    )
+    template_target.parent.mkdir(parents=True)
+    template_target.write_bytes(
+        Path(
+            "config/fusion_templates/Edit/Titles/"
+            "DaVinci Agent Accent Card.setting"
+        ).read_bytes()
+    )
+    resolve = FakeResolve()
+    timeline = resolve.project.media_pool.CreateEmptyTimeline("Clamped Animation")
+    timeline.items.append(
+        FakeTimelineItem(
+            "animation-source",
+            "source.mkv",
+            timeline_start=215880,
+            timeline_end=216000,
+        )
+    )
+    resolve.project.current_timeline = timeline
+    timeline.clamp_timecode = True
+    state = collect_bridge_state(resolve)
+
+    response = _run_command(
+        tmp_path,
+        resolve,
+        state,
+        _command(
+            "clamped-animation",
+            "insert_animation_template",
+            {
+                "timeline_id": timeline.GetUniqueId(),
+                "template_id": "accent-card-v1",
+                "timecode": "01:00:00:00",
+                "confirm_insert": True,
+            },
+        ),
+    )
+
+    assert response["status"] == "error"
+    assert response["error"]["code"] == "TIMECODE_READBACK_FAILED"
+    assert [item.GetUniqueId() for item in timeline.items] == [
+        "animation-source"
+    ]
     assert resolve.project_manager.export_count == 1
 
 

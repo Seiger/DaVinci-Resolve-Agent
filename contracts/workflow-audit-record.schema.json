@@ -59,6 +59,22 @@
         "get_editing_recipe",
         "preview_editing_recipe",
         "run_editing_recipe",
+        "preview_visual_treatment",
+        "apply_visual_treatment",
+        "preview_baseline_edit",
+        "start_baseline_render",
+        "get_baseline_render_status",
+        "preview_broll_plan",
+        "apply_broll_plan",
+        "get_broll_status",
+        "list_animation_templates",
+        "get_animation_template",
+        "preview_animation_template",
+        "apply_animation_template",
+        "list_color_presets",
+        "get_color_preset",
+        "preview_color_treatment",
+        "apply_color_treatment",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports"
@@ -122,7 +138,20 @@
               "list_editing_recipes",
               "get_editing_recipe",
               "preview_editing_recipe",
-              "run_editing_recipe"
+              "run_editing_recipe",
+              "preview_visual_treatment",
+              "apply_visual_treatment",
+              "preview_broll_plan",
+              "apply_broll_plan",
+              "get_broll_status",
+              "list_animation_templates",
+              "get_animation_template",
+              "preview_animation_template",
+              "apply_animation_template",
+              "list_color_presets",
+              "get_color_preset",
+              "preview_color_treatment",
+              "apply_color_treatment"
             ]
           }
         }
@@ -158,7 +187,10 @@
             "enum": [
               "prepare_finalized_timeline_render",
               "start_finalized_timeline_render",
-              "get_finalized_timeline_render_status"
+              "get_finalized_timeline_render_status",
+              "preview_baseline_edit",
+              "start_baseline_render",
+              "get_baseline_render_status"
             ]
           }
         }

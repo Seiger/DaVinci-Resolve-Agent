@@ -1,0 +1,13 @@
+{
+  "template_id": "accent-card-v1",
+  "template_version": "1.0",
+  "display_name": "DaVinci Agent Accent Card",
+  "description": "Packaged animated lower-third accent card with adaptive fade and editable title and subtitle fields in the Resolve Inspector.",
+  "kind": "fusion_title",
+  "resolve_name": "DaVinci Agent Accent Card",
+  "asset_relative_path": "Edit/Titles/DaVinci Agent Accent Card.setting",
+  "asset_sha256": "15deaf708213ba1ffc8d509069bd761467a69c71ee510148b9ce78441b3f1bf1",
+  "duration_policy": "adaptive-mirrored-anim-curves",
+  "editable_in_resolve": ["title", "subtitle"],
+  "programmatic_inputs": []
+}

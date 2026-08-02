@@ -66,6 +66,8 @@ try {
         $paths.SubtitleReceiptsRoot,
         $paths.EditingRecipeRunsRoot,
         $paths.VisualTreatmentsRoot,
+        $paths.AnimationTemplateRunsRoot,
+        $paths.ColorTreatmentRunsRoot,
         $paths.TranscriptionModelsRoot,
         $paths.DiagnosticsRoot,
         $paths.ProcessedAudioRoot,
@@ -85,11 +87,35 @@ try {
     if (-not (Test-Path -LiteralPath $paths.BridgeTarget -PathType Leaf)) {
         throw "Installed Resolve bridge not found: $($paths.BridgeTarget)"
     }
+    if (-not (
+        Test-Path -LiteralPath $paths.AnimationTemplateTarget -PathType Leaf
+    )) {
+        throw (
+            "Installed Resolve animation template not found: " +
+            $paths.AnimationTemplateTarget
+        )
+    }
 
     $sourceHash = (Get-FileHash -LiteralPath $paths.BridgeSource -Algorithm SHA256).Hash
     $targetHash = (Get-FileHash -LiteralPath $paths.BridgeTarget -Algorithm SHA256).Hash
     if ($sourceHash -ne $targetHash) {
         throw "Installed Resolve bridge differs from the repository source."
+    }
+    $animationSourceHash = (
+        Get-FileHash `
+            -LiteralPath $paths.AnimationTemplateSource `
+            -Algorithm SHA256
+    ).Hash
+    $animationTargetHash = (
+        Get-FileHash `
+            -LiteralPath $paths.AnimationTemplateTarget `
+            -Algorithm SHA256
+    ).Hash
+    if ($animationSourceHash -ne $animationTargetHash) {
+        throw (
+            "Installed Resolve animation template differs from the " +
+            "repository source."
+        )
     }
 
     foreach ($directory in $requiredDirectories) {

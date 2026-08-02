@@ -41,7 +41,10 @@ if (-not (Test-SupportedPythonVersion -Version $venvVersion)) {
 }
 
 $packagingVersions = & $venvPython -c (
-    "import pip, setuptools; print(f'{pip.__version__}|{setuptools.__version__}')"
+    "from importlib.metadata import distributions; " +
+    "versions={d.metadata['Name'].lower(): d.version for d in distributions()}; " +
+    "print(versions.get('pip', '0.0') + '|' + " +
+    "versions.get('setuptools', '0.0'))"
 ) 2>$null
 $updatePackagingTools = $LASTEXITCODE -ne 0
 if (-not $updatePackagingTools) {
@@ -94,6 +97,8 @@ foreach ($runtimeDirectory in @(
     $paths.SubtitleReceiptsRoot,
     $paths.EditingRecipeRunsRoot,
     $paths.VisualTreatmentsRoot,
+    $paths.AnimationTemplateRunsRoot,
+    $paths.ColorTreatmentRunsRoot,
     $paths.TranscriptionModelsRoot,
     $paths.DiagnosticsRoot,
     $paths.ProcessedAudioRoot,
@@ -145,9 +150,82 @@ $installedHash = (
 )
 Write-Host "Installed Resolve bridge: $($paths.BridgeTarget)"
 
+if (-not (
+    Test-Path -LiteralPath $paths.AnimationTemplateManifestSource -PathType Leaf
+)) {
+    throw (
+        "Animation template manifest not found: " +
+        $paths.AnimationTemplateManifestSource
+    )
+}
+if (-not (
+    Test-Path -LiteralPath $paths.AnimationTemplateSource -PathType Leaf
+)) {
+    throw "Animation template source not found: $($paths.AnimationTemplateSource)"
+}
+$animationManifest = Get-Content `
+    -LiteralPath $paths.AnimationTemplateManifestSource `
+    -Raw | ConvertFrom-Json
+$animationSourceHash = (
+    Get-FileHash -LiteralPath $paths.AnimationTemplateSource -Algorithm SHA256
+).Hash.ToLowerInvariant()
+if ($animationManifest.asset_sha256 -ne $animationSourceHash) {
+    throw "Animation template source differs from its packaged manifest."
+}
+
+$animationTargetRoot = Split-Path -Parent $paths.AnimationTemplateTarget
+New-Item -ItemType Directory -Path $animationTargetRoot -Force | Out-Null
+if (Test-Path -LiteralPath $paths.AnimationTemplateTarget -PathType Leaf) {
+    $animationTargetHash = (
+        Get-FileHash `
+            -LiteralPath $paths.AnimationTemplateTarget `
+            -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    $animationTargetIsManaged = $false
+    if (
+        Test-Path `
+            -LiteralPath $paths.AnimationTemplateHashMarker `
+            -PathType Leaf
+    ) {
+        $recordedHash = (
+            Get-Content -LiteralPath $paths.AnimationTemplateHashMarker -Raw
+        ).Trim().ToLowerInvariant()
+        $animationTargetIsManaged = $recordedHash -eq $animationTargetHash
+    }
+    if (
+        $animationSourceHash -ne $animationTargetHash -and
+        -not $animationTargetIsManaged -and
+        -not (
+            Test-Path `
+                -LiteralPath $paths.AnimationTemplateBackup `
+                -PathType Leaf
+        )
+    ) {
+        Copy-Item `
+            -LiteralPath $paths.AnimationTemplateTarget `
+            -Destination $paths.AnimationTemplateBackup
+        Write-Host (
+            "Backed up existing Resolve animation template: " +
+            $paths.AnimationTemplateBackup
+        )
+    }
+}
+Copy-Item `
+    -LiteralPath $paths.AnimationTemplateSource `
+    -Destination $paths.AnimationTemplateTarget `
+    -Force
+[System.IO.File]::WriteAllText(
+    $paths.AnimationTemplateHashMarker,
+    "$animationSourceHash`n",
+    [System.Text.UTF8Encoding]::new($false)
+)
+Write-Host (
+    "Installed Resolve animation template: $($paths.AnimationTemplateTarget)"
+)
+
 Write-Host "Installation completed."
 Write-Host "Next manual steps:"
-Write-Host "1. Restart DaVinci Resolve so it rescans user scripts."
+Write-Host "1. Restart DaVinci Resolve so it rescans user scripts and templates."
 Write-Host "2. Open a project."
 Write-Host "3. Run Workspace > Scripts > Edit > ResolveBridge."
 Write-Host "4. Return here and run .\installer\verify.ps1"

@@ -16,15 +16,26 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 [документації baseline edit](docs/baseline-edit.md).
 Опис M51 наведено в
 [документації B-roll](docs/broll.md).
+Опис M52 наведено в
+[документації анімаційних шаблонів](docs/animation-templates.md).
+Поточний discovery/preview M53 описано в
+[документації кольорокорекції](docs/color-correction.md).
 
-Проєкт виконує **Milestone M51: B-roll planning і bounded application**. M51
-будує read-only review plan лише від completed M50 receipt та явних
-video-only placements. Apply вимагає exact `plan_id` і confirmation, дублює
-baseline timeline, додає bounded ranges на V3–V8 і перевіряє canonical
-readback. Автоматичний вибір B-roll, аудіо B-roll та зміна канонічного M50
-timeline виключені. Read-only preview, confirmed duplicate-timeline apply та
-exact replay перевірено у Resolve 21.0.3 Free: B-roll вставлено на V3, source
-M50 timeline не змінився, а replay не створив нового timeline або backup.
+Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
+додає immutable allowlisted CDL preset, read-only перевірку documented color
+graph API та deterministic preview, прив'язаний до exact applied M52 receipt.
+Live discovery у Resolve 21 Free підтверджено. Confirmed apply реалізований
+лише на duplicate timeline з новою local color version і fixed node-1 CDL;
+його live write, exact replay і помірне візуальне підсилення контрасту
+підтверджені у Resolve 21.0.3 Free.
+
+Завершений **Milestone M52: пакетовані анімаційні шаблони** додає один
+allowlisted Fusion Title `accent-card-v1`, SHA-256 перевірку під час
+інсталяції, read-only preview від completed M51 receipt і confirmed apply лише
+до duplicate timeline. MCP не приймає Fusion code, node/control names,
+expressions або довільний текст; title/subtitle редагуються вручну в Resolve
+Inspector. Structural insertion, mirrored Anim Curves, Inspector controls і
+exact replay підтверджені live у Resolve 21.0.3 Free.
 
 M49 preview/apply workflow поєднує лише документовані статичні clip transforms і
 вставку встановленого стандартного title за exact timecode. Він не викликає
@@ -35,6 +46,9 @@ allowlisted recipe можна list/get/preview без змін Resolve і вик
 Live M49 acceptance у Resolve 21 Free 21.0.3.7 підтвердив append-only guard,
 рівно один generated title на exact frame, незмінність попередніх clips,
 статичний zoom readback і replay без додаткових backups.
+M51 read-only preview, confirmed duplicate-timeline apply та exact replay
+перевірено у Resolve 21.0.3 Free: B-roll вставлено на V3, source M50 timeline
+не змінився, а replay не створив нового timeline або backup.
 M47 read-only discovery
 перевіряє документований Resolve auto-caption API та bounded subtitle items, а
 окремий confirmed write-tool запускає лише fixed-policy `AUTO` captioning після

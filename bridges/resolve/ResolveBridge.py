@@ -48,6 +48,26 @@ RENDER_PROFILES = {
         "audio_sample_rate": 48000,
     },
 }
+ANIMATION_TEMPLATES = {
+    "accent-card-v1": {
+        "resolve_name": "DaVinci Agent Accent Card",
+        "relative_path": "Edit/Titles/DaVinci Agent Accent Card.setting",
+        "sha256": "15deaf708213ba1ffc8d509069bd761467a69c71ee510148b9ce78441b3f1bf1",
+    }
+}
+COLOR_PRESETS = {
+    "tutorial-clean-v1": {
+        "version_name": "DaVinci Agent Tutorial Clean v1",
+        "version_type": 0,
+        "cdl": {
+            "NodeIndex": "1",
+            "Slope": "1.03 1.03 1.03",
+            "Offset": "0.0 0.0 0.0",
+            "Power": "1.0 1.0 1.0",
+            "Saturation": "1.05",
+        },
+    }
+}
 ALLOWED_ACTIONS = {
     "ping",
     "stop_bridge",
@@ -60,6 +80,9 @@ ALLOWED_ACTIONS = {
     "list_media_pool_items",
     "get_editing_metadata",
     "get_subtitle_environment",
+    "get_animation_template_environment",
+    "get_color_environment",
+    "apply_color_preset",
     "get_workspace_snapshot",
     "get_render_environment",
     "get_render_job_status",
@@ -70,6 +93,7 @@ ALLOWED_ACTIONS = {
     "set_current_timeline",
     "append_clip",
     "insert_title",
+    "insert_animation_template",
     "append_subtitle_file",
     "insert_clip",
     "insert_clips",
@@ -92,6 +116,7 @@ WRITE_ACTIONS = {
     "set_current_timeline",
     "append_clip",
     "insert_title",
+    "insert_animation_template",
     "append_subtitle_file",
     "insert_clip",
     "insert_clips",
@@ -105,6 +130,7 @@ WRITE_ACTIONS = {
     "create_subtitles_from_audio",
     "prepare_render_job",
     "start_render_job",
+    "apply_color_preset",
 }
 DESTRUCTIVE_ACTIONS = {"delete_clip"}
 CAPABILITY_BY_ACTION = {
@@ -112,6 +138,8 @@ CAPABILITY_BY_ACTION = {
     "list_media_pool_items": "media.read",
     "get_editing_metadata": "media.metadata.read",
     "get_subtitle_environment": "subtitle.read",
+    "get_color_environment": "color.inspect",
+    "apply_color_preset": "color.cdl.apply",
     "create_subtitles_from_audio": "subtitle.auto_caption",
     "import_media": "media.import",
     "create_timeline": "timeline.create",
@@ -120,6 +148,7 @@ CAPABILITY_BY_ACTION = {
     "set_current_timeline": "timeline.select",
     "append_clip": "clip.insert",
     "insert_title": "title.insert",
+    "insert_animation_template": "animation.template.insert",
     "append_subtitle_file": "subtitle.import",
     "insert_clip": "clip.range_insert",
     "insert_clips": "clip.range_insert",
@@ -362,6 +391,9 @@ def collect_bridge_state(
         "clip.link": "unknown",
         "clip.transform": "unknown",
         "title.insert": "unknown",
+        "animation.template.insert": "unknown",
+        "color.inspect": "unknown",
+        "color.cdl.apply": "unknown",
         "clip.delete": "unknown",
         "marker.create": "unknown",
         "render.configure": "unknown",
@@ -467,7 +499,11 @@ def validate_command(command: Any) -> dict[str, Any]:
         _validate_list_timeline_items_arguments(command["arguments"])
     elif command["action"] == "get_editing_metadata":
         _validate_editing_metadata_arguments(command["arguments"])
-    elif command["action"] == "get_subtitle_environment":
+    elif command["action"] in {
+        "get_subtitle_environment",
+        "get_animation_template_environment",
+        "get_color_environment",
+    }:
         _validate_list_timeline_items_arguments(command["arguments"])
     elif command["arguments"] != {}:
         raise ValueError("This read-only action does not accept arguments.")
@@ -525,6 +561,42 @@ def _validate_editing_metadata_arguments(
 
 def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
     """Validate bridge-side write arguments without trusting the agent."""
+    if action == "apply_color_preset":
+        expected = {
+            "timeline_id",
+            "timeline_item_ids",
+            "preset_id",
+            "confirm_apply",
+        }
+        if set(arguments) != expected:
+            raise ValueError("apply_color_preset fields do not match the contract.")
+        timeline_id = arguments["timeline_id"]
+        item_ids = arguments["timeline_item_ids"]
+        if (
+            not isinstance(timeline_id, str)
+            or not timeline_id
+            or len(timeline_id) > 128
+        ):
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        if (
+            not isinstance(item_ids, list)
+            or not 1 <= len(item_ids) <= 100
+            or len(set(item_ids)) != len(item_ids)
+            or any(
+                not isinstance(item_id, str)
+                or not item_id
+                or len(item_id) > 128
+                for item_id in item_ids
+            )
+        ):
+            raise ValueError(
+                "timeline_item_ids must contain 1 to 100 unique IDs."
+            )
+        if arguments["preset_id"] not in COLOR_PRESETS:
+            raise ValueError("preset_id is not allowlisted.")
+        if arguments["confirm_apply"] is not True:
+            raise ValueError("apply_color_preset requires confirm_apply=true.")
+        return
     if action == "import_media":
         if set(arguments) != {"paths"}:
             raise ValueError("import_media requires only paths.")
@@ -617,6 +689,33 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
             value = arguments[field]
             if not isinstance(value, str) or not 1 <= len(value) <= 128:
                 raise ValueError(f"{field} must contain 1 to 128 characters.")
+        timecode = arguments["timecode"]
+        if (
+            not isinstance(timecode, str)
+            or re.fullmatch(r"\d{2,3}:\d{2}:\d{2}:\d{2}", timecode) is None
+        ):
+            raise ValueError("timecode must use HH:MM:SS:FF format.")
+        if arguments["confirm_insert"] is not True:
+            raise ValueError("confirm_insert must be true.")
+        return
+    if action == "insert_animation_template":
+        if set(arguments) != {
+            "timeline_id",
+            "template_id",
+            "timecode",
+            "confirm_insert",
+        }:
+            raise ValueError(
+                "insert_animation_template fields do not match the contract."
+            )
+        timeline_id = arguments["timeline_id"]
+        if (
+            not isinstance(timeline_id, str)
+            or not 1 <= len(timeline_id) <= 128
+        ):
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        if arguments["template_id"] not in ANIMATION_TEMPLATES:
+            raise ValueError("template_id is not an allowlisted animation template.")
         timecode = arguments["timecode"]
         if (
             not isinstance(timecode, str)
@@ -1130,6 +1229,25 @@ def command_result(
             arguments or {}
         )
         return _subtitle_environment(resolve, timeline_id)
+    if action == "get_animation_template_environment":
+        if resolve is None:
+            raise BridgeOperationError(
+                "RESOLVE_CONTEXT_REQUIRED",
+                "A live Resolve context is required for animation-template "
+                "discovery.",
+                retryable=True,
+            )
+        timeline_id = _validate_list_timeline_items_arguments(arguments or {})
+        return _animation_template_environment(resolve, timeline_id)
+    if action == "get_color_environment":
+        if resolve is None:
+            raise BridgeOperationError(
+                "RESOLVE_CONTEXT_REQUIRED",
+                "A live Resolve context is required for color discovery.",
+                retryable=True,
+            )
+        timeline_id = _validate_list_timeline_items_arguments(arguments or {})
+        return _color_environment(resolve, timeline_id)
     if action == "get_workspace_snapshot":
         if resolve is None:
             raise BridgeOperationError(
@@ -1156,6 +1274,381 @@ def command_result(
         job_id = _validate_render_job_arguments(action, arguments or {})
         return _render_job_status(resolve, job_id)
     raise ValueError("Unsupported or unsafe bridge action.")
+
+
+def _animation_template_path(template: dict[str, str]) -> Path:
+    """Return one fixed Resolve user-template path without exposing it."""
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        raise BridgeOperationError(
+            "APPDATA_UNAVAILABLE",
+            "APPDATA is not set inside Resolve.",
+        )
+    path = (
+        Path(appdata)
+        / "Blackmagic Design"
+        / "DaVinci Resolve"
+        / "Support"
+        / "Fusion"
+        / "Templates"
+    )
+    for part in template["relative_path"].split("/"):
+        path /= part
+    return path
+
+
+def _animation_template_environment(
+    resolve: Any,
+    timeline_id: str,
+) -> dict[str, Any]:
+    """Inspect documented Fusion-title methods and packaged file integrity."""
+    _, project, _ = _require_project(resolve)
+    timeline = _find_timeline(project, timeline_id)
+    method_names = (
+        "InsertFusionTitleIntoTimeline",
+        "GetCurrentTimecode",
+        "SetCurrentTimecode",
+        "GetEndFrame",
+        "GetSetting",
+        "GetTrackCount",
+        "GetItemListInTrack",
+    )
+    methods = {
+        name: callable(getattr(timeline, name, None)) for name in method_names
+    }
+    methods["SetCurrentTimeline"] = callable(
+        getattr(project, "SetCurrentTimeline", None)
+    )
+    templates: list[dict[str, Any]] = []
+    for template_id, template in ANIMATION_TEMPLATES.items():
+        path = _animation_template_path(template)
+        installed = path.is_file()
+        actual_hash: str | None = None
+        if installed:
+            try:
+                actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+            except OSError as error:
+                raise BridgeOperationError(
+                    "ANIMATION_TEMPLATE_UNREADABLE",
+                    "The installed animation template could not be read.",
+                    details={"template_id": template_id},
+                ) from error
+        templates.append(
+            {
+                "template_id": template_id,
+                "resolve_name": template["resolve_name"],
+                "installed": installed,
+                "sha256_matches": actual_hash == template["sha256"],
+            }
+        )
+    ready = all(methods.values()) and all(
+        item["installed"] and item["sha256_matches"] for item in templates
+    )
+    return {
+        "timeline": {
+            "timeline_id": str(timeline.GetUniqueId()),
+            "name": str(timeline.GetName()),
+        },
+        "methods": methods,
+        "templates": templates,
+        "ready": ready,
+    }
+
+
+def _color_environment(resolve: Any, timeline_id: str) -> dict[str, Any]:
+    """Inspect documented color versions and node graphs without writes."""
+    _, project, _ = _require_project(resolve)
+    timeline = _find_timeline(project, timeline_id)
+    snapshot = _list_timeline_items(resolve, timeline_id)
+    color_items: list[dict[str, Any]] = []
+    read_method_names = (
+        "GetCurrentVersion",
+        "GetVersionNameList",
+        "GetNodeGraph",
+    )
+    write_method_names = (
+        "SetCDL",
+        "AddVersion",
+        "LoadVersionByName",
+    )
+    methods: dict[str, bool] = {
+        name: True for name in (*read_method_names, *write_method_names)
+    }
+    methods.update(
+        {
+            "Graph.GetNumNodes": True,
+            "Graph.GetNodeLabel": True,
+            "Graph.GetLUT": True,
+        }
+    )
+    for metadata in snapshot["items"]:
+        if (
+            metadata["track_type"] != "video"
+            or metadata["source_type"] != "media"
+        ):
+            continue
+        item = _find_timeline_item(timeline, metadata["timeline_item_id"])
+        for name in (*read_method_names, *write_method_names):
+            methods[name] = methods[name] and callable(getattr(item, name, None))
+        missing_read = [
+            name
+            for name in read_method_names
+            if not callable(getattr(item, name, None))
+        ]
+        if missing_read:
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "A media video item cannot report its color environment.",
+                details={
+                    "timeline_item_id": metadata["timeline_item_id"],
+                    "missing_methods": missing_read,
+                },
+            )
+        current_version = item.GetCurrentVersion()
+        local_versions = item.GetVersionNameList(0)
+        graph = item.GetNodeGraph()
+        if (
+            not isinstance(current_version, dict)
+            or not isinstance(current_version.get("versionName"), str)
+            or not current_version["versionName"]
+            or current_version.get("versionType") not in (0, 1)
+            or not isinstance(local_versions, list)
+            or any(not isinstance(name, str) or not name for name in local_versions)
+            or graph is None
+        ):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Resolve returned invalid color version or graph metadata.",
+                details={"timeline_item_id": metadata["timeline_item_id"]},
+            )
+        graph_methods = {
+            "Graph.GetNumNodes": getattr(graph, "GetNumNodes", None),
+            "Graph.GetNodeLabel": getattr(graph, "GetNodeLabel", None),
+            "Graph.GetLUT": getattr(graph, "GetLUT", None),
+        }
+        for name, method in graph_methods.items():
+            methods[name] = methods[name] and callable(method)
+        missing_graph = [
+            name for name, method in graph_methods.items() if not callable(method)
+        ]
+        if missing_graph:
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "A media video item graph cannot report bounded node metadata.",
+                details={
+                    "timeline_item_id": metadata["timeline_item_id"],
+                    "missing_methods": missing_graph,
+                },
+            )
+        node_count = graph.GetNumNodes()
+        if (
+            not isinstance(node_count, int)
+            or isinstance(node_count, bool)
+            or node_count < 1
+        ):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Graph.GetNumNodes() returned an invalid value.",
+                details={"timeline_item_id": metadata["timeline_item_id"]},
+            )
+        nodes: list[dict[str, Any]] = []
+        for node_index in range(1, node_count + 1):
+            label = graph.GetNodeLabel(node_index)
+            lut = graph.GetLUT(node_index)
+            if label is None:
+                label = ""
+            if lut is None:
+                lut = ""
+            if not isinstance(label, str) or not isinstance(lut, str):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Resolve returned invalid color node metadata.",
+                    details={
+                        "timeline_item_id": metadata["timeline_item_id"],
+                        "node_index": node_index,
+                    },
+                )
+            nodes.append({"index": node_index, "label": label, "lut": lut})
+        color_items.append(
+            {
+                **metadata,
+                "current_version": {
+                    "versionName": current_version["versionName"],
+                    "versionType": int(current_version["versionType"]),
+                },
+                "local_versions": local_versions,
+                "node_count": node_count,
+                "nodes": nodes,
+            }
+        )
+    if not color_items:
+        raise BridgeOperationError(
+            "COLOR_MEDIA_REQUIRED",
+            "The timeline has no media video items for color discovery.",
+        )
+    read_ready = all(methods[name] for name in (*read_method_names, *graph_methods))
+    apply_candidate = read_ready and all(
+        methods[name] for name in write_method_names
+    )
+    return {
+        "timeline": {
+            "timeline_id": str(timeline.GetUniqueId()),
+            "name": str(timeline.GetName()),
+        },
+        "methods": methods,
+        "items": color_items,
+        "ready": read_ready,
+        "apply_candidate": apply_candidate,
+    }
+
+
+def _prepare_color_preset_items(
+    resolve: Any,
+    timeline: Any,
+    arguments: dict[str, Any],
+) -> list[tuple[dict[str, Any], Any]]:
+    """Validate exact media targets and documented color methods before backup."""
+    snapshot = _list_timeline_items(resolve, arguments["timeline_id"])
+    media_items = {
+        item["timeline_item_id"]: item
+        for item in snapshot["items"]
+        if item["track_type"] == "video" and item["source_type"] == "media"
+    }
+    requested_ids = set(arguments["timeline_item_ids"])
+    if requested_ids != set(media_items):
+        raise BridgeOperationError(
+            "COLOR_TARGET_MISMATCH",
+            "Color apply must target every and only media video item.",
+            details={
+                "expected_item_ids": sorted(media_items),
+                "requested_item_ids": sorted(requested_ids),
+            },
+        )
+    get_locked = getattr(timeline, "GetIsTrackLocked", None)
+    if not callable(get_locked):
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY",
+            "The timeline cannot report video track lock state.",
+            details={"missing_methods": ["GetIsTrackLocked"]},
+        )
+    prepared: list[tuple[dict[str, Any], Any]] = []
+    required = (
+        "GetCurrentVersion",
+        "GetVersionNameList",
+        "GetNodeGraph",
+        "AddVersion",
+        "LoadVersionByName",
+        "SetCDL",
+    )
+    for item_id in arguments["timeline_item_ids"]:
+        metadata = media_items[item_id]
+        item = _find_timeline_item(timeline, item_id)
+        missing = [
+            name for name in required if not callable(getattr(item, name, None))
+        ]
+        if missing:
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "A media video item cannot apply the fixed CDL preset.",
+                details={"timeline_item_id": item_id, "missing_methods": missing},
+            )
+        if get_locked("video", metadata["track_index"]) is True:
+            raise BridgeOperationError(
+                "TIMELINE_TRACK_LOCKED",
+                "A color target is on a locked video track.",
+                details={
+                    "timeline_item_id": item_id,
+                    "track_index": metadata["track_index"],
+                },
+            )
+        graph = item.GetNodeGraph()
+        get_num_nodes = getattr(graph, "GetNumNodes", None)
+        if not callable(get_num_nodes):
+            raise BridgeOperationError(
+                "UNSUPPORTED_CAPABILITY",
+                "A media video item cannot report its color nodes.",
+                details={"timeline_item_id": item_id},
+            )
+        node_count = get_num_nodes()
+        if (
+            not isinstance(node_count, int)
+            or isinstance(node_count, bool)
+            or node_count < 1
+        ):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "The color graph has no valid node 1.",
+                details={"timeline_item_id": item_id},
+            )
+        prepared.append((metadata, item))
+    return prepared
+
+
+def _apply_color_preset_items(
+    arguments: dict[str, Any],
+    prepared: list[tuple[dict[str, Any], Any]],
+) -> list[dict[str, Any]]:
+    """Apply one code-owned CDL map on a new local version per media item."""
+    preset = COLOR_PRESETS[arguments["preset_id"]]
+    version_name = preset["version_name"]
+    version_type = preset["version_type"]
+    cdl = cast(dict[str, str], preset["cdl"])
+    results: list[dict[str, Any]] = []
+    for metadata, item in prepared:
+        versions = item.GetVersionNameList(version_type)
+        if not isinstance(versions, list):
+            raise BridgeOperationError(
+                "INVALID_RESOLVE_RESPONSE",
+                "Resolve returned an invalid local color-version list.",
+                details={"timeline_item_id": metadata["timeline_item_id"]},
+            )
+        version_created = version_name not in versions
+        if version_created and item.AddVersion(version_name, version_type) is not True:
+            raise BridgeOperationError(
+                "COLOR_VERSION_CREATE_FAILED",
+                "Resolve did not create the managed local color version.",
+                details={"timeline_item_id": metadata["timeline_item_id"]},
+            )
+        if item.LoadVersionByName(version_name, version_type) is not True:
+            raise BridgeOperationError(
+                "COLOR_VERSION_LOAD_FAILED",
+                "Resolve did not activate the managed local color version.",
+                details={"timeline_item_id": metadata["timeline_item_id"]},
+            )
+        if item.SetCDL(dict(cdl)) is not True:
+            raise BridgeOperationError(
+                "COLOR_CDL_APPLY_FAILED",
+                "Resolve did not apply the fixed CDL preset.",
+                details={"timeline_item_id": metadata["timeline_item_id"]},
+            )
+        current = item.GetCurrentVersion()
+        graph = item.GetNodeGraph()
+        node_count = graph.GetNumNodes() if graph is not None else None
+        if (
+            not isinstance(current, dict)
+            or current.get("versionName") != version_name
+            or current.get("versionType") != version_type
+            or not isinstance(node_count, int)
+            or node_count < 1
+        ):
+            raise BridgeOperationError(
+                "COLOR_CDL_READBACK_FAILED",
+                "Resolve did not report the managed version and node 1.",
+                details={"timeline_item_id": metadata["timeline_item_id"]},
+            )
+        results.append(
+            {
+                "timeline_item_id": metadata["timeline_item_id"],
+                "name": metadata["name"],
+                "track_index": metadata["track_index"],
+                "version_name": version_name,
+                "version_type": version_type,
+                "version_created": version_created,
+                "node_index": 1,
+                "cdl": dict(cdl),
+            }
+        )
+    return results
 
 
 def _workspace_snapshot(
@@ -3032,6 +3525,7 @@ def _execute_write_command(
         "ensure_timeline_tracks",
         "append_clip",
         "insert_title",
+        "insert_animation_template",
         "append_subtitle_file",
         "insert_clip",
         "insert_clips",
@@ -3043,9 +3537,20 @@ def _execute_write_command(
         "delete_clip",
         "add_marker",
         "create_subtitles_from_audio",
+        "apply_color_preset",
     }:
         timeline = _find_timeline(project, arguments["timeline_id"])
-        if action == "create_subtitles_from_audio":
+        if action == "apply_color_preset":
+            if not callable(getattr(project, "SetCurrentTimeline", None)):
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The project cannot select the color target timeline.",
+                    details={"missing_methods": ["SetCurrentTimeline"]},
+                )
+            color_items = _prepare_color_preset_items(
+                resolve, timeline, arguments
+            )
+        elif action == "create_subtitles_from_audio":
             required_methods = (
                 "CreateSubtitlesFromAudio",
                 "GetItemListInTrack",
@@ -3163,6 +3668,65 @@ def _execute_write_command(
                     "the timeline end.",
                     details={
                         "requested_frame": requested_title_frame,
+                        "timeline_end_frame": timeline_end_frame,
+                    },
+                )
+            previous_video_items = _video_item_snapshots(timeline)
+        if action == "insert_animation_template":
+            template = ANIMATION_TEMPLATES[arguments["template_id"]]
+            environment = _animation_template_environment(
+                resolve, arguments["timeline_id"]
+            )
+            if environment["ready"] is not True:
+                raise BridgeOperationError(
+                    "ANIMATION_TEMPLATE_UNAVAILABLE",
+                    "The packaged animation template or required Resolve "
+                    "methods are unavailable.",
+                    details={
+                        "template_id": arguments["template_id"],
+                        "methods": environment["methods"],
+                        "templates": environment["templates"],
+                    },
+                )
+            insert_animation_template = getattr(
+                timeline, "InsertFusionTitleIntoTimeline", None
+            )
+            get_timecode = getattr(timeline, "GetCurrentTimecode", None)
+            if not callable(insert_animation_template) or not callable(
+                get_timecode
+            ):
+                raise BridgeOperationError(
+                    "UNSUPPORTED_CAPABILITY",
+                    "The timeline cannot insert the packaged Fusion title.",
+                )
+            previous_timecode = get_timecode()
+            if not isinstance(previous_timecode, str) or not previous_timecode:
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Timeline.GetCurrentTimecode() returned an invalid value.",
+                )
+            timeline_end_frame = timeline.GetEndFrame()
+            if (
+                not isinstance(timeline_end_frame, int)
+                or isinstance(timeline_end_frame, bool)
+            ):
+                raise BridgeOperationError(
+                    "INVALID_RESOLVE_RESPONSE",
+                    "Timeline.GetEndFrame() returned an invalid value.",
+                )
+            timeline_frame_rate = _positive_frame_rate_setting(
+                timeline.GetSetting("timelineFrameRate")
+            )
+            requested_animation_frame = _non_drop_timecode_frame(
+                arguments["timecode"], timeline_frame_rate
+            )
+            if requested_animation_frame != timeline_end_frame:
+                raise BridgeOperationError(
+                    "ANIMATION_TEMPLATE_APPEND_ONLY",
+                    "Animation templates may be inserted only at the exact "
+                    "timeline end.",
+                    details={
+                        "requested_frame": requested_animation_frame,
                         "timeline_end_frame": timeline_end_frame,
                     },
                 )
@@ -4079,6 +4643,137 @@ def _execute_write_command(
                 },
                 "backup_path": backup_path,
             }
+        elif action == "insert_animation_template":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the requested animation timeline.",
+                    retryable=True,
+                )
+            if timeline.SetCurrentTimecode(arguments["timecode"]) is not True:
+                raise BridgeOperationError(
+                    "TIMECODE_SELECT_FAILED",
+                    "Resolve could not select the requested animation timecode.",
+                    details={"timecode": arguments["timecode"]},
+                )
+            selected_timecode = timeline.GetCurrentTimecode()
+            if selected_timecode != arguments["timecode"]:
+                timeline.SetCurrentTimecode(previous_timecode)
+                raise BridgeOperationError(
+                    "TIMECODE_READBACK_FAILED",
+                    "Resolve did not retain the requested animation timecode.",
+                    retryable=True,
+                    details={
+                        "requested_timecode": arguments["timecode"],
+                        "selected_timecode": selected_timecode,
+                    },
+                )
+            insert_animation_call = cast(
+                Callable[..., Any], insert_animation_template
+            )
+            try:
+                animation_item = insert_animation_call(template["resolve_name"])
+            finally:
+                timeline.SetCurrentTimecode(previous_timecode)
+            if animation_item is None:
+                raise BridgeOperationError(
+                    "ANIMATION_TEMPLATE_INSERT_FAILED",
+                    "Resolve did not insert the packaged Fusion title.",
+                    retryable=True,
+                    details={"template_id": arguments["template_id"]},
+                )
+            required_animation_item_methods = (
+                "GetUniqueId",
+                "GetName",
+                "GetStart",
+                "GetEnd",
+                "GetDuration",
+                "GetTrackTypeAndIndex",
+                "GetFusionCompCount",
+            )
+            missing = [
+                name
+                for name in required_animation_item_methods
+                if not callable(getattr(animation_item, name, None))
+            ]
+            if missing:
+                raise BridgeOperationError(
+                    "ANIMATION_TEMPLATE_READBACK_FAILED",
+                    "The inserted animation cannot report canonical metadata.",
+                    details={"missing_methods": missing},
+                )
+            fusion_comp_count = animation_item.GetFusionCompCount()
+            if (
+                not isinstance(fusion_comp_count, int)
+                or isinstance(fusion_comp_count, bool)
+                or fusion_comp_count < 1
+            ):
+                raise BridgeOperationError(
+                    "ANIMATION_TEMPLATE_READBACK_FAILED",
+                    "The inserted title did not report a Fusion composition.",
+                    details={"fusion_comp_count": fusion_comp_count},
+                )
+            actual_video_items = _video_item_snapshots(timeline)
+            returned_animation_id = str(animation_item.GetUniqueId())
+            new_item_ids = sorted(
+                set(actual_video_items).difference(previous_video_items)
+            )
+            changed_existing_ids = sorted(
+                item_id
+                for item_id, snapshot in previous_video_items.items()
+                if actual_video_items.get(item_id) != snapshot
+            )
+            inserted_snapshot = actual_video_items.get(returned_animation_id)
+            if (
+                new_item_ids != [returned_animation_id]
+                or changed_existing_ids
+                or inserted_snapshot is None
+                or inserted_snapshot["timeline_start_frame"]
+                != requested_animation_frame
+            ):
+                raise BridgeOperationError(
+                    "ANIMATION_TEMPLATE_READBACK_FAILED",
+                    "Resolve changed unexpected video items during animation "
+                    "insertion.",
+                    details={
+                        "returned_item_id": returned_animation_id,
+                        "new_item_ids": new_item_ids,
+                        "changed_existing_ids": changed_existing_ids,
+                        "requested_frame": requested_animation_frame,
+                        "inserted_snapshot": inserted_snapshot,
+                    },
+                )
+            track = animation_item.GetTrackTypeAndIndex()
+            if (
+                not isinstance(track, (list, tuple))
+                or len(track) != 2
+                or track[0] != "video"
+                or not isinstance(track[1], int)
+                or isinstance(track[1], bool)
+            ):
+                raise BridgeOperationError(
+                    "ANIMATION_TEMPLATE_READBACK_FAILED",
+                    "The inserted animation did not report a video track.",
+                )
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "template_id": arguments["template_id"],
+                "resolve_name": template["resolve_name"],
+                "requested_timecode": arguments["timecode"],
+                "requested_frame": requested_animation_frame,
+                "previous_timecode": previous_timecode,
+                "fusion_comp_count": fusion_comp_count,
+                "item": {
+                    "timeline_item_id": returned_animation_id,
+                    "name": str(animation_item.GetName()),
+                    "track_type": "video",
+                    "track_index": int(track[1]),
+                    "timeline_start_frame": int(animation_item.GetStart(False)),
+                    "timeline_end_frame": int(animation_item.GetEnd(False)),
+                    "duration_frames": int(animation_item.GetDuration(False)),
+                },
+                "backup_path": backup_path,
+            }
         elif action == "append_subtitle_file":
             if project.SetCurrentTimeline(timeline) is not True:
                 raise BridgeOperationError(
@@ -4385,6 +5080,23 @@ def _execute_write_command(
                 "timeline_id": arguments["timeline_id"],
                 "linked": arguments["linked"],
                 "groups": group_results,
+                "backup_path": backup_path,
+            }
+        elif action == "apply_color_preset":
+            if project.SetCurrentTimeline(timeline) is not True:
+                raise BridgeOperationError(
+                    "TIMELINE_SELECT_FAILED",
+                    "Resolve could not select the color target timeline.",
+                    retryable=True,
+                )
+            applied_items = _apply_color_preset_items(arguments, color_items)
+            result = {
+                "timeline_id": arguments["timeline_id"],
+                "preset_id": arguments["preset_id"],
+                "version_name": COLOR_PRESETS[arguments["preset_id"]][
+                    "version_name"
+                ],
+                "items": applied_items,
                 "backup_path": backup_path,
             }
         elif action == "set_clip_transform":

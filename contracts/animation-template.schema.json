@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/animation-template.schema.json",
+  "title": "Packaged animation template",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "template_id",
+    "template_version",
+    "display_name",
+    "description",
+    "kind",
+    "resolve_name",
+    "asset_relative_path",
+    "asset_sha256",
+    "duration_policy",
+    "editable_in_resolve",
+    "programmatic_inputs"
+  ],
+  "properties": {
+    "template_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64},
+    "template_version": {"const": "1.0"},
+    "display_name": {"type": "string", "minLength": 1, "maxLength": 128},
+    "description": {"type": "string", "minLength": 1, "maxLength": 500},
+    "kind": {"const": "fusion_title"},
+    "resolve_name": {"type": "string", "minLength": 1, "maxLength": 128},
+    "asset_relative_path": {"const": "Edit/Titles/DaVinci Agent Accent Card.setting"},
+    "asset_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "duration_policy": {"const": "adaptive-mirrored-anim-curves"},
+    "editable_in_resolve": {
+      "type": "array",
+      "items": {"enum": ["title", "subtitle"]},
+      "uniqueItems": true
+    },
+    "programmatic_inputs": {"const": []}
+  }
+}

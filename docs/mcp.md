@@ -1,5 +1,19 @@
 # Налаштування MCP-клієнта
 
+## M53 color discovery tools
+
+`resolve_get_color_environment` є read-only probe для media video items: він
+повертає current local version, node count/labels, LUT readback і presence
+документованих color methods. `list_color_presets` та `get_color_preset`
+працюють лише з пакетованим каталогом. `preview_color_treatment` прив'язує
+allowlisted preset до exact applied M52 receipt і live snapshot. На цьому
+підетапі жоден із цих tools не створює version, node, backup або grade.
+
+`apply_color_treatment` є окремим write tool: він вимагає exact `plan_id` та
+`confirm_apply=true`, створює duplicate timeline і застосовує тільки packaged
+`tutorial-clean-v1`. Caller не передає CDL values, node index, version name,
+LUT/DRX path або Resolve expression.
+
 ## Межі MCP
 
 MCP-сервер працює локально через `stdio` і не відкриває мережевий порт.
@@ -429,3 +443,15 @@ FPS-aware duration, timeline bounds, overlap/collision та повертає det
 `confirm_apply=true`. Tool дублює baseline timeline, забезпечує video tracks,
 виконує один bounded batch insert і звіряє canonical item readback. Source M50
 timeline та аудіо не змінюються; replay applied receipt не виконує нових writes.
+
+`list_animation_templates` і `get_animation_template` повертають лише
+пакетовані M52 manifests. `preview_animation_template` прив'язує allowlisted
+template та exact timecode до applied M51 receipt і live source snapshot.
+`apply_animation_template` вимагає exact plan і confirmation, дублює M51
+timeline та викликає fixed `resolve_insert_animation_template`. Caller не може
+передати Fusion code, expressions, nodes, controls, `.setting` або текст.
+
+Raw environment tool звіряє documented method presence та встановлений asset
+hash. Raw insert працює лише на exact timeline end, перевіряє selected
+timecode, створює backup, відновлює playhead і вимагає
+рівно один новий item із Fusion composition та незмінні existing video items.

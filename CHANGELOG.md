@@ -9,6 +9,38 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M53 immutable `tutorial-clean-v1` CDL preset catalogue and schemas with no
+  caller-supplied grade values, node indexes, LUT/DRX paths or expressions.
+- M53 read-only Resolve color-environment discovery and M52-bound deterministic
+  color-treatment preview; grade application remains gated on live Free proof.
+- M53 confirmed duplicate-timeline color application with a managed local
+  version, code-owned node-1 CDL, canonical target/version readback and replay.
+- M53 duplicate-item remapping by exact media identity after live Resolve
+  evidence confirmed TimelineItem IDs change when a timeline is duplicated.
+- M53 live apply recovery: 5/5 managed color versions, unchanged M52 source and
+  exact replay with stable timeline and backup counts.
+- M53 visual acceptance in Resolve 21.0.3 Free confirmed the intended subtle
+  contrast increase from the packaged tutorial preset.
+- M52 immutable animation-template catalogue and packaged
+  `accent-card-v1` Fusion Title with reproducible SHA-256 verification.
+- M52 read-only environment/preview tools and confirmed duplicate-timeline
+  application with completed-M51 binding, exact plan/receipt replay, project
+  backup, append-only insertion and canonical Fusion-item readback.
+- Repeatable Windows install, verification and conservative uninstall of the
+  managed Resolve title template while preserving a pre-existing user asset.
+- Exact-end and playhead-readback guards for Fusion-title insertion after live
+  Resolve evidence showed that an out-of-range playhead can clamp to timeline
+  start and ripple existing tracks.
+- One bounded Resolve-provider retry only when the bridge confirms a transient
+  playhead-readback failure occurred before Fusion-title insertion.
+- Correct Fusion Transform center keyframes after visual acceptance showed the
+  parsed title and Inspector controls but kept the card outside the frame.
+- Replace unsuccessful Key Stretcher variants with Blackmagic's recommended
+  mirrored Anim Curves wiring on `Dissolve.Mix`; frame-by-frame acceptance
+  evidence showed both earlier variants remained fully static.
+- Confirm M52 live in Resolve 21.0.3 Free with a fresh mirrored Anim Curves
+  title, editable Inspector fields, unchanged M51 source and exact replay with
+  stable backup and timeline counts.
 - M51 provider-neutral B-roll review plan with completed-M50 binding, bounded
   source/timeline ranges, FPS-aware durations and collision checks.
 - Confirmed `apply_broll_plan` on a duplicated baseline timeline using only

@@ -191,6 +191,20 @@ def broll_applications_directory(
     return runtime_directory(environment) / "broll-applications"
 
 
+def animation_template_runs_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for confirmed animation-template runs."""
+    return runtime_directory(environment) / "animation-template-runs"
+
+
+def color_treatment_runs_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for confirmed color-treatment runs."""
+    return runtime_directory(environment) / "color-treatment-runs"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

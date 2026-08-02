@@ -85,6 +85,58 @@ class StubResolveReader:
             "auto_caption": {"method_available": True},
         }
 
+    def animation_template_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "timeline": {"timeline_id": timeline_id, "name": "Main"},
+            "methods": {"insert_fusion_title": True},
+            "templates": [
+                {
+                    "template_id": "accent-card-v1",
+                    "installed": True,
+                    "hash_matches": True,
+                }
+            ],
+            "ready": True,
+        }
+
+    def color_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "timeline": {"timeline_id": timeline_id, "name": "Main"},
+            "methods": {"SetCDL": True, "AddVersion": True},
+            "items": [],
+            "ready": True,
+            "apply_candidate": True,
+        }
+
+    def apply_color_preset(
+        self,
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        preset_id: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline_id": timeline_id,
+            "preset_id": preset_id,
+            "items": [
+                {"timeline_item_id": item_id}
+                for item_id in timeline_item_ids
+            ],
+        }
+
     def create_subtitles_from_audio(
         self,
         timeline_id: str,
@@ -98,6 +150,24 @@ class StubResolveReader:
             "timeline_id": timeline_id,
             "policy": {"language": "auto"},
             "subtitle_environment": {"subtitle_item_count": 1},
+        }
+
+    def insert_animation_template(
+        self,
+        timeline_id: str,
+        template_id: str,
+        timecode: str,
+        *,
+        confirm_insert: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        assert confirm_insert is True
+        return {
+            "timeline_id": timeline_id,
+            "template_id": template_id,
+            "requested_timecode": timecode,
+            "item": {"timeline_item_id": "animation-1", "fusion_comp_count": 1},
         }
 
     def workspace_snapshot(
@@ -758,6 +828,23 @@ class StubBrollWorkflow:
     def apply(self, **kwargs: Any) -> dict[str, Any]:
         return {"status": "applied", "receipt_id": "f" * 64, "arguments": kwargs}
 
+    def status(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "applied", "receipt_id": receipt_id, "live": True}
+
+
+class StubAnimationTemplateWorkflow:
+    def list_templates(self) -> dict[str, Any]:
+        return {"count": 1, "templates": [{"template_id": "accent-card-v1"}]}
+
+    def get_template(self, template_id: str) -> dict[str, Any]:
+        return {"template_id": template_id, "template_version": "1.0"}
+
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "preview", "plan_id": "d" * 64, "arguments": kwargs}
+
+    def apply(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "applied", "receipt_id": "c" * 64, "arguments": kwargs}
+
 
 class StubWorkflowAuditor:
     def __init__(self) -> None:
@@ -818,6 +905,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         editing_recipe_runner=StubEditingRecipeRunner(),
         baseline_edit_service=StubBaselineEditWorkflow(),
         broll_service=StubBrollWorkflow(),
+        animation_template_service=StubAnimationTemplateWorkflow(),
         workflow_audit=workflow_audit,
     )
     server = create_server(application)
@@ -859,6 +947,19 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             ]
             broll_preview_annotations = annotations["preview_broll_plan"]
             broll_apply_annotations = annotations["apply_broll_plan"]
+            broll_status_annotations = annotations["get_broll_status"]
+            animation_environment_annotations = annotations[
+                "resolve_get_animation_template_environment"
+            ]
+            animation_insert_annotations = annotations[
+                "resolve_insert_animation_template"
+            ]
+            animation_list_annotations = annotations["list_animation_templates"]
+            animation_get_annotations = annotations["get_animation_template"]
+            animation_preview_annotations = annotations[
+                "preview_animation_template"
+            ]
+            animation_apply_annotations = annotations["apply_animation_template"]
             compaction_annotations = annotations[
                 "preview_synchronized_pause_compaction"
             ]
@@ -923,6 +1024,13 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert baseline_status_annotations is not None
             assert broll_preview_annotations is not None
             assert broll_apply_annotations is not None
+            assert broll_status_annotations is not None
+            assert animation_environment_annotations is not None
+            assert animation_insert_annotations is not None
+            assert animation_list_annotations is not None
+            assert animation_get_annotations is not None
+            assert animation_preview_annotations is not None
+            assert animation_apply_annotations is not None
             assert compaction_annotations is not None
             assert compaction_apply_annotations is not None
             assert finalized_render_annotations is not None
@@ -963,6 +1071,13 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert baseline_status_annotations.read_only_hint is True
             assert broll_preview_annotations.read_only_hint is True
             assert broll_apply_annotations.read_only_hint is False
+            assert broll_status_annotations.read_only_hint is True
+            assert animation_environment_annotations.read_only_hint is True
+            assert animation_insert_annotations.read_only_hint is False
+            assert animation_list_annotations.read_only_hint is True
+            assert animation_get_annotations.read_only_hint is True
+            assert animation_preview_annotations.read_only_hint is True
+            assert animation_apply_annotations.read_only_hint is False
             assert compaction_annotations.read_only_hint is True
             assert compaction_apply_annotations.read_only_hint is False
             assert finalized_render_annotations.read_only_hint is False
@@ -1012,6 +1127,10 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                 ),
                 "subtitles": await client.call_tool(
                     "resolve_get_subtitle_environment",
+                    {"timeline_id": "timeline-1"},
+                ),
+                "animation_environment": await client.call_tool(
+                    "resolve_get_animation_template_environment",
                     {"timeline_id": "timeline-1"},
                 ),
                 "created_subtitles": await client.call_tool(
@@ -1076,6 +1195,15 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "position_frames": 0,
                         "track_type": "video",
                         "track_index": 1,
+                    },
+                ),
+                "animation_inserted": await client.call_tool(
+                    "resolve_insert_animation_template",
+                    {
+                        "timeline_id": "timeline-1",
+                        "template_id": "accent-card-v1",
+                        "timecode": "01:00:10:00",
+                        "confirm_insert": True,
                     },
                 ),
                 "disabled": await client.call_tool(
@@ -1248,6 +1376,38 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                         "confirm_apply": True,
                     },
                 ),
+                "broll_status": await client.call_tool(
+                    "get_broll_status",
+                    {"receipt_id": "f" * 64},
+                ),
+                "animation_templates": await client.call_tool(
+                    "list_animation_templates",
+                    {},
+                ),
+                "animation_template": await client.call_tool(
+                    "get_animation_template",
+                    {"template_id": "accent-card-v1"},
+                ),
+                "animation_preview": await client.call_tool(
+                    "preview_animation_template",
+                    {
+                        "broll_receipt_id": "f" * 64,
+                        "target_timeline_name": "M52 Animation",
+                        "template_id": "accent-card-v1",
+                        "timecode": "01:00:10:00",
+                    },
+                ),
+                "animation_applied": await client.call_tool(
+                    "apply_animation_template",
+                    {
+                        "broll_receipt_id": "f" * 64,
+                        "target_timeline_name": "M52 Animation",
+                        "template_id": "accent-card-v1",
+                        "timecode": "01:00:10:00",
+                        "expected_plan_id": "d" * 64,
+                        "confirm_apply": True,
+                    },
+                ),
                 "compaction": await client.call_tool(
                     "preview_synchronized_pause_compaction",
                     {
@@ -1348,6 +1508,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_list_media_pool_items",
         "resolve_get_editing_metadata",
         "resolve_get_subtitle_environment",
+        "resolve_get_animation_template_environment",
+        "resolve_get_color_environment",
         "resolve_create_subtitles_from_audio",
         "generate_subtitles",
         "resolve_get_workspace_snapshot",
@@ -1363,6 +1525,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "resolve_set_clips_linked",
         "resolve_set_clip_transform",
         "resolve_insert_title",
+        "resolve_insert_animation_template",
         "resolve_delete_clip",
         "resolve_add_marker",
         "resolve_prepare_render_job",
@@ -1387,6 +1550,15 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "get_baseline_render_status",
             "preview_broll_plan",
             "apply_broll_plan",
+            "get_broll_status",
+            "list_animation_templates",
+            "get_animation_template",
+            "preview_animation_template",
+            "apply_animation_template",
+            "list_color_presets",
+            "get_color_preset",
+            "preview_color_treatment",
+            "apply_color_treatment",
             "compose_webcam_picture_in_picture",
             "link_synchronized_screen_pair",
             "preview_synchronized_pause_compaction",
@@ -1426,6 +1598,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "frame_rate"
     ] == 60.0
     assert results["subtitles"].structured_content["subtitle_track_count"] == 0
+    assert results["animation_environment"].structured_content["ready"] is True
     assert results["created_subtitles"].structured_content[
         "subtitle_environment"
     ]["subtitle_item_count"] == 1
@@ -1460,6 +1633,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["inserted"].structured_content["item"][
         "source_end_frame"
     ] == 240
+    assert results["animation_inserted"].structured_content[
+        "template_id"
+    ] == "accent-card-v1"
     assert results["disabled"].structured_content["enabled"] is False
     assert results["linked"].structured_content["linked"] is True
     assert results["transformed"].structured_content["transform"]["zoom"] == 0.5
@@ -1492,6 +1668,13 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["baseline_status"].structured_content["status"] == "complete"
     assert results["broll_preview"].structured_content["status"] == "preview"
     assert results["broll_applied"].structured_content["status"] == "applied"
+    assert results["broll_status"].structured_content["live"] is True
+    assert results["animation_templates"].structured_content["count"] == 1
+    assert results["animation_template"].structured_content[
+        "template_version"
+    ] == "1.0"
+    assert results["animation_preview"].structured_content["status"] == "preview"
+    assert results["animation_applied"].structured_content["status"] == "applied"
     assert results["compaction"].structured_content["status"] == "preview"
     assert results["compaction_apply"].structured_content["status"] == "applied"
     assert results["compaction_finalized"].structured_content["status"] == (
@@ -1528,6 +1711,11 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "get_baseline_render_status",
         "preview_broll_plan",
         "apply_broll_plan",
+        "get_broll_status",
+        "list_animation_templates",
+        "get_animation_template",
+        "preview_animation_template",
+        "apply_animation_template",
         "preview_synchronized_pause_compaction",
         "apply_synchronized_pause_compaction",
         "finalize_synchronized_pause_compaction",

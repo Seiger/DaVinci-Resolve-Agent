@@ -1,5 +1,21 @@
 # M1 filesystem protocol
 
+## M53 color discovery protocol
+
+`get_color_environment` є fixed read-only action для exact timeline ID. Bridge
+читає лише media-backed video items через документовані
+`GetCurrentVersion`, `GetVersionNameList`, `GetNodeGraph`, `GetNumNodes`,
+`GetNodeLabel` і `GetLUT`. Наявність `SetCDL`, `AddVersion` та
+`LoadVersionByName` лише повідомляється; ці методи не викликаються.
+
+CDL values надходять тільки з hash-bound packaged preset у core. MCP/bridge не
+приймають довільні CDL, LUT/DRX paths, node indices або executable input.
+
+`apply_color_preset` є внутрішнім fixed write action. Він приймає exact target
+timeline, повний bounded список media-video item IDs, allowlisted preset ID та
+`confirm_apply=true`; backup обов'язковий. Adapter створює/активує managed local
+version і викликає `SetCDL` лише з code-owned map для node 1.
+
 Protocol version: `1.0`.
 
 The canonical JSON Schemas are under `contracts/`. The bridge performs a
@@ -425,3 +441,19 @@ for Media Pool clips. A documented generated item such as a standard title has
 `source_type=generated` and null source bounds; its timeline bounds remain
 mandatory integers. A media-backed item with invalid source bounds still fails
 instead of being silently reclassified.
+
+## M52 animation-template protocol
+
+`get_animation_template_environment` є fixed read-only action для exact
+timeline. Вона повертає лише presence documented methods, allowlisted template
+ID, installed/hash state і readiness — без filesystem path або Fusion graph.
+
+`insert_animation_template` приймає лише exact `timeline_id`,
+`template_id=accent-card-v1`, absolute non-drop `timecode` та
+`confirm_insert=true`. Adapter перевіряє packaged asset hash до backup,
+вимагає timecode рівно на `Timeline.GetEndFrame()`, перевіряє playhead
+readback, викликає documented `Timeline.InsertFusionTitleIntoTimeline`, відновлює
+playhead і вимагає один новий generated item із Fusion composition. Існуючі
+video items мають залишитися еквівалентними bounded snapshot. Arbitrary Fusion
+data, code, expressions, controls та external template paths не входять до
+protocol.

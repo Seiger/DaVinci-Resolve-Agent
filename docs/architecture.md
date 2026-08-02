@@ -1,5 +1,21 @@
 # Architecture
 
+## M53 color discovery and preview
+
+```text
+packaged CDL preset
+ ├─ schema-validated immutable catalogue
+ ├─ applied M52 receipt + exact live timeline snapshot
+ ├─ read-only documented color graph probe
+ └─ deterministic preview (no Resolve write)
+```
+
+Core owns preset identity, receipt binding and target selection. ResolveBridge
+only inspects documented TimelineItem/Graph APIs. Generated titles and audio
+are excluded; arbitrary CDL values, LUT/DRX files, node selection and scripts
+never cross the MCP boundary. A future apply slice requires separate live Free
+evidence and reviewed duplicate-timeline semantics.
+
 ## M0 foundation
 
 M0 establishes repository tooling and stable extension points:
@@ -982,3 +998,24 @@ The core knows only provider-neutral transforms and installed title names. The
 Resolve adapter alone maps transforms to documented TimelineItem properties and
 maps title insertion to `Timeline.InsertTitleIntoTimeline`. Smart Reframe,
 Fusion input mutation and animation/keyframe authoring are outside M49.
+
+## M52 packaged animation templates
+
+```text
+packaged manifest + audited .setting
+ ├─ catalogue validates schema and SHA-256
+ ├─ installer owns one documented user-template target
+ ├─ preview binds applied M51 receipt + live source snapshot
+ └─ confirmed apply
+      ├─ duplicate source timeline
+      ├─ fixed InsertFusionTitleIntoTimeline call
+      ├─ unchanged-item and Fusion-comp readback
+      └─ durable receipt/replay
+```
+
+The provider-neutral core handles template identity, plan binding and receipts.
+Only the Resolve adapter knows the installed Resolve title name or invokes the
+documented Fusion-title insertion method. The MCP boundary never carries a
+Fusion graph, expression, node/control name, external file path or executable
+content. Text customization remains a manual Resolve Inspector operation in
+this milestone.

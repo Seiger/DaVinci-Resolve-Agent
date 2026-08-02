@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/color-preset.schema.json",
+  "title": "Packaged CDL color preset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["preset_id", "preset_version", "display_name", "description", "kind", "scope", "apply_policy", "cdl"],
+  "properties": {
+    "preset_id": {"const": "tutorial-clean-v1"},
+    "preset_version": {"const": "1.0"},
+    "display_name": {"type": "string", "minLength": 1, "maxLength": 128},
+    "description": {"type": "string", "minLength": 1, "maxLength": 500},
+    "kind": {"const": "cdl"},
+    "scope": {"const": "media-video-items"},
+    "apply_policy": {"const": "new-local-version-node-1"},
+    "cdl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slope", "offset", "power", "saturation"],
+      "properties": {
+        "slope": {"$ref": "#/$defs/positiveTriplet"},
+        "offset": {"$ref": "#/$defs/offsetTriplet"},
+        "power": {"$ref": "#/$defs/positiveTriplet"},
+        "saturation": {"type": "number", "minimum": 0, "maximum": 4}
+      }
+    }
+  },
+  "$defs": {
+    "positiveTriplet": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number", "exclusiveMinimum": 0, "maximum": 10}},
+    "offsetTriplet": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number", "minimum": -1, "maximum": 1}}
+  }
+}

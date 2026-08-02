@@ -106,6 +106,34 @@ class BrollWorkflow:
         self._capabilities = capabilities
         self._receipts_root = receipts_root or broll_applications_directory()
 
+    def status(
+        self,
+        receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return one validated applied receipt with fresh target readback."""
+        identifier = _sha256(receipt_id, "receipt_id")
+        timeout = _timeout(timeout_seconds)
+        path = self._receipts_root / f"{identifier}.json"
+        if not path.is_file():
+            raise BrollError(f"B-roll receipt was not found: {identifier}")
+        receipt = read_json_object(path)
+        validate_contract("broll-result", receipt)
+        if receipt.get("receipt_id") != identifier:
+            raise BrollError("Stored B-roll receipt identity is invalid.")
+        if receipt.get("status") != "applied":
+            return receipt
+        target = receipt.get("target")
+        inserted_items = receipt.get("inserted_items")
+        if not isinstance(target, dict) or not isinstance(inserted_items, list):
+            raise BrollError("Applied B-roll receipt is incomplete.")
+        readback = self._gateway.timeline_items(
+            target["timeline_id"], timeout_seconds=timeout
+        )
+        _verify_readback(target, inserted_items, readback)
+        return {**receipt, "readback": readback}
+
     def preview(
         self,
         *,

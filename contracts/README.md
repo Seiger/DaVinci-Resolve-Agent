@@ -1,5 +1,13 @@
 # Contracts
 
+`color-preset.schema.json` defines one immutable packaged M53 CDL preset with a
+fixed scope and apply policy. `color-treatment-preview.schema.json` binds that
+preset to an applied M52 receipt, exact live source snapshot, media-video target
+items and documented capability evidence. Neither contract enables a color
+write or accepts arbitrary LUT/DRX paths, node indexes, expressions or code.
+`color-treatment-result.schema.json` зберігає exact plan, duplicate operation,
+fixed color operation, managed-version environment readback і replay receipt.
+
 Protocol version `1.0` accepts the read-only Resolve actions and allowlisted
 write actions listed in `command.schema.json`. Write actions have strict
 argument shapes and require `create_backup=true`. The bridge performs a minimal
@@ -128,3 +136,10 @@ normalized static transform batch and bounded standard-title insertions. The
 bridge command accepts only installed title name, exact timecode and explicit
 confirmation; title text, Fusion controls, Smart Reframe and arbitrary
 properties are outside the contract.
+
+`animation-template.schema.json` defines an immutable packaged M52 template
+manifest. `animation-template-preview.schema.json` binds one read-only plan to
+an applied M51 receipt, exact source snapshot, installed asset hash and fixed
+capabilities. `animation-template-result.schema.json` records only timeline
+duplication and one allowlisted insertion. No contract accepts Fusion code,
+nodes, controls, expressions, scripts or arbitrary template files.

@@ -106,6 +106,15 @@ try {
     )
     $bridgeTarget = Join-Path $resolveScripts "ResolveBridge.py"
     $bridgeBackup = "$bridgeTarget.davinci-agent-backup"
+    $resolveTemplates = Join-Path $env:APPDATA (
+        "Blackmagic Design\DaVinci Resolve\Support\Fusion\Templates\Edit\Titles"
+    )
+    $animationTemplateTarget = Join-Path (
+        $resolveTemplates
+    ) "DaVinci Agent Accent Card.setting"
+    $animationTemplateBackup = (
+        "$animationTemplateTarget.davinci-agent-backup"
+    )
     $configRoot = Join-Path $env:APPDATA "DaVinciResolveAgent"
     $configFile = Join-Path $configRoot "config.toml"
     $runtimeRoot = Join-Path (
@@ -113,10 +122,16 @@ try {
     ) "runtime"
 
     New-Item -ItemType Directory -Path $resolveScripts -Force | Out-Null
+    New-Item -ItemType Directory -Path $resolveTemplates -Force | Out-Null
     New-Item -ItemType Directory -Path $configRoot -Force | Out-Null
     [System.IO.File]::WriteAllText(
         $bridgeTarget,
         "# pre-existing bridge`n",
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    [System.IO.File]::WriteAllText(
+        $animationTemplateTarget,
+        "# pre-existing animation template`n",
         [System.Text.UTF8Encoding]::new($false)
     )
     $defaultConfig = Get-Content -LiteralPath (
@@ -147,6 +162,11 @@ try {
     Assert-PathExists -LiteralPath (
         "$bridgeTarget.davinci-agent.sha256"
     ) -PathType Leaf
+    Assert-PathExists -LiteralPath $animationTemplateTarget -PathType Leaf
+    Assert-PathExists -LiteralPath $animationTemplateBackup -PathType Leaf
+    Assert-PathExists -LiteralPath (
+        "$animationTemplateTarget.davinci-agent.sha256"
+    ) -PathType Leaf
 
     $preservedConfig = Get-Content -LiteralPath $configFile -Raw
     if ($preservedConfig -ne $seededConfig) {
@@ -165,6 +185,11 @@ try {
     & $install
     if (-not (Test-Path -LiteralPath $bridgeBackup -PathType Leaf)) {
         throw "Installer rerun removed the pre-existing bridge backup."
+    }
+    if (-not (
+        Test-Path -LiteralPath $animationTemplateBackup -PathType Leaf
+    )) {
+        throw "Installer rerun removed the animation template backup."
     }
 
     $verify = Join-Path $sandboxRepository "installer\verify.ps1"
@@ -200,6 +225,13 @@ try {
     $restoredBridge = Get-Content -LiteralPath $bridgeTarget -Raw
     if ($restoredBridge -ne "# pre-existing bridge`n") {
         throw "Uninstaller did not restore the pre-existing bridge."
+    }
+    Assert-PathExists -LiteralPath $animationTemplateTarget -PathType Leaf
+    $restoredAnimation = Get-Content `
+        -LiteralPath $animationTemplateTarget `
+        -Raw
+    if ($restoredAnimation -ne "# pre-existing animation template`n") {
+        throw "Uninstaller did not restore the pre-existing animation template."
     }
     Assert-PathExists -LiteralPath $sentinel -PathType Leaf
 

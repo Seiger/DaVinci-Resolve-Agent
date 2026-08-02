@@ -77,6 +77,18 @@ function Get-AgentPaths {
         "Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit"
     )
     $bridgeTarget = Join-Path $resolveScriptsRoot "ResolveBridge.py"
+    $resolveTemplatesRoot = Join-Path $env:APPDATA (
+        "Blackmagic Design\DaVinci Resolve\Support\Fusion\Templates"
+    )
+    $animationTemplateRelativePath = (
+        "Edit\Titles\DaVinci Agent Accent Card.setting"
+    )
+    $animationTemplateSource = Join-Path (
+        Join-Path $RepositoryRoot "config\fusion_templates"
+    ) $animationTemplateRelativePath
+    $animationTemplateTarget = Join-Path (
+        $resolveTemplatesRoot
+    ) $animationTemplateRelativePath
 
     return [PSCustomObject]@{
         RepositoryRoot = [System.IO.Path]::GetFullPath($RepositoryRoot)
@@ -97,6 +109,10 @@ function Get-AgentPaths {
         SubtitleReceiptsRoot = Join-Path $runtimeRoot "subtitle-receipts"
         EditingRecipeRunsRoot = Join-Path $runtimeRoot "editing-recipe-runs"
         VisualTreatmentsRoot = Join-Path $runtimeRoot "visual-treatments"
+        AnimationTemplateRunsRoot = Join-Path (
+            $runtimeRoot
+        ) "animation-template-runs"
+        ColorTreatmentRunsRoot = Join-Path $runtimeRoot "color-treatment-runs"
         TranscriptionModelsRoot = Join-Path (
             Join-Path $runtimeRoot "models"
         ) "faster-whisper"
@@ -122,6 +138,18 @@ function Get-AgentPaths {
         BridgeTarget = $bridgeTarget
         BridgeBackup = "$bridgeTarget.davinci-agent-backup"
         BridgeHashMarker = "$bridgeTarget.davinci-agent.sha256"
+        ResolveTemplatesRoot = $resolveTemplatesRoot
+        AnimationTemplateManifestSource = Join-Path $RepositoryRoot (
+            "config\animation_templates\accent-card-v1.json"
+        )
+        AnimationTemplateSource = $animationTemplateSource
+        AnimationTemplateTarget = $animationTemplateTarget
+        AnimationTemplateBackup = (
+            "$animationTemplateTarget.davinci-agent-backup"
+        )
+        AnimationTemplateHashMarker = (
+            "$animationTemplateTarget.davinci-agent.sha256"
+        )
     }
 }
 

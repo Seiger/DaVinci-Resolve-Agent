@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/animation-template-result.schema.json",
+  "title": "M52 animation-template application",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "animation_apply_version",
+    "receipt_id",
+    "status",
+    "plan",
+    "target",
+    "operations",
+    "inserted_item",
+    "readback"
+  ],
+  "properties": {
+    "animation_apply_version": {"const": "1.0"},
+    "receipt_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["in_progress", "applied"]},
+    "plan": {"type": "object"},
+    "target": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["timeline_id", "timeline_name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {"$ref": "#/$defs/duplicate_operation"},
+        {"$ref": "#/$defs/insert_operation"}
+      ]
+    },
+    "inserted_item": {"type": ["object", "null"]},
+    "readback": {"type": ["object", "null"]}
+  },
+  "$defs": {
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "status", "result"],
+      "properties": {
+        "operation": {"type": "string"},
+        "status": {"enum": ["pending", "applied"]},
+        "result": {"type": ["object", "null"]}
+      }
+    },
+    "duplicate_operation": {
+      "allOf": [
+        {"$ref": "#/$defs/operation"},
+        {"properties": {"operation": {"const": "duplicate_timeline"}}}
+      ]
+    },
+    "insert_operation": {
+      "allOf": [
+        {"$ref": "#/$defs/operation"},
+        {"properties": {"operation": {"const": "insert_animation_template"}}}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "applied"}}},
+      "then": {
+        "properties": {
+          "target": {"type": "object"},
+          "operations": {
+            "items": {
+              "properties": {
+                "status": {"const": "applied"},
+                "result": {"type": "object"}
+              }
+            }
+          },
+          "inserted_item": {"type": "object"},
+          "readback": {"type": "object"}
+        }
+      }
+    }
+  ]
+}

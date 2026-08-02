@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/color-treatment-preview.schema.json",
+  "title": "M53 color-treatment preview",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["color_plan_version", "status", "apply_supported", "inputs", "source", "preset", "targets", "environment", "required_capabilities", "unsupported_capabilities", "plan_id"],
+  "properties": {
+    "color_plan_version": {"const": "1.0"},
+    "status": {"const": "preview"},
+    "apply_supported": {"type": "boolean"},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["animation_receipt_id", "target_timeline_name", "preset_id"],
+      "properties": {
+        "animation_receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "target_timeline_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "preset_id": {"const": "tutorial-clean-v1"}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "timeline_name", "snapshot_sha256"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "snapshot_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "preset": {"type": "object"},
+    "targets": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"$ref": "#/$defs/colorItem"}},
+    "environment": {"$ref": "#/$defs/environment"},
+    "required_capabilities": {"const": ["clip.read", "timeline.duplicate"]},
+    "unsupported_capabilities": {"type": "array", "uniqueItems": true, "items": {"enum": ["clip.read", "timeline.duplicate"]}},
+    "plan_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "$defs": {
+    "node": {"type": "object", "additionalProperties": false, "required": ["index", "label", "lut"], "properties": {"index": {"type": "integer", "minimum": 1}, "label": {"type": "string"}, "lut": {"type": "string"}}},
+    "version": {"type": "object", "additionalProperties": false, "required": ["versionName", "versionType"], "properties": {"versionName": {"type": "string", "minLength": 1}, "versionType": {"enum": [0, 1]}}},
+    "colorItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_item_id", "name", "track_index", "timeline_start_frame", "timeline_end_frame", "current_version", "node_count", "nodes"],
+      "properties": {
+        "timeline_item_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "name": {"type": "string"},
+        "track_index": {"type": "integer", "minimum": 1},
+        "timeline_start_frame": {"type": "integer"},
+        "timeline_end_frame": {"type": "integer"},
+        "current_version": {"$ref": "#/$defs/version"},
+        "node_count": {"type": "integer", "minimum": 1},
+        "nodes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/node"}}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline", "methods", "items", "ready", "apply_candidate"],
+      "properties": {
+        "timeline": {"type": "object"},
+        "methods": {"type": "object"},
+        "items": {"type": "array"},
+        "ready": {"type": "boolean"},
+        "apply_candidate": {"type": "boolean"}
+      }
+    }
+  }
+}

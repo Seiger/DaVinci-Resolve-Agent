@@ -34,6 +34,20 @@ Test-Path "$env:APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts
 Then fully restart Resolve and check
 `Workspace → Scripts → Edit → ResolveBridge`.
 
+## M52 animation template відсутній у Titles
+
+Перевір installed template без абсолютного шляху:
+
+```powershell
+Test-Path "$env:APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Templates\Edit\Titles\DaVinci Agent Accent Card.setting"
+.\installer\verify.ps1 -SkipResolveConnection
+```
+
+Якщо обидві перевірки успішні, повністю перезапусти Resolve. Якщо raw
+environment повідомляє hash mismatch, не копіюй довільний `.setting` поверх
+файлу: повторно запусти `install.ps1` і перевір, чи інсталятор зберіг
+користувацьку версію як `.davinci-agent-backup`.
+
 ## Bridge state was not found
 
 Open a Resolve project and invoke `ResolveBridge` from the Workspace menu. The

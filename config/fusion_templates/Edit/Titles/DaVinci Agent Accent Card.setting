@@ -1,0 +1,172 @@
+{
+	Tools = ordered() {
+		DaVinciAgentAccentCard = MacroOperator {
+			CtrlWZoom = false,
+			Inputs = ordered() {
+				TitleText = InstanceInput {
+					SourceOp = "Title",
+					Source = "StyledText",
+					Name = "Title",
+				},
+				SubtitleText = InstanceInput {
+					SourceOp = "Subtitle",
+					Source = "StyledText",
+					Name = "Subtitle",
+				},
+			},
+			Outputs = {
+				MainOutput1 = InstanceOutput {
+					SourceOp = "Reveal",
+					Source = "Output",
+				}
+			},
+			ViewInfo = GroupInfo {
+				Pos = { 0, 0 },
+				Size = { 220, 110 },
+			},
+			Tools = ordered() {
+				Canvas = Background {
+					Inputs = {
+						GlobalOut = Input { Value = 119, },
+						Width = Input { Value = 1920, },
+						Height = Input { Value = 1080, },
+						UseFrameFormatSettings = Input { Value = 1, },
+						TopLeftAlpha = Input { Value = 0, },
+					},
+					ViewInfo = OperatorInfo { Pos = { -330, 0 } },
+				},
+				Card = Background {
+					Inputs = {
+						GlobalOut = Input { Value = 119, },
+						Width = Input { Value = 1920, },
+						Height = Input { Value = 1080, },
+						UseFrameFormatSettings = Input { Value = 1, },
+						TopLeftRed = Input { Value = 0.035, },
+						TopLeftGreen = Input { Value = 0.043, },
+						TopLeftBlue = Input { Value = 0.055, },
+						TopLeftAlpha = Input { Value = 0.92, },
+						EffectMask = Input {
+							SourceOp = "CardMask",
+							Source = "Mask",
+						},
+					},
+					ViewInfo = OperatorInfo { Pos = { -330, 66 } },
+				},
+				CardMask = RectangleMask {
+					Inputs = {
+						Filter = Input { Value = FuID { "Fast Gaussian" }, },
+						SoftEdge = Input { Value = 0.008, },
+						Center = Input { Value = { 0.28, 0.79 }, },
+						Width = Input { Value = 0.46, },
+						Height = Input { Value = 0.16, },
+						CornerRadius = Input { Value = 0.08, },
+					},
+					ViewInfo = OperatorInfo { Pos = { -440, 66 } },
+				},
+				Accent = Background {
+					Inputs = {
+						GlobalOut = Input { Value = 119, },
+						Width = Input { Value = 1920, },
+						Height = Input { Value = 1080, },
+						UseFrameFormatSettings = Input { Value = 1, },
+						TopLeftRed = Input { Value = 0.95, },
+						TopLeftGreen = Input { Value = 0.25, },
+						TopLeftBlue = Input { Value = 0.12, },
+						EffectMask = Input {
+							SourceOp = "AccentMask",
+							Source = "Mask",
+						},
+					},
+					ViewInfo = OperatorInfo { Pos = { -330, 132 } },
+				},
+				AccentMask = RectangleMask {
+					Inputs = {
+						Center = Input { Value = { 0.065, 0.79 }, },
+						Width = Input { Value = 0.012, },
+						Height = Input { Value = 0.14, },
+						CornerRadius = Input { Value = 0.35, },
+					},
+					ViewInfo = OperatorInfo { Pos = { -440, 132 } },
+				},
+				MergeCard = Merge {
+					Inputs = {
+						Background = Input { SourceOp = "Canvas", Source = "Output", },
+						Foreground = Input { SourceOp = "Card", Source = "Output", },
+					},
+					ViewInfo = OperatorInfo { Pos = { -165, 33 } },
+				},
+				MergeAccent = Merge {
+					Inputs = {
+						Background = Input { SourceOp = "MergeCard", Source = "Output", },
+						Foreground = Input { SourceOp = "Accent", Source = "Output", },
+					},
+					ViewInfo = OperatorInfo { Pos = { -55, 33 } },
+				},
+				Title = TextPlus {
+					Inputs = {
+						GlobalOut = Input { Value = 119, },
+						Width = Input { Value = 1920, },
+						Height = Input { Value = 1080, },
+						UseFrameFormatSettings = Input { Value = 1, },
+						StyledText = Input { Value = "TITLE", },
+						Font = Input { Value = "Arial", },
+						Style = Input { Value = "Bold", },
+						Size = Input { Value = 0.047, },
+						Center = Input { Value = { 0.29, 0.775 }, },
+						HorizontalJustificationNew = Input { Value = 3, },
+						VerticalJustificationNew = Input { Value = 1, },
+					},
+					ViewInfo = OperatorInfo { Pos = { -55, 99 } },
+				},
+				MergeTitle = Merge {
+					Inputs = {
+						Background = Input { SourceOp = "MergeAccent", Source = "Output", },
+						Foreground = Input { SourceOp = "Title", Source = "Output", },
+					},
+					ViewInfo = OperatorInfo { Pos = { 55, 33 } },
+				},
+				Subtitle = TextPlus {
+					Inputs = {
+						GlobalOut = Input { Value = 119, },
+						Width = Input { Value = 1920, },
+						Height = Input { Value = 1080, },
+						UseFrameFormatSettings = Input { Value = 1, },
+						StyledText = Input { Value = "SUBTITLE", },
+						Font = Input { Value = "Arial", },
+						Style = Input { Value = "Regular", },
+						Size = Input { Value = 0.026, },
+						Center = Input { Value = { 0.29, 0.825 }, },
+						HorizontalJustificationNew = Input { Value = 3, },
+						VerticalJustificationNew = Input { Value = 1, },
+					},
+					ViewInfo = OperatorInfo { Pos = { 55, 99 } },
+				},
+				MergeSubtitle = Merge {
+					Inputs = {
+						Background = Input { SourceOp = "MergeTitle", Source = "Output", },
+						Foreground = Input { SourceOp = "Subtitle", Source = "Output", },
+					},
+					ViewInfo = OperatorInfo { Pos = { 165, 33 } },
+				},
+				Reveal = Dissolve {
+					Inputs = {
+						Mix = Input {
+							SourceOp = "RevealAnimCurves",
+							Source = "Value",
+						},
+						Background = Input { SourceOp = "Canvas", Source = "Output", },
+						Foreground = Input { SourceOp = "MergeSubtitle", Source = "Output", },
+					},
+					ViewInfo = OperatorInfo { Pos = { 275, 33 } },
+				},
+				RevealAnimCurves = LUTLookup {
+					Inputs = {
+						Mirror = Input { Value = 1, },
+					},
+					CtrlWZoom = false,
+				},
+			},
+		},
+	},
+	ActiveTool = "DaVinciAgentAccentCard"
+}

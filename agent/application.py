@@ -6,6 +6,7 @@ import math
 from collections.abc import Callable
 from typing import Any, Protocol, TypeVar
 
+from agent.animation_workflow import AnimationTemplateWorkflow
 from agent.audio_workflow import AudioReportInspector, DialogueAudioWorkflow
 from agent.baseline_edit import BaselineEditWorkflow
 from agent.bridge_state import (
@@ -15,6 +16,7 @@ from agent.bridge_state import (
     load_bridge_state,
 )
 from agent.broll import BrollWorkflow
+from agent.color_workflow import ColorTreatmentWorkflow
 from agent.finalized_audio_extraction import FinalizedAudioExtractor
 from agent.finalized_audio_integration import FinalizedAudioIntegrator
 from agent.finalized_render import FinalizedRenderPreparer
@@ -96,6 +98,22 @@ class ResolveReader(Protocol):
         timeout_seconds: float = 30,
     ) -> dict[str, Any]:
         """Return bounded subtitle tracks and native auto-caption availability."""
+
+    def animation_template_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return installed animation template and documented method evidence."""
+
+    def color_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return documented color-version and node-graph metadata."""
 
     def create_subtitles_from_audio(
         self,
@@ -195,6 +213,18 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Insert one installed standard title at an exact timecode."""
 
+    def insert_animation_template(
+        self,
+        timeline_id: str,
+        template_id: str,
+        timecode: str,
+        *,
+        confirm_insert: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one allowlisted packaged Fusion title."""
+
     def append_subtitle_file(
         self,
         timeline_id: str,
@@ -290,6 +320,18 @@ class ResolveReader(Protocol):
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Apply bounded video transforms in one provider operation."""
+
+    def apply_color_preset(
+        self,
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        preset_id: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply one fixed packaged color preset."""
 
     def delete_clip(
         self,
@@ -738,6 +780,71 @@ class BrollService(Protocol):
         timeout_seconds: float = 30,
     ) -> dict[str, Any]: ...
 
+    def status(
+        self,
+        receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
+class AnimationTemplateService(Protocol):
+    """Packaged M52 template catalogue, preview and apply boundary."""
+
+    def list_templates(self) -> dict[str, Any]: ...
+
+    def get_template(self, template_id: str) -> dict[str, Any]: ...
+
+    def preview(
+        self,
+        *,
+        broll_receipt_id: str,
+        target_timeline_name: str,
+        template_id: str,
+        timecode: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def apply(
+        self,
+        *,
+        broll_receipt_id: str,
+        target_timeline_name: str,
+        template_id: str,
+        timecode: str,
+        expected_plan_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
+class ColorTreatmentService(Protocol):
+    """Packaged M53 color-preset catalogue and preview boundary."""
+
+    def list_presets(self) -> dict[str, Any]: ...
+
+    def get_preset(self, preset_id: str) -> dict[str, Any]: ...
+
+    def preview(
+        self,
+        *,
+        animation_receipt_id: str,
+        target_timeline_name: str,
+        preset_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def apply(
+        self,
+        *,
+        animation_receipt_id: str,
+        target_timeline_name: str,
+        preset_id: str,
+        expected_plan_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
 
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
@@ -768,6 +875,8 @@ class AgentApplication:
         visual_treatment_service: VisualTreatmentService | None = None,
         baseline_edit_service: BaselineEditService | None = None,
         broll_service: BrollService | None = None,
+        animation_template_service: AnimationTemplateService | None = None,
+        color_treatment_service: ColorTreatmentService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -794,6 +903,8 @@ class AgentApplication:
         self._visual_treatment = visual_treatment_service
         self._baseline_edit = baseline_edit_service
         self._broll = broll_service
+        self._animation_templates = animation_template_service
+        self._color_treatment = color_treatment_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -898,6 +1009,32 @@ class AgentApplication:
         if not timeline_id or len(timeline_id) > 128:
             raise ValueError("timeline_id must contain 1 to 128 characters.")
         return self._resolve.subtitle_environment(
+            timeline_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+        )
+
+    def resolve_get_animation_template_environment(
+        self,
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Read packaged template integrity and documented Fusion methods."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        return self._resolve.animation_template_environment(
+            timeline_id,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+        )
+
+    def resolve_get_color_environment(
+        self,
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Read documented color versions and node graphs for one timeline."""
+        if not timeline_id or len(timeline_id) > 128:
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        return self._resolve.color_environment(
             timeline_id,
             timeout_seconds=self._validated_timeout(timeout_seconds),
         )
@@ -1047,6 +1184,32 @@ class AgentApplication:
         return self._resolve.insert_title(
             timeline_id,
             title_name,
+            timecode,
+            confirm_insert=True,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_insert_animation_template(
+        self,
+        timeline_id: str,
+        template_id: str,
+        timecode: str,
+        *,
+        confirm_insert: bool = False,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one packaged M52 template after explicit confirmation."""
+        if not 1 <= len(timeline_id) <= 128:
+            raise ValueError("timeline_id must contain 1 to 128 characters.")
+        if template_id != "accent-card-v1":
+            raise ValueError("template_id is not an allowlisted animation template.")
+        if confirm_insert is not True:
+            raise ValueError("confirm_insert must be true.")
+        return self._resolve.insert_animation_template(
+            timeline_id,
+            template_id,
             timecode,
             confirm_insert=True,
             timeout_seconds=self._validated_timeout(timeout_seconds),
@@ -1795,12 +1958,160 @@ class AgentApplication:
             ),
         )
 
+    def get_broll_status(
+        self,
+        receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Read one M51 receipt and verify its live target items."""
+        return self._run_local_workflow(
+            "get_broll_status",
+            lambda: self._broll_service().status(
+                receipt_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
     def _broll_service(self) -> BrollService:
         if self._broll is not None:
             return self._broll
         return BrollWorkflow(
             gateway=self._resolve,
             baseline=self._baseline_edit_service(),
+            capabilities=lambda: self.status()["bridge"].get("capabilities", {}),
+        )
+
+    def list_animation_templates(self) -> dict[str, Any]:
+        """List immutable packaged M52 templates without Resolve access."""
+        return self._run_local_workflow(
+            "list_animation_templates",
+            self._animation_template_service().list_templates,
+        )
+
+    def get_animation_template(self, template_id: str) -> dict[str, Any]:
+        """Return one immutable packaged M52 template manifest."""
+        return self._run_local_workflow(
+            "get_animation_template",
+            lambda: self._animation_template_service().get_template(template_id),
+        )
+
+    def preview_animation_template(
+        self,
+        *,
+        broll_receipt_id: str,
+        target_timeline_name: str,
+        template_id: str,
+        timecode: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Build one read-only M52 template application plan."""
+        return self._run_local_workflow(
+            "preview_animation_template",
+            lambda: self._animation_template_service().preview(
+                broll_receipt_id=broll_receipt_id,
+                target_timeline_name=target_timeline_name,
+                template_id=template_id,
+                timecode=timecode,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def apply_animation_template(
+        self,
+        *,
+        broll_receipt_id: str,
+        target_timeline_name: str,
+        template_id: str,
+        timecode: str,
+        expected_plan_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply one exact reviewed M52 plan to a duplicate timeline."""
+        return self._run_local_workflow(
+            "apply_animation_template",
+            lambda: self._animation_template_service().apply(
+                broll_receipt_id=broll_receipt_id,
+                target_timeline_name=target_timeline_name,
+                template_id=template_id,
+                timecode=timecode,
+                expected_plan_id=expected_plan_id,
+                confirm_apply=confirm_apply,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _animation_template_service(self) -> AnimationTemplateService:
+        if self._animation_templates is not None:
+            return self._animation_templates
+        return AnimationTemplateWorkflow(
+            gateway=self._resolve,
+            broll=self._broll_service(),
+            capabilities=lambda: self.status()["bridge"].get("capabilities", {}),
+        )
+
+    def list_color_presets(self) -> dict[str, Any]:
+        """List immutable packaged M53 CDL presets without Resolve access."""
+        return self._run_local_workflow(
+            "list_color_presets",
+            self._color_treatment_service().list_presets,
+        )
+
+    def get_color_preset(self, preset_id: str) -> dict[str, Any]:
+        """Return one immutable packaged M53 CDL preset."""
+        return self._run_local_workflow(
+            "get_color_preset",
+            lambda: self._color_treatment_service().get_preset(preset_id),
+        )
+
+    def preview_color_treatment(
+        self,
+        *,
+        animation_receipt_id: str,
+        target_timeline_name: str,
+        preset_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Build one read-only M53 color-treatment plan."""
+        return self._run_local_workflow(
+            "preview_color_treatment",
+            lambda: self._color_treatment_service().preview(
+                animation_receipt_id=animation_receipt_id,
+                target_timeline_name=target_timeline_name,
+                preset_id=preset_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def apply_color_treatment(
+        self,
+        *,
+        animation_receipt_id: str,
+        target_timeline_name: str,
+        preset_id: str,
+        expected_plan_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply one exact reviewed M53 plan to a duplicate timeline."""
+        return self._run_local_workflow(
+            "apply_color_treatment",
+            lambda: self._color_treatment_service().apply(
+                animation_receipt_id=animation_receipt_id,
+                target_timeline_name=target_timeline_name,
+                preset_id=preset_id,
+                expected_plan_id=expected_plan_id,
+                confirm_apply=confirm_apply,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _color_treatment_service(self) -> ColorTreatmentService:
+        if self._color_treatment is not None:
+            return self._color_treatment
+        return ColorTreatmentWorkflow(
+            gateway=self._resolve,
             capabilities=lambda: self.status()["bridge"].get("capabilities", {}),
         )
 

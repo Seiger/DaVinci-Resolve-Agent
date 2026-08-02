@@ -146,6 +146,30 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             timeout_seconds,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def resolve_get_animation_template_environment(
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Inspect packaged template integrity and documented Fusion methods."""
+        return await asyncio.to_thread(
+            service.resolve_get_animation_template_environment,
+            timeline_id,
+            timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def resolve_get_color_environment(
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Inspect documented color versions and node graphs."""
+        return await asyncio.to_thread(
+            service.resolve_get_color_environment,
+            timeline_id,
+            timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def resolve_create_subtitles_from_audio(
         timeline_id: str,
@@ -376,6 +400,26 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             service.resolve_insert_title,
             timeline_id,
             title_name,
+            timecode,
+            confirm_insert=confirm_insert,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def resolve_insert_animation_template(
+        timeline_id: str,
+        template_id: str,
+        timecode: str,
+        confirm_insert: bool = False,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one packaged Fusion title at a confirmed exact timecode."""
+        return await asyncio.to_thread(
+            service.resolve_insert_animation_template,
+            timeline_id,
+            template_id,
             timecode,
             confirm_insert=confirm_insert,
             timeout_seconds=timeout_seconds,
@@ -759,6 +803,116 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             baseline_edit_receipt_id=baseline_edit_receipt_id,
             target_timeline_name=target_timeline_name,
             placements=placements,
+            expected_plan_id=expected_plan_id,
+            confirm_apply=confirm_apply,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_broll_status(
+        receipt_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Read one M51 receipt and verify its live target timeline."""
+        return await asyncio.to_thread(
+            service.get_broll_status,
+            receipt_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def list_animation_templates() -> dict[str, Any]:
+        """List immutable animation templates packaged with the agent."""
+        return await asyncio.to_thread(service.list_animation_templates)
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_animation_template(template_id: str) -> dict[str, Any]:
+        """Return one immutable packaged animation template manifest."""
+        return await asyncio.to_thread(
+            service.get_animation_template, template_id
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_animation_template(
+        broll_receipt_id: str,
+        target_timeline_name: str,
+        template_id: str,
+        timecode: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Preview one packaged animation on an M51 timeline duplicate."""
+        return await asyncio.to_thread(
+            service.preview_animation_template,
+            broll_receipt_id=broll_receipt_id,
+            target_timeline_name=target_timeline_name,
+            template_id=template_id,
+            timecode=timecode,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def apply_animation_template(
+        broll_receipt_id: str,
+        target_timeline_name: str,
+        template_id: str,
+        timecode: str,
+        expected_plan_id: str,
+        confirm_apply: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply one exact reviewed animation plan to a duplicate timeline."""
+        return await asyncio.to_thread(
+            service.apply_animation_template,
+            broll_receipt_id=broll_receipt_id,
+            target_timeline_name=target_timeline_name,
+            template_id=template_id,
+            timecode=timecode,
+            expected_plan_id=expected_plan_id,
+            confirm_apply=confirm_apply,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def list_color_presets() -> dict[str, Any]:
+        """List immutable packaged M53 CDL presets."""
+        return await asyncio.to_thread(service.list_color_presets)
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_color_preset(preset_id: str) -> dict[str, Any]:
+        """Return one immutable packaged M53 CDL preset."""
+        return await asyncio.to_thread(service.get_color_preset, preset_id)
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_color_treatment(
+        animation_receipt_id: str,
+        target_timeline_name: str,
+        preset_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Preview one packaged CDL preset on M52 media video items."""
+        return await asyncio.to_thread(
+            service.preview_color_treatment,
+            animation_receipt_id=animation_receipt_id,
+            target_timeline_name=target_timeline_name,
+            preset_id=preset_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def apply_color_treatment(
+        animation_receipt_id: str,
+        target_timeline_name: str,
+        preset_id: str,
+        expected_plan_id: str,
+        confirm_apply: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply one exact reviewed CDL plan to a duplicate timeline."""
+        return await asyncio.to_thread(
+            service.apply_color_treatment,
+            animation_receipt_id=animation_receipt_id,
+            target_timeline_name=target_timeline_name,
+            preset_id=preset_id,
             expected_plan_id=expected_plan_id,
             confirm_apply=confirm_apply,
             timeout_seconds=timeout_seconds,

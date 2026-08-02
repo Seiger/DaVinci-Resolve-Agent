@@ -21,6 +21,11 @@ The installer copies the internal script to the current user's documented
 Resolve script tree. If a different file already occupies the target path, the
 installer preserves it as `ResolveBridge.py.davinci-agent-backup`.
 
+Інсталятор також перевіряє SHA-256 пакетованого M52 Fusion Title і копіює його
+до `%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Templates\Edit\Titles`.
+Якщо цільовий template належить користувачу, він зберігається як
+`.davinci-agent-backup`. Повторний запуск не перезаписує цей backup.
+
 CI separately exercises install, repeat install, and uninstall in a generated
 temporary repository copy with temporary Windows profile directories. This
 smoke-test validates filesystem ownership and restoration behavior without
@@ -51,6 +56,9 @@ Resolve scans menu scripts at startup:
 .\installer\verify.ps1
 .\.venv\Scripts\davinci-agent.exe status
 ```
+
+Повний restart також потрібен після першого встановлення або оновлення M52
+title template, щоб Resolve повторно просканував Fusion Templates.
 
 Після ручного запуску bridge лишається активним і оновлює heartbeat, доки не
 отримає `resolve_stop_bridge`. Якщо `status` повідомляє stale heartbeat,

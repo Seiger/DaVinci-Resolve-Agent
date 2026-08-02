@@ -530,3 +530,89 @@ Confirmed apply та exact replay verified:
 - source M50 timeline залишився з 7 items і без item на V3;
 - generic timeline readback не містить `asset_id`: binding підтверджено
   immediate insert result, persistence — canonical item ID та exact bounds.
+
+### M52 packaged animation-template acceptance
+
+Статус: `passed` у Resolve 21.0.3 Free 2 серпня 2026 року. Автоматичні contract,
+bridge simulation, MCP stdio та installer lifecycle тести доповнені live
+parser, insertion, visual та replay evidence.
+
+1. Запусти `install.ps1`, `verify.ps1 -SkipResolveConnection`, повністю
+   перезапусти Resolve і один раз запусти persistent `ResolveBridge`.
+2. На exact applied M51 receipt виклич `get_broll_status`, потім raw
+   `resolve_get_animation_template_environment`; очікуй live source identity,
+   installed/hash match і documented method presence без backup.
+3. Виклич `preview_animation_template` з новою назвою timeline та timecode
+   рівно на source timeline end. Зафіксуй `plan_id`; timeline/backup count не
+   повинні змінитися.
+4. Лише після явного підтвердження виклич `apply_animation_template` з exact
+   plan ID. Перевір duplicate timeline, рівно один новий generated video item,
+   `fusion_comp_count >= 1`, незмінність source items і operation backups.
+5. Відкрий title у Resolve та візуально перевір прозорий фон, accent card,
+   появу/зникнення анімації й доступні Title/Subtitle поля Inspector.
+6. Повтори exact apply: receipt/timeline/item/backup count мають лишитися
+   незмінними.
+
+Не передавай через MCP template files, Fusion nodes/controls, expressions або
+текст. Якщо parser чи insertion повертає failure, зафіксуй environment і
+залиш capability unsupported/unknown замість обходу через довільний код.
+
+Перший bounded probe 2 серпня 2026 року дав корисний negative evidence:
+
+- Resolve 21.0.3 Free побачив installed template і повернув Fusion item з
+  `fusion_comp_count >= 1` та duration 120 frames;
+- запит `03:04:15:00` був на 14 frames після source end `265306`; Resolve
+  повернув success для playhead selection, але вставив item на frame `86400`
+  і ripple-зсунув existing tracks на 120 frames;
+- bridge виявив п'ять змінених existing video items та завершив команду
+  `ANIMATION_TEMPLATE_READBACK_FAILED`;
+- зміни залишилися лише в disposable `M52 Animation Probe`
+  (`6bb5ec22-c941-4329-b640-924c7594e840`); source M51 timeline не змінився;
+- capability не була promoted; контракт виправлено на exact-end placement і
+  playhead readback до insertion.
+
+Повторний exact-end probe та high-level apply підтвердили insertion, canonical
+readback і durable replay. Візуальний acceptance підтвердив card та Inspector
+поля, але спершу card був поза кадром, а після виправлення координат з'являвся
+різко. Заміна output binding `KeyStretcherMod.Value` на штатний `Result` не
+оживила двовимірну point-криву. Наступна scalar-версія через Transform `Blend`
+також залишилася статичною: покадровий аналіз наданого 60 fps запису показав
+повну появу card за один кадр на `7.083 с` і незмінну opacity далі. Packaged
+asset переведено на рекомендований Blackmagic для Fusion Titles Anim Curves:
+`Dissolve.Mix` отримує `LUTLookup.Value`, а документований `Mirror` формує
+fade-in/fade-out. Новий item `c4050675-00c3-47f7-a987-d0b84f227c5b` на timeline
+`M52 Anim Curves Acceptance` пройшов візуальну перевірку. Exact replay повернув
+той самий receipt `b0c0835108038962748065e6cf5c04778b99f0a7f6e04feef4f1befed69f1d76`,
+item і timeline; backups лишилися `87`, timelines — `14`.
+
+### M53 color discovery/preview
+
+Статус: live discovery/preview passed; confirmed apply implementation ready.
+
+1. Після install/restart запусти persistent `ResolveBridge` і залиш поточним
+   exact applied M52 timeline.
+2. Виклич `resolve_get_color_environment` з M52 timeline ID. Очікуй лише media
+   video items, current local version, `node_count >= 1`, node labels/LUT і
+   method-presence flags; backup count не повинен змінитися.
+3. Виклич `list_color_presets`, `get_color_preset` для
+   `tutorial-clean-v1`, потім `preview_color_treatment` з M52 receipt ID і
+   новою target timeline name.
+4. Перевір deterministic plan ID, exact source snapshot, media-only targets і
+   незмінні timeline/backup counts. Поточний evidence: plan `79c1730e…`, 5
+   targets, timelines `14 → 14`, backups `87 → 87`.
+5. Лише після окремого підтвердження виклич `apply_color_treatment` з exact
+   plan ID. Очікуй один duplicate timeline, один color-operation backup, local
+   version `DaVinci Agent Tutorial Clean v1` на всіх 5 media items і незмінний
+   M52 source.
+6. Візуально порівняй source/target, потім повтори exact apply: receipt,
+   timeline count і backup count не повинні змінитися.
+
+Live structural/replay evidence: receipt `1f79bf7e…`, target
+`939ab59d-2eb6-4ed3-9860-2e4bc65a9bf6`, 5/5 managed versions, source 5/5
+`Version 1`, target 5/5 `DaVinci Agent Tutorial Clean v1`, timelines
+`15 → 15`, backups `89 → 89`. Ручний visual acceptance підтвердив помірне
+підсилення контрасту; M53 завершено.
+
+Якщо documented color methods недоступні у Resolve 21 Free, збережи raw
+environment evidence та залиш apply unsupported; не використовуй Console,
+скриптові обходи або довільні LUT/DRX paths.

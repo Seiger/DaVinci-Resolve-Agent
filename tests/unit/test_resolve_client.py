@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent.client import BridgeCommandError
 from providers.resolve.client import ResolveProviderClient
 
 
@@ -33,6 +34,7 @@ class StubCommandClient:
             "set_current_timeline",
             "append_clip",
             "insert_title",
+            "insert_animation_template",
             "append_subtitle_file",
             "insert_clip",
             "insert_clips",
@@ -41,6 +43,7 @@ class StubCommandClient:
             "set_clip_link_groups",
             "set_clip_transform",
             "set_clip_transforms",
+            "apply_color_preset",
             "delete_clip",
             "add_marker",
             "create_subtitles_from_audio",
@@ -62,7 +65,10 @@ class StubCommandClient:
             }
             assert create_backup is False
             assert allow_destructive is False
-        elif action == "get_subtitle_environment":
+        elif action in {
+            "get_subtitle_environment",
+            "get_color_environment",
+        }:
             assert arguments == {"timeline_id": "timeline-1"}
             assert create_backup is False
             assert allow_destructive is False
@@ -133,6 +139,13 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 "subtitle_item_count": 0,
                 "tracks": [],
                 "auto_caption": {"method_available": True},
+            },
+            "get_color_environment": {
+                "timeline": {"timeline_id": "timeline-1", "name": "Main"},
+                "methods": {"GetCurrentVersion": True},
+                "items": [{"timeline_item_id": "item-1"}],
+                "ready": True,
+                "apply_candidate": True,
             },
             "create_subtitles_from_audio": {
                 "timeline_id": "timeline-1",
@@ -210,6 +223,13 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
                 "title_name": "Text",
                 "item": {"timeline_item_id": "title-1"},
             },
+            "insert_animation_template": {
+                "timeline_id": "timeline-1",
+                "template_id": "accent-card-v1",
+                "resolve_name": "DaVinci Agent Accent Card",
+                "fusion_comp_count": 1,
+                "item": {"timeline_item_id": "animation-1"},
+            },
             "insert_clip": {
                 "timeline_id": "timeline-1",
                 "asset_id": "asset-1",
@@ -255,6 +275,11 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
             },
             "set_clip_transforms": {
                 "timeline_id": "timeline-1",
+                "items": [{"timeline_item_id": "item-1"}],
+            },
+            "apply_color_preset": {
+                "timeline_id": "timeline-1",
+                "preset_id": "tutorial-clean-v1",
                 "items": [{"timeline_item_id": "item-1"}],
             },
             "delete_clip": {
@@ -304,6 +329,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
     assert client.subtitle_environment("timeline-1")[
         "subtitle_track_count"
     ] == 0
+    assert client.color_environment("timeline-1")["apply_candidate"] is True
     assert client.create_subtitles_from_audio(
         "timeline-1",
         confirm_create=True,
@@ -346,6 +372,13 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         confirm_insert=True,
         idempotency_key="stable-key",
     )["item"]["timeline_item_id"] == "title-1"
+    assert client.insert_animation_template(
+        "timeline-1",
+        "accent-card-v1",
+        "01:00:05:00",
+        confirm_insert=True,
+        idempotency_key="stable-key",
+    )["item"]["timeline_item_id"] == "animation-1"
     assert client.append_subtitle_file(
         "timeline-1",
         "asset-1",
@@ -408,6 +441,13 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         [{"timeline_item_id": "item-1", "zoom": 0.5}],
         idempotency_key="stable-key",
     )["items"][0]["timeline_item_id"] == "item-1"
+    assert client.apply_color_preset(
+        "timeline-1",
+        ["item-1"],
+        "tutorial-clean-v1",
+        confirm_apply=True,
+        idempotency_key="stable-key",
+    )["preset_id"] == "tutorial-clean-v1"
     assert client.delete_clip(
         "timeline-1",
         "item-1",
@@ -445,6 +485,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "list_media_pool_items",
         "get_editing_metadata",
         "get_subtitle_environment",
+        "get_color_environment",
         "create_subtitles_from_audio",
         "get_workspace_snapshot",
         "get_render_environment",
@@ -455,6 +496,7 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "set_current_timeline",
         "append_clip",
         "insert_title",
+        "insert_animation_template",
         "append_subtitle_file",
         "insert_clip",
         "insert_clips",
@@ -463,9 +505,46 @@ def test_resolve_client_exposes_typed_read_only_methods() -> None:
         "set_clip_transform",
         "set_clip_link_groups",
         "set_clip_transforms",
+        "apply_color_preset",
         "delete_clip",
         "add_marker",
         "prepare_render_job",
         "get_render_job_status",
         "start_render_job",
     ]
+
+
+def test_animation_template_retries_one_safe_playhead_readback_failure() -> None:
+    class TransientPlayheadClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def request(self, **kwargs: Any) -> Any:
+            self.calls += 1
+            if self.calls == 1:
+                raise BridgeCommandError(
+                    code="TIMECODE_READBACK_FAILED",
+                    message="Playhead selection is still settling",
+                    retryable=True,
+                )
+            return {
+                "timeline_id": "timeline-1",
+                "template_id": "accent-card-v1",
+                "resolve_name": "DaVinci Agent Accent Card",
+                "fusion_comp_count": 1,
+                "item": {"timeline_item_id": "animation-1"},
+            }
+
+    command_client = TransientPlayheadClient()
+    client = ResolveProviderClient(command_client)
+
+    result = client.insert_animation_template(
+        "timeline-1",
+        "accent-card-v1",
+        "01:00:00:00",
+        confirm_insert=True,
+        idempotency_key="stable-key",
+    )
+
+    assert result["item"]["timeline_item_id"] == "animation-1"
+    assert command_client.calls == 2

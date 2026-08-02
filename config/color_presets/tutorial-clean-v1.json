@@ -1,0 +1,15 @@
+{
+  "preset_id": "tutorial-clean-v1",
+  "preset_version": "1.0",
+  "display_name": "Tutorial Clean",
+  "description": "A conservative CDL baseline with neutral RGB balance, a slight contrast lift, and restrained saturation for tutorial footage.",
+  "kind": "cdl",
+  "scope": "media-video-items",
+  "apply_policy": "new-local-version-node-1",
+  "cdl": {
+    "slope": [1.03, 1.03, 1.03],
+    "offset": [0.0, 0.0, 0.0],
+    "power": [1.0, 1.0, 1.0],
+    "saturation": 1.05
+  }
+}

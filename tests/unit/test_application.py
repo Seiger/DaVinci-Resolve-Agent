@@ -95,6 +95,54 @@ class StubResolveReader:
             "auto_caption": {"method_available": True},
         }
 
+    def animation_template_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline": {"timeline_id": timeline_id, "name": "Main"},
+            "methods": {"InsertFusionTitleIntoTimeline": True},
+            "templates": [{"template_id": "accent-card-v1"}],
+            "ready": True,
+        }
+
+    def color_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline": {"timeline_id": timeline_id, "name": "Main"},
+            "methods": {"SetCDL": True, "AddVersion": True},
+            "items": [],
+            "ready": True,
+            "apply_candidate": True,
+        }
+
+    def apply_color_preset(
+        self,
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        preset_id: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "timeline_id": timeline_id,
+            "preset_id": preset_id,
+            "items": [
+                {"timeline_item_id": item_id}
+                for item_id in timeline_item_ids
+            ],
+        }
+
     def create_subtitles_from_audio(
         self,
         timeline_id: str,
@@ -228,6 +276,25 @@ class StubResolveReader:
             "title_name": title_name,
             "requested_timecode": timecode,
             "item": {"timeline_item_id": "title-1"},
+        }
+
+    def insert_animation_template(
+        self,
+        timeline_id: str,
+        template_id: str,
+        timecode: str,
+        *,
+        confirm_insert: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        assert confirm_insert is True
+        self.timeouts.append(timeout_seconds)
+        return {
+            "timeline_id": timeline_id,
+            "template_id": template_id,
+            "requested_timecode": timecode,
+            "item": {"timeline_item_id": "animation-1"},
         }
 
     def append_subtitle_file(
@@ -902,6 +969,23 @@ class StubBrollWorkflow:
 
     def apply(self, **kwargs: Any) -> dict[str, Any]:
         return {"status": "applied", "receipt_id": "f" * 64, "arguments": kwargs}
+
+    def status(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "applied", "receipt_id": receipt_id, "arguments": kwargs}
+
+
+class StubAnimationTemplateWorkflow:
+    def list_templates(self) -> dict[str, Any]:
+        return {"templates": [{"template_id": "accent-card-v1"}], "count": 1}
+
+    def get_template(self, template_id: str) -> dict[str, Any]:
+        return {"template_id": template_id, "template_version": "1.0"}
+
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "preview", "plan_id": "d" * 64, "arguments": kwargs}
+
+    def apply(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "applied", "receipt_id": "c" * 64, "arguments": kwargs}
 
 
 class StubWorkflowAuditor:
@@ -1664,12 +1748,75 @@ def test_application_previews_and_applies_reviewed_broll() -> None:
         confirm_apply=True,
         timeout_seconds=25,
     )
+    status = application.get_broll_status("f" * 64, timeout_seconds=15)
 
     assert preview["status"] == "preview"
     assert preview["arguments"]["timeout_seconds"] == 20
     assert applied["status"] == "applied"
     assert applied["arguments"]["confirm_apply"] is True
-    assert audit.operations == ["preview_broll_plan", "apply_broll_plan"]
+    assert status["status"] == "applied"
+    assert audit.operations == [
+        "preview_broll_plan",
+        "apply_broll_plan",
+        "get_broll_status",
+    ]
+
+
+def test_application_exposes_packaged_animation_template_workflow() -> None:
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        animation_template_service=StubAnimationTemplateWorkflow(),
+        workflow_audit=audit,
+    )
+    listing = application.list_animation_templates()
+    detail = application.get_animation_template("accent-card-v1")
+    preview = application.preview_animation_template(
+        broll_receipt_id="a" * 64,
+        target_timeline_name="M52 Animation",
+        template_id="accent-card-v1",
+        timecode="01:01:15:00",
+    )
+    applied = application.apply_animation_template(
+        broll_receipt_id="a" * 64,
+        target_timeline_name="M52 Animation",
+        template_id="accent-card-v1",
+        timecode="01:01:15:00",
+        expected_plan_id="d" * 64,
+        confirm_apply=True,
+    )
+
+    assert listing["count"] == 1
+    assert detail["template_id"] == "accent-card-v1"
+    assert preview["status"] == "preview"
+    assert applied["status"] == "applied"
+    assert applied["arguments"]["confirm_apply"] is True
+    assert audit.operations == [
+        "list_animation_templates",
+        "get_animation_template",
+        "preview_animation_template",
+        "apply_animation_template",
+    ]
+
+
+def test_application_exposes_animation_bridge_primitives() -> None:
+    resolve = StubResolveReader()
+    application = AgentApplication(resolve=resolve)
+
+    environment = application.resolve_get_animation_template_environment(
+        "timeline-1", timeout_seconds=15
+    )
+    inserted = application.resolve_insert_animation_template(
+        "timeline-1",
+        "accent-card-v1",
+        "01:00:05:00",
+        confirm_insert=True,
+        timeout_seconds=20,
+    )
+
+    assert environment["ready"] is True
+    assert inserted["template_id"] == "accent-card-v1"
+    assert resolve.timeouts[-2:] == [15, 20]
 
 
 @pytest.mark.parametrize("timeout_seconds", [0, -1, 301])

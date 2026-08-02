@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from agent.client import BridgeProtocolError, CommandClient, FilesystemCommandClient
+from agent.client import (
+    BridgeCommandError,
+    BridgeProtocolError,
+    CommandClient,
+    FilesystemCommandClient,
+)
 from agent.contracts import ContractValidationError, validate_contract
 from agent.rendering import DEFAULT_RENDER_PROFILE
 
@@ -148,6 +153,59 @@ class ResolveProviderClient:
         ):
             raise BridgeProtocolError(
                 "Resolve get_subtitle_environment response is invalid."
+            )
+        return value
+
+    def animation_template_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return documented Fusion-title methods and installed template state."""
+        result = self._client.request(
+            provider="resolve",
+            action="get_animation_template_environment",
+            arguments={"timeline_id": timeline_id},
+            timeout_seconds=timeout_seconds,
+        )
+        value = self._object_value(
+            "get_animation_template_environment", result
+        )
+        if (
+            not isinstance(value.get("timeline"), dict)
+            or not isinstance(value.get("methods"), dict)
+            or not isinstance(value.get("templates"), list)
+            or not isinstance(value.get("ready"), bool)
+        ):
+            raise BridgeProtocolError(
+                "Resolve animation-template environment response is invalid."
+            )
+        return value
+
+    def color_environment(
+        self,
+        timeline_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return documented color-version and node-graph metadata."""
+        result = self._client.request(
+            provider="resolve",
+            action="get_color_environment",
+            arguments={"timeline_id": timeline_id},
+            timeout_seconds=timeout_seconds,
+        )
+        value = self._object_value("get_color_environment", result)
+        if (
+            not isinstance(value.get("timeline"), dict)
+            or not isinstance(value.get("methods"), dict)
+            or not isinstance(value.get("items"), list)
+            or not isinstance(value.get("ready"), bool)
+            or not isinstance(value.get("apply_candidate"), bool)
+        ):
+            raise BridgeProtocolError(
+                "Resolve color environment response is invalid."
             )
         return value
 
@@ -369,6 +427,42 @@ class ResolveProviderClient:
         )
         return self._object_value("insert_title", result)
 
+    def insert_animation_template(
+        self,
+        timeline_id: str,
+        template_id: str,
+        timecode: str,
+        *,
+        confirm_insert: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Insert one allowlisted packaged Fusion title after a backup."""
+        arguments = {
+            "timeline_id": timeline_id,
+            "template_id": template_id,
+            "timecode": timecode,
+            "confirm_insert": confirm_insert,
+        }
+
+        def request() -> Any:
+            return self._client.request(
+                provider="resolve",
+                action="insert_animation_template",
+                arguments=arguments,
+                timeout_seconds=timeout_seconds,
+                idempotency_key=idempotency_key,
+                create_backup=True,
+            )
+
+        try:
+            result = request()
+        except BridgeCommandError as error:
+            if error.code != "TIMECODE_READBACK_FAILED" or not error.retryable:
+                raise
+            result = request()
+        return self._object_value("insert_animation_template", result)
+
     def append_subtitle_file(
         self,
         timeline_id: str,
@@ -578,6 +672,32 @@ class ResolveProviderClient:
             create_backup=True,
         )
         return self._object_value("set_clip_transforms", result)
+
+    def apply_color_preset(
+        self,
+        timeline_id: str,
+        timeline_item_ids: list[str],
+        preset_id: str,
+        *,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Apply one allowlisted CDL preset to exact media-video items."""
+        result = self._client.request(
+            provider="resolve",
+            action="apply_color_preset",
+            arguments={
+                "timeline_id": timeline_id,
+                "timeline_item_ids": timeline_item_ids,
+                "preset_id": preset_id,
+                "confirm_apply": confirm_apply,
+            },
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("apply_color_preset", result)
 
     def delete_clip(
         self,

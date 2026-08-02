@@ -78,6 +78,68 @@ if (
     Write-Host "Restored previous Resolve bridge: $($paths.BridgeTarget)"
 }
 
+if (Test-Path -LiteralPath $paths.AnimationTemplateTarget -PathType Leaf) {
+    $animationCanBeRemoved = $false
+    $animationTargetHash = (
+        Get-FileHash `
+            -LiteralPath $paths.AnimationTemplateTarget `
+            -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+    if (
+        Test-Path `
+            -LiteralPath $paths.AnimationTemplateHashMarker `
+            -PathType Leaf
+    ) {
+        $recordedHash = (
+            Get-Content -LiteralPath $paths.AnimationTemplateHashMarker -Raw
+        ).Trim().ToLowerInvariant()
+        $animationCanBeRemoved = $recordedHash -eq $animationTargetHash
+    } elseif (
+        Test-Path -LiteralPath $paths.AnimationTemplateSource -PathType Leaf
+    ) {
+        $animationSourceHash = (
+            Get-FileHash `
+                -LiteralPath $paths.AnimationTemplateSource `
+                -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+        $animationCanBeRemoved = $animationSourceHash -eq $animationTargetHash
+    }
+
+    if ($animationCanBeRemoved) {
+        Remove-Item -LiteralPath $paths.AnimationTemplateTarget -Force
+        Write-Host (
+            "Removed installed Resolve animation template: " +
+            $paths.AnimationTemplateTarget
+        )
+    } else {
+        Write-Warning (
+            "Preserved modified Resolve animation template because it differs " +
+            "from this repository: $($paths.AnimationTemplateTarget)"
+        )
+    }
+}
+
+if (
+    Test-Path `
+        -LiteralPath $paths.AnimationTemplateHashMarker `
+        -PathType Leaf
+) {
+    Remove-Item -LiteralPath $paths.AnimationTemplateHashMarker -Force
+}
+
+if (
+    -not (Test-Path -LiteralPath $paths.AnimationTemplateTarget) -and
+    (Test-Path -LiteralPath $paths.AnimationTemplateBackup -PathType Leaf)
+) {
+    Move-Item `
+        -LiteralPath $paths.AnimationTemplateBackup `
+        -Destination $paths.AnimationTemplateTarget
+    Write-Host (
+        "Restored previous Resolve animation template: " +
+        $paths.AnimationTemplateTarget
+    )
+}
+
 if (Test-Path -LiteralPath $paths.VirtualEnvironment) {
     Remove-Item -LiteralPath $paths.VirtualEnvironment -Recurse -Force
     Write-Host "Removed virtual environment: $($paths.VirtualEnvironment)"

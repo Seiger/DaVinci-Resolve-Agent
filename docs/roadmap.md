@@ -41,8 +41,15 @@
   B-roll planning, deterministic review ID, completed-M50 binding і confirmed
   bounded application на duplicate timeline з canonical readback; live preview,
   confirmed apply та exact replay перевірені в Resolve 21.0.3 Free.
-- **M52** — складні анімації й reusable templates.
-- **M53** — кольорокорекція, presets та visual QC.
+- **M52 — завершено** — пакетований
+  allowlisted Fusion Title, hash-verified Windows install, M51-bound preview,
+  confirmed duplicate-timeline apply і durable replay без довільного Fusion
+  input через MCP; mirrored Anim Curves та exact replay перевірені live у
+  Resolve 21.0.3 Free.
+- **M53 — завершено** — пакетований CDL preset, documented color-graph
+  discovery, M52-bound deterministic preview і confirmed duplicate-timeline
+  apply; 5/5 managed versions, exact replay та visual acceptance підтверджені
+  у Resolve 21.0.3 Free.
 - **M54** — аналіз і розумний вибір дублів із review boundary.
 - **M55** — повний creative v1 end-to-end acceptance і repeatable install test.
 
