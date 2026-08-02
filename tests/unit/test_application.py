@@ -1030,7 +1030,7 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         resolve=StubResolveReader(),
         take_selection_service=StubTakeSelectionWorkflow(),
     )
-    candidates = [
+    candidates: list[dict[str, str | float]] = [
         {"candidate_id": "take-a", "path": "first.mkv"},
         {"candidate_id": "take-b", "path": "second.mkv"},
     ]

@@ -3,7 +3,7 @@
 ## M54 technical take-selection boundary
 
 ```text
-allowlisted local candidates
+allowlisted full-file or uniformly bounded segment candidates
  └─ fixed bounded decoder sampling
       ├─ technical video/audio metrics
       ├─ deterministic ranking + limitations
@@ -14,7 +14,9 @@ allowlisted local candidates
 The analyzer is provider-neutral and local. ResolveBridge is not involved.
 Source paths are validated before decoding and omitted from durable reports.
 Scoring weights, sample limits and observations are code-owned; MCP cannot pass
-decoder arguments or executable content.
+decoder arguments or executable content. Segment candidates carry explicit
+source ranges of at most 300 seconds; repeated ranges may reference one file,
+while mixed full-file/segment requests are rejected.
 
 ## M53 color discovery and preview
 

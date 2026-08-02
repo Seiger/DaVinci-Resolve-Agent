@@ -101,7 +101,9 @@ def test_take_analysis_rejects_files_outside_allowed_root(
     second.write_bytes(b"two")
     monkeypatch.setattr(
         "agent.take_selection._analyze_file",
-        lambda path, candidate_id: _measurement(candidate_id),
+        lambda path, candidate_id, source_range=None: _measurement(
+            candidate_id, source_range
+        ),
     )
     workflow = TakeSelectionWorkflow(
         media_policy=MediaPolicy([allowed]),
@@ -119,10 +121,110 @@ def test_take_analysis_rejects_files_outside_allowed_root(
         )
 
 
+def test_take_analysis_supports_multiple_bounded_segments_from_one_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    source = media / "source.mkv"
+    source.write_bytes(b"shared source")
+    monkeypatch.setattr(
+        "agent.take_selection._analyze_file",
+        lambda path, candidate_id, source_range=None: _measurement(
+            candidate_id, source_range
+        ),
+    )
+    workflow = TakeSelectionWorkflow(
+        media_policy=MediaPolicy([media]),
+        selections_root=tmp_path / "selections",
+        reviews_root=tmp_path / "reviews",
+    )
+    candidates: list[dict[str, str | float]] = [
+        {
+            "candidate_id": "segment-a",
+            "path": str(source),
+            "start_seconds": 10.0,
+            "end_seconds": 20.0,
+        },
+        {
+            "candidate_id": "segment-b",
+            "path": str(source),
+            "start_seconds": 30.0,
+            "end_seconds": 40.0,
+        },
+    ]
+
+    first = workflow.analyze(selection_name="Shared source", candidates=candidates)
+    second = workflow.analyze(selection_name="Shared source", candidates=candidates)
+
+    assert first == second
+    assert first["selection_version"] == "1.1"
+    ranges = {
+        item["candidate_id"]: item["source_range"] for item in first["candidates"]
+    }
+    assert ranges == {
+        "segment-a": {"start_seconds": 10.0, "end_seconds": 20.0},
+        "segment-b": {"start_seconds": 30.0, "end_seconds": 40.0},
+    }
+    assert first["policy"]["sampling"]["max_segment_seconds"] == 300.0
+    assert str(media) not in json.dumps(first)
+    validate_contract("take-selection", first)
+
+
+@pytest.mark.parametrize(
+    ("candidates", "message"),
+    [
+        (
+            [
+                {"candidate_id": "a", "path": "one.mkv"},
+                {
+                    "candidate_id": "b",
+                    "path": "two.mkv",
+                    "start_seconds": 0.0,
+                    "end_seconds": 10.0,
+                },
+            ],
+            "all use full files or all use bounded source ranges",
+        ),
+        (
+            [
+                {
+                    "candidate_id": "a",
+                    "path": "one.mkv",
+                    "start_seconds": 0.0,
+                    "end_seconds": 301.0,
+                },
+                {
+                    "candidate_id": "b",
+                    "path": "two.mkv",
+                    "start_seconds": 0.0,
+                    "end_seconds": 10.0,
+                },
+            ],
+            "must not exceed 300 seconds",
+        ),
+    ],
+)
+def test_take_analysis_rejects_invalid_segment_sets(
+    tmp_path: Path,
+    candidates: list[dict[str, str | float]],
+    message: str,
+) -> None:
+    workflow = TakeSelectionWorkflow(
+        media_policy=MediaPolicy([tmp_path]),
+        selections_root=tmp_path / "selections",
+        reviews_root=tmp_path / "reviews",
+    )
+
+    with pytest.raises(TakeSelectionError, match=message):
+        workflow.analyze(selection_name="Invalid segments", candidates=candidates)
+
+
 def _workflow(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-) -> tuple[TakeSelectionWorkflow, list[dict[str, str]]]:
+) -> tuple[TakeSelectionWorkflow, list[dict[str, str | float]]]:
     media = tmp_path / "media"
     media.mkdir()
     first = media / "first.mkv"
@@ -131,7 +233,9 @@ def _workflow(
     second.write_bytes(b"second")
     monkeypatch.setattr(
         "agent.take_selection._analyze_file",
-        lambda path, candidate_id: _measurement(candidate_id),
+        lambda path, candidate_id, source_range=None: _measurement(
+            candidate_id, source_range
+        ),
     )
     workflow = TakeSelectionWorkflow(
         media_policy=MediaPolicy([media]),
@@ -144,9 +248,12 @@ def _workflow(
     ]
 
 
-def _measurement(candidate_id: str) -> dict[str, object]:
+def _measurement(
+    candidate_id: str,
+    source_range: dict[str, float] | None = None,
+) -> dict[str, object]:
     score = 82.0 if candidate_id == "take-b" else 75.0
-    return {
+    result: dict[str, object] = {
         "candidate_id": candidate_id,
         "display_name": f"{candidate_id}.mkv",
         "fingerprint": ("b" if candidate_id == "take-b" else "a") * 64,
@@ -159,3 +266,6 @@ def _measurement(candidate_id: str) -> dict[str, object]:
         "strengths": ["Technically clean."],
         "warnings": [],
     }
+    if source_range is not None:
+        result["source_range"] = source_range
+    return result

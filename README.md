@@ -25,9 +25,11 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 Конфігуроване винесення всіх великих даних на окремий диск описано в
 [документації storage layout](docs/storage.md).
 
-Проєкт почав **Milestone M54: аналіз і розумний вибір дублів**. Перший slice
-виконує bounded локальний technical analysis, повертає deterministic ranking і
-вимагає immutable human approve/reject review. Він не змінює Resolve timeline.
+Проєкт продовжує **Milestone M54: аналіз і розумний вибір дублів**. Аналізатор
+працює як із 2–8 повними файлами, так і з 2–8 явно обмеженими сегментами до
+300 секунд; один файл можна порівнювати в різних діапазонах. Він повертає
+deterministic technical ranking, вимагає immutable human approve/reject review
+і не змінює Resolve timeline.
 
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color

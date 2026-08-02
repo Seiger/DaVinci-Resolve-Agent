@@ -921,9 +921,9 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
     @server.tool(annotations=WRITE_TOOL)
     async def analyze_take_candidates(
         selection_name: str,
-        candidates: list[dict[str, str]],
+        candidates: list[dict[str, str | float]],
     ) -> dict[str, Any]:
-        """Analyze 2–8 local video candidates with one fixed technical policy."""
+        """Analyze 2–8 full files or uniformly bounded source segments."""
         return await asyncio.to_thread(
             service.analyze_take_candidates,
             selection_name=selection_name,

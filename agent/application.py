@@ -853,7 +853,7 @@ class TakeSelectionService(Protocol):
         self,
         *,
         selection_name: str,
-        candidates: list[dict[str, str]],
+        candidates: list[dict[str, str | float]],
     ) -> dict[str, Any]: ...
 
     def get(self, selection_id: str) -> dict[str, Any]: ...
@@ -2145,7 +2145,7 @@ class AgentApplication:
         self,
         *,
         selection_name: str,
-        candidates: list[dict[str, str]],
+        candidates: list[dict[str, str | float]],
     ) -> dict[str, Any]:
         """Analyze bounded local candidates and create a pending review."""
         return self._run_local_workflow(

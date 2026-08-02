@@ -597,12 +597,24 @@ item і timeline; backups лишилися `87`, timelines — `14`.
 5. Повтор exact review має повернути той самий record; інше рішення для того
    самого selection блокується.
 
+Для M54.2 передай той самий allowlisted файл двічі з різними candidate IDs та
+парами `start_seconds`/`end_seconds` до 300 секунд. Очікуй report version `1.1`,
+exact ranges біля кандидатів, sampling лише в цих ranges, однаковий selection
+ID при replay і відсутність absolute path. Не виконуй review, якщо це лише
+механічний smoke test, а не людське порівняння дублів.
+
 Live smoke 2 серпня 2026 року на двох allowlisted synchronized MKV sources
 повернув selection
 `2548a854ab96a6b27321a979d46365dce0cf909068ba356005686fe4e4dad679`.
 Exact replay, `get`, `list`, 7/7 video samples, bounded audio і path redaction
 підтверджено. Review не записувався, бо camera/screen sources не є альтернативними
 дублями й потребують іншої creative інтерпретації.
+
+M54.2 same-file segment smoke використав ranges `60–70` і `90–100` секунд із
+allowlisted MKV на G. Report `bf51e004d…` має version `1.1`, 7/7 video samples
+для обох кандидатів, 480000/479968 bounded audio samples, redacted path і
+ідентичний exact replay. Artifact збережено в configured runtime на G; review
+та будь-які timeline writes не виконувалися.
 
 ### M53 color discovery/preview
 

@@ -15,6 +15,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   SHA-256 verification, a fresh bridge heartbeat and successful CLI ping.
 - M54 fixed-policy bounded video/audio candidate analysis with deterministic
   technical ranking, redacted source paths and explicit limitations.
+- M54.2 segment-level candidate analysis with explicit source ranges up to 300
+  seconds, including multiple candidate ranges from one allowlisted file.
+- M54.2 live same-file segment smoke on drive G with 7/7 video samples,
+  bounded audio, deterministic replay and source-path redaction.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

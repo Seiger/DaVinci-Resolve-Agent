@@ -50,8 +50,9 @@
   discovery, M52-bound deterministic preview і confirmed duplicate-timeline
   apply; 5/5 managed versions, exact replay та visual acceptance підтверджені
   у Resolve 21.0.3 Free.
-- **M54 — у роботі** — bounded local technical analysis, deterministic ranking
-  і immutable approve/reject review без автоматичної модифікації timeline.
+- **M54 — у роботі** — bounded full-file та segment-level technical analysis,
+  deterministic ranking і immutable approve/reject review без автоматичної
+  модифікації timeline.
 - **M55** — повний creative v1 end-to-end acceptance і repeatable install test.
 
 Milestone може бути розділений на discovery/preview/apply підетапи, якщо

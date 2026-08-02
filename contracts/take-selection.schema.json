@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["selection_version", "selection_id", "status", "selection_name", "policy", "candidates", "recommendation", "review_required"],
   "properties": {
-    "selection_version": {"const": "1.0"},
+    "selection_version": {"enum": ["1.0", "1.1"]},
     "selection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "status": {"const": "pending_review"},
     "selection_name": {"type": "string", "minLength": 1, "maxLength": 128},
@@ -31,6 +31,15 @@
         "properties": {
           "candidate_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
           "display_name": {"type": "string", "minLength": 1, "maxLength": 255},
+          "source_range": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["start_seconds", "end_seconds"],
+            "properties": {
+              "start_seconds": {"type": "number", "minimum": 0},
+              "end_seconds": {"type": "number", "exclusiveMinimum": 0}
+            }
+          },
           "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "size_bytes": {"type": "integer", "minimum": 1},
           "duration_seconds": {"type": "number", "exclusiveMinimum": 0},
@@ -56,5 +65,17 @@
       }
     },
     "review_required": {"const": true}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"selection_version": {"const": "1.1"}}},
+      "then": {
+        "properties": {
+          "candidates": {
+            "items": {"required": ["source_range"]}
+          }
+        }
+      }
+    }
+  ]
 }

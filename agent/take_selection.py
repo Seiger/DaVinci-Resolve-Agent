@@ -21,11 +21,13 @@ from agent.paths import (
 from transports.filesystem import atomic_write_json, read_json_object
 
 SELECTION_VERSION: Final = "1.0"
+SEGMENT_SELECTION_VERSION: Final = "1.1"
 REVIEW_VERSION: Final = "1.0"
 POLICY_ID: Final = "technical-take-v1"
 CANDIDATE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 VIDEO_SAMPLE_FRACTIONS: Final = (0.08, 0.22, 0.36, 0.5, 0.64, 0.78, 0.92)
 AUDIO_SAMPLE_LIMIT: Final = 480_000
+MAX_SEGMENT_SECONDS: Final = 300.0
 POLICY: Final[dict[str, Any]] = {
     "policy_id": POLICY_ID,
     "sampling": {
@@ -65,7 +67,7 @@ class TakeSelectionWorkflow:
         self,
         *,
         selection_name: str,
-        candidates: list[dict[str, str]],
+        candidates: list[dict[str, str | float]],
     ) -> dict[str, Any]:
         """Measure two to eight local candidates without modifying Resolve."""
         name = _selection_name(selection_name)
@@ -73,8 +75,13 @@ class TakeSelectionWorkflow:
         paths = self._media_policy.validate_files(
             [candidate["path"] for candidate in normalized]
         )
+        segment_mode = "source_range" in normalized[0]
         measured = [
-            _analyze_file(Path(path), candidate["candidate_id"])
+            _analyze_file(
+                Path(path),
+                str(candidate["candidate_id"]),
+                candidate.get("source_range"),
+            )
             for candidate, path in zip(normalized, paths, strict=True)
         ]
         ranked = sorted(
@@ -90,21 +97,19 @@ class TakeSelectionWorkflow:
             "medium" if score_gap >= 4 else "low"
         )
         payload = {
-            "selection_version": SELECTION_VERSION,
+            "selection_version": (
+                SEGMENT_SELECTION_VERSION if segment_mode else SELECTION_VERSION
+            ),
             "status": "pending_review",
             "selection_name": name,
-            "policy": POLICY,
+            "policy": _policy(segment_mode),
             "candidates": ranked,
             "recommendation": {
                 "candidate_id": ranked[0]["candidate_id"],
                 "confidence": confidence,
                 "score_gap": score_gap,
                 "basis": "bounded technical measurements only",
-                "limitations": [
-                    "No semantic, performance, or story-quality judgment.",
-                    "Video is sampled at fixed positions rather than fully decoded.",
-                    "A human must approve or reject the recommendation.",
-                ],
+                "limitations": _limitations(segment_mode),
             },
             "review_required": True,
         }
@@ -221,12 +226,17 @@ class TakeSelectionWorkflow:
         return result
 
 
-def _analyze_file(path: Path, candidate_id: str) -> dict[str, Any]:
-    duration, video, audio = _measure_media(path)
+def _analyze_file(
+    path: Path,
+    candidate_id: str,
+    source_range: object | None = None,
+) -> dict[str, Any]:
+    normalized_range = _source_range_object(source_range)
+    duration, video, audio = _measure_media(path, normalized_range)
     technical_score = _technical_score(video, audio)
     strengths, warnings = _observations(video, audio)
     stat = path.stat()
-    return {
+    result = {
         "candidate_id": candidate_id,
         "display_name": path.name,
         "fingerprint": _file_fingerprint(path, stat.st_size),
@@ -239,9 +249,15 @@ def _analyze_file(path: Path, candidate_id: str) -> dict[str, Any]:
         "strengths": strengths,
         "warnings": warnings,
     }
+    if normalized_range is not None:
+        result["source_range"] = normalized_range
+    return result
 
 
-def _measure_media(path: Path) -> tuple[float, dict[str, Any], dict[str, Any]]:
+def _measure_media(
+    path: Path,
+    source_range: dict[str, float] | None,
+) -> tuple[float, dict[str, Any], dict[str, Any]]:
     try:
         with av.open(str(path)) as container:
             video_stream = next(iter(container.streams.video), None)
@@ -249,13 +265,19 @@ def _measure_media(path: Path) -> tuple[float, dict[str, Any], dict[str, Any]]:
             duration = _duration_seconds(container, video_stream, audio_stream)
         if video_stream is None:
             raise TakeSelectionError(f"Candidate has no video stream: {path.name}")
-        video = _measure_video(path, duration)
-        audio = _measure_audio(path)
+        start, end = _resolved_bounds(source_range, duration)
+        video = _measure_video(
+            path,
+            start,
+            end,
+            segment_mode=source_range is not None,
+        )
+        audio = _measure_audio(path, start, end)
     except (av.error.FFmpegError, OSError, ValueError) as error:
         raise TakeSelectionError(
             f"Could not analyze media candidate {path.name}: {error}"
         ) from error
-    return duration, video, audio
+    return end - start, video, audio
 
 
 def _duration_seconds(container: Any, *streams: Any) -> float:
@@ -271,7 +293,13 @@ def _duration_seconds(container: Any, *streams: Any) -> float:
     raise TakeSelectionError("Candidate duration is unavailable.")
 
 
-def _measure_video(path: Path, duration: float) -> dict[str, Any]:
+def _measure_video(
+    path: Path,
+    start: float,
+    end: float,
+    *,
+    segment_mode: bool,
+) -> dict[str, Any]:
     samples: list[tuple[float, float, float]] = []
     width = 0
     height = 0
@@ -285,10 +313,15 @@ def _measure_video(path: Path, duration: float) -> dict[str, Any]:
         if stream.average_rate is not None:
             frame_rate = float(stream.average_rate)
         for fraction in VIDEO_SAMPLE_FRACTIONS:
-            target = duration * fraction
+            target = start + (end - start) * fraction
             timestamp = int(target / float(stream.time_base))
             container.seek(timestamp, stream=stream, any_frame=False, backward=True)
-            frame = next(iter(container.decode(stream)), None)
+            frame = _video_frame(
+                container,
+                stream,
+                target,
+                exact_segment=segment_mode,
+            )
             if frame is None:
                 continue
             gray = frame.to_ndarray(format="gray")[::8, ::8].astype(np.float64)
@@ -317,7 +350,7 @@ def _measure_video(path: Path, duration: float) -> dict[str, Any]:
     }
 
 
-def _measure_audio(path: Path) -> dict[str, Any]:
+def _measure_audio(path: Path, start: float, end: float) -> dict[str, Any]:
     chunks: list[np.ndarray[Any, Any]] = []
     sample_rate = 0
     total = 0
@@ -326,8 +359,25 @@ def _measure_audio(path: Path) -> dict[str, Any]:
         if stream is None:
             return {"present": False, "sample_rate": 0, "sample_count": 0}
         sample_rate = int(stream.rate or 0)
+        if start > 0:
+            timestamp = int(start / float(stream.time_base))
+            container.seek(timestamp, stream=stream, any_frame=False, backward=True)
+        fallback_time = start
         for frame in container.decode(stream):
             values = _normalized_audio(frame.to_ndarray())
+            frame_start = _frame_start_seconds(frame, fallback_time)
+            frame_end = frame_start + (
+                values.size / sample_rate if sample_rate > 0 else 0.0
+            )
+            fallback_time = frame_end
+            if frame_start >= end:
+                break
+            if frame_end <= start:
+                continue
+            if sample_rate > 0:
+                slice_start = max(0, round((start - frame_start) * sample_rate))
+                slice_end = min(values.size, round((end - frame_start) * sample_rate))
+                values = values[slice_start:slice_end]
             remaining = AUDIO_SAMPLE_LIMIT - total
             if remaining <= 0:
                 break
@@ -437,28 +487,166 @@ def _dbfs(value: float) -> float:
     return -120.0 if value <= 0 else 20.0 * math.log10(value)
 
 
-def _candidate_inputs(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
+def _candidate_inputs(
+    candidates: list[dict[str, str | float]],
+) -> list[dict[str, Any]]:
     if not isinstance(candidates, list) or not 2 <= len(candidates) <= 8:
         raise TakeSelectionError("candidates must contain between 2 and 8 items.")
-    normalized: list[dict[str, str]] = []
+    normalized: list[dict[str, Any]] = []
     identifiers: set[str] = set()
+    modes: set[str] = set()
     for candidate in candidates:
-        if (
-            not isinstance(candidate, dict)
-            or set(candidate) != {"candidate_id", "path"}
-        ):
+        if not isinstance(candidate, dict):
+            raise TakeSelectionError("Each candidate must be an object.")
+        keys = set(candidate)
+        full_keys = {"candidate_id", "path"}
+        segment_keys = full_keys | {"start_seconds", "end_seconds"}
+        if keys != full_keys and keys != segment_keys:
             raise TakeSelectionError(
-                "Each candidate requires only candidate_id and path."
+                "Each candidate requires candidate_id and path, with optional "
+                "start_seconds and end_seconds together."
             )
-        identifier = _candidate_id(candidate["candidate_id"], "candidate_id")
+        raw_identifier = candidate["candidate_id"]
+        identifier = _candidate_id(
+            raw_identifier if isinstance(raw_identifier, str) else None,
+            "candidate_id",
+        )
         path = candidate["path"]
         if not isinstance(path, str) or not path:
             raise TakeSelectionError("Candidate path must be a non-empty string.")
         if identifier in identifiers:
             raise TakeSelectionError("candidate_id values must be unique.")
         identifiers.add(identifier)
-        normalized.append({"candidate_id": identifier, "path": path})
+        normalized_candidate: dict[str, Any] = {
+            "candidate_id": identifier,
+            "path": path,
+        }
+        if keys == segment_keys:
+            normalized_candidate["source_range"] = _source_range(
+                candidate["start_seconds"],
+                candidate["end_seconds"],
+            )
+            modes.add("segment")
+        else:
+            modes.add("file")
+        normalized.append(normalized_candidate)
+    if len(modes) != 1:
+        raise TakeSelectionError(
+            "Candidates must all use full files or all use bounded source ranges."
+        )
     return normalized
+
+
+def _source_range(start: object, end: object) -> dict[str, float]:
+    if (
+        isinstance(start, bool)
+        or not isinstance(start, (int, float))
+        or isinstance(end, bool)
+        or not isinstance(end, (int, float))
+    ):
+        raise TakeSelectionError(
+            "start_seconds and end_seconds must be finite numbers."
+        )
+    normalized_start = round(float(start), 6)
+    normalized_end = round(float(end), 6)
+    if not math.isfinite(normalized_start) or not math.isfinite(normalized_end):
+        raise TakeSelectionError(
+            "start_seconds and end_seconds must be finite numbers."
+        )
+    if normalized_start < 0 or normalized_end <= normalized_start:
+        raise TakeSelectionError(
+            "source range must satisfy 0 <= start_seconds < end_seconds."
+        )
+    if normalized_end - normalized_start > MAX_SEGMENT_SECONDS:
+        raise TakeSelectionError("A source range must not exceed 300 seconds.")
+    return {
+        "start_seconds": normalized_start,
+        "end_seconds": normalized_end,
+    }
+
+
+def _source_range_object(value: object | None) -> dict[str, float] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict) or set(value) != {
+        "start_seconds",
+        "end_seconds",
+    }:
+        raise TakeSelectionError("Internal source range is invalid.")
+    return _source_range(value["start_seconds"], value["end_seconds"])
+
+
+def _resolved_bounds(
+    source_range: dict[str, float] | None,
+    source_duration: float,
+) -> tuple[float, float]:
+    if source_range is None:
+        return 0.0, source_duration
+    start = source_range["start_seconds"]
+    end = source_range["end_seconds"]
+    if start >= source_duration or end > source_duration + 0.05:
+        raise TakeSelectionError(
+            "Candidate source range exceeds the media duration."
+        )
+    return start, min(end, source_duration)
+
+
+def _video_frame(
+    container: Any,
+    stream: Any,
+    target: float,
+    *,
+    exact_segment: bool,
+) -> Any | None:
+    for index, frame in enumerate(container.decode(stream)):
+        if not exact_segment or _frame_start_seconds(frame, target) >= target - 1e-6:
+            return frame
+        if index >= 1_800:
+            break
+    return None
+
+
+def _frame_start_seconds(frame: Any, fallback: float) -> float:
+    frame_time = getattr(frame, "time", None)
+    if frame_time is not None:
+        value = float(frame_time)
+        if math.isfinite(value):
+            return value
+    pts = getattr(frame, "pts", None)
+    time_base = getattr(frame, "time_base", None)
+    if pts is not None and time_base is not None:
+        value = float(pts * time_base)
+        if math.isfinite(value):
+            return value
+    return fallback
+
+
+def _policy(segment_mode: bool) -> dict[str, Any]:
+    if not segment_mode:
+        return POLICY
+    return {
+        "policy_id": POLICY_ID,
+        "sampling": {
+            **POLICY["sampling"],
+            "max_segment_seconds": MAX_SEGMENT_SECONDS,
+        },
+        "weights": POLICY["weights"],
+    }
+
+
+def _limitations(segment_mode: bool) -> list[str]:
+    if not segment_mode:
+        return [
+            "No semantic, performance, or story-quality judgment.",
+            "Video is sampled at fixed positions rather than fully decoded.",
+            "A human must approve or reject the recommendation.",
+        ]
+    return [
+        "No semantic, performance, or story-quality judgment.",
+        "Each bounded range is sampled at fixed positions rather than fully decoded.",
+        "Candidate ranges are caller-selected and are not discovered automatically.",
+        "A human must approve or reject the recommendation.",
+    ]
 
 
 def _candidate_id(value: str | None, field: str) -> str:

@@ -2,8 +2,11 @@
 
 ## M54 take-selection tools
 
-`analyze_take_candidates` приймає 2–8 `{candidate_id, path}` об'єктів, перевіряє
-paths через локальний allowlist і створює `pending_review` technical report.
+`analyze_take_candidates` приймає 2–8 `{candidate_id, path}` об'єктів або 2–8
+сегментів `{candidate_id, path, start_seconds, end_seconds}`. Режими не можна
+змішувати; один файл можна повторити з різними діапазонами до 300 секунд. Tool
+перевіряє paths через локальний allowlist і створює `pending_review` technical
+report.
 `get_take_selection` та `list_take_selections` read-only. Окремий
 `review_take_selection` записує immutable `approve|reject`, але завжди повертає
 `timeline_modified=false`. Довільні weights, decoder flags і команди відсутні.
