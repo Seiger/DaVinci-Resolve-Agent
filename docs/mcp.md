@@ -7,6 +7,11 @@
 змішувати; один файл можна повторити з різними діапазонами до 300 секунд. Tool
 перевіряє paths через локальний allowlist і створює `pending_review` technical
 report.
+`analyze_scripted_take_candidates` додатково вимагає `reference_text` і лише
+bounded segment candidates. Він локально транскрибує тільки задані ranges,
+ранжує за fixed weights `65% reference match + 35% technical score` та не
+повертає raw reference/transcript text. Обидва analyze tools лишають результат
+у `pending_review` і не викликають ResolveBridge.
 `get_take_selection` та `list_take_selections` read-only. Окремий
 `review_take_selection` записує immutable `approve|reject`, але завжди повертає
 `timeline_modified=false`. Довільні weights, decoder flags і команди відсутні.

@@ -87,6 +87,24 @@ def test_take_review_is_immutable_and_never_modifies_timeline(
         )
 
 
+def test_take_selection_get_rejects_tampered_persisted_content(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workflow, candidates = _workflow(tmp_path, monkeypatch)
+    selection = workflow.analyze(
+        selection_name="Integrity test",
+        candidates=candidates,
+    )
+    artifact = tmp_path / "selections" / f"{selection['selection_id']}.json"
+    tampered = json.loads(artifact.read_text(encoding="utf-8"))
+    tampered["candidates"][0]["technical_score"] = 1.0
+    artifact.write_text(json.dumps(tampered), encoding="utf-8")
+
+    with pytest.raises(TakeSelectionError, match="content is invalid"):
+        workflow.get(selection["selection_id"])
+
+
 def test_take_analysis_rejects_files_outside_allowed_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -170,6 +188,118 @@ def test_take_analysis_supports_multiple_bounded_segments_from_one_file(
     assert first["policy"]["sampling"]["max_segment_seconds"] == 300.0
     assert str(media) not in json.dumps(first)
     validate_contract("take-selection", first)
+
+
+class StubDialogueTranscriber:
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    def transcribe(
+        self,
+        source_path: Path,
+        *,
+        start_seconds: float | None = None,
+        end_seconds: float | None = None,
+    ) -> dict[str, object]:
+        self.call_count += 1
+        assert start_seconds is not None
+        assert end_seconds is not None
+        text = (
+            "Це точний текст сценарію"
+            if start_seconds == 10.0
+            else "Це неточний варіант"
+        )
+        return {
+            "backend": "stub",
+            "model": "test",
+            "language": "uk",
+            "language_probability": 0.99,
+            "segments": [
+                {"start_ms": 0, "end_ms": 8_000, "text": text},
+            ],
+        }
+
+
+def test_scripted_take_analysis_prioritizes_reference_match_without_storing_text(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    source = media / "source.mkv"
+    source.write_bytes(b"shared source")
+    monkeypatch.setattr(
+        "agent.take_selection._analyze_file",
+        lambda path, candidate_id, source_range=None: _measurement(
+            candidate_id, source_range
+        ),
+    )
+    transcriber = StubDialogueTranscriber()
+    workflow = TakeSelectionWorkflow(
+        media_policy=MediaPolicy([media]),
+        transcriber=transcriber,
+        selections_root=tmp_path / "selections",
+        reviews_root=tmp_path / "reviews",
+    )
+    candidates: list[dict[str, str | float]] = [
+        {
+            "candidate_id": "exact",
+            "path": str(source),
+            "start_seconds": 10.0,
+            "end_seconds": 20.0,
+        },
+        {
+            "candidate_id": "variant",
+            "path": str(source),
+            "start_seconds": 30.0,
+            "end_seconds": 40.0,
+        },
+    ]
+
+    first = workflow.analyze_scripted(
+        selection_name="Scripted intro",
+        candidates=candidates,
+        reference_text="Це точний текст сценарію",
+    )
+    replay = workflow.analyze_scripted(
+        selection_name="Scripted intro",
+        candidates=candidates,
+        reference_text="Це точний текст сценарію",
+    )
+
+    assert first == replay
+    assert transcriber.call_count == 2
+    assert first["selection_version"] == "1.2"
+    assert first["recommendation"]["candidate_id"] == "exact"
+    assert first["candidates"][0]["dialogue"]["reference_f1"] == 1.0
+    serialized = json.dumps(first, ensure_ascii=False)
+    assert "Це точний текст сценарію" not in serialized
+    assert str(media) not in serialized
+    validate_contract("take-selection", first)
+
+
+def test_scripted_take_analysis_requires_segments_and_local_transcriber(
+    tmp_path: Path,
+) -> None:
+    source_a = tmp_path / "a.mkv"
+    source_b = tmp_path / "b.mkv"
+    source_a.write_bytes(b"a")
+    source_b.write_bytes(b"b")
+    workflow = TakeSelectionWorkflow(
+        media_policy=MediaPolicy([tmp_path]),
+        selections_root=tmp_path / "selections",
+        reviews_root=tmp_path / "reviews",
+    )
+
+    with pytest.raises(TakeSelectionError, match="local transcriber"):
+        workflow.analyze_scripted(
+            selection_name="Scripted",
+            candidates=[
+                {"candidate_id": "a", "path": str(source_a)},
+                {"candidate_id": "b", "path": str(source_b)},
+            ],
+            reference_text="Текст",
+        )
 
 
 @pytest.mark.parametrize(

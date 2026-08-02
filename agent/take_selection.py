@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import re
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Final, Protocol
 
@@ -22,12 +23,15 @@ from transports.filesystem import atomic_write_json, read_json_object
 
 SELECTION_VERSION: Final = "1.0"
 SEGMENT_SELECTION_VERSION: Final = "1.1"
+SCRIPTED_SELECTION_VERSION: Final = "1.2"
 REVIEW_VERSION: Final = "1.0"
 POLICY_ID: Final = "technical-take-v1"
+SCRIPTED_POLICY_ID: Final = "script-aware-take-v1"
 CANDIDATE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 VIDEO_SAMPLE_FRACTIONS: Final = (0.08, 0.22, 0.36, 0.5, 0.64, 0.78, 0.92)
 AUDIO_SAMPLE_LIMIT: Final = 480_000
 MAX_SEGMENT_SECONDS: Final = 300.0
+MAX_REFERENCE_TEXT_LENGTH: Final = 20_000
 POLICY: Final[dict[str, Any]] = {
     "policy_id": POLICY_ID,
     "sampling": {
@@ -49,6 +53,18 @@ class LocalMediaPolicy(Protocol):
     def validate_files(self, paths: list[str]) -> list[str]: ...
 
 
+class DialogueTranscriber(Protocol):
+    """Bounded local transcript provider used by script-aware M54 analysis."""
+
+    def transcribe(
+        self,
+        source_path: Path,
+        *,
+        start_seconds: float | None = None,
+        end_seconds: float | None = None,
+    ) -> dict[str, Any]: ...
+
+
 class TakeSelectionWorkflow:
     """Analyze local candidates and persist immutable human-review artifacts."""
 
@@ -56,10 +72,12 @@ class TakeSelectionWorkflow:
         self,
         *,
         media_policy: LocalMediaPolicy | None = None,
+        transcriber: DialogueTranscriber | None = None,
         selections_root: Path | None = None,
         reviews_root: Path | None = None,
     ) -> None:
         self._media_policy = media_policy or MediaPolicy.from_local_config()
+        self._transcriber = transcriber
         self._selections_root = selections_root or take_selections_directory()
         self._reviews_root = reviews_root or take_selection_reviews_directory()
 
@@ -127,6 +145,134 @@ class TakeSelectionWorkflow:
         atomic_write_json(path, result)
         return result
 
+    def analyze_scripted(
+        self,
+        *,
+        selection_name: str,
+        candidates: list[dict[str, str | float]],
+        reference_text: str,
+    ) -> dict[str, Any]:
+        """Rank bounded dialogue takes against one caller-provided script."""
+        if self._transcriber is None:
+            raise TakeSelectionError(
+                "Script-aware take analysis requires a local transcriber."
+            )
+        name = _selection_name(selection_name)
+        reference_tokens = _reference_tokens(reference_text)
+        reference_payload = {
+            "sha256": hashlib.sha256(
+                reference_text.strip().encode("utf-8")
+            ).hexdigest(),
+            "token_count": len(reference_tokens),
+        }
+        normalized = _candidate_inputs(candidates)
+        if "source_range" not in normalized[0]:
+            raise TakeSelectionError(
+                "Script-aware candidates require bounded source ranges."
+            )
+        paths = self._media_policy.validate_files(
+            [candidate["path"] for candidate in normalized]
+        )
+        request_id = _scripted_request_id(
+            name,
+            normalized,
+            paths,
+            reference_payload,
+        )
+        request_root = self._selections_root / "scripted-requests"
+        request_path = request_root / f"{request_id}.json"
+        if request_path.is_file():
+            request = read_json_object(request_path)
+            selection_id = request.get("selection_id")
+            if (
+                request.get("request_id") != request_id
+                or not isinstance(selection_id, str)
+            ):
+                raise TakeSelectionError("Stored scripted request index is invalid.")
+            return self.get(selection_id)
+        measured: list[dict[str, Any]] = []
+        for candidate, path in zip(normalized, paths, strict=True):
+            source_range = _source_range_object(candidate["source_range"])
+            if source_range is None:
+                raise TakeSelectionError("Candidate source range is missing.")
+            source_path = Path(path)
+            result = _analyze_file(
+                source_path,
+                str(candidate["candidate_id"]),
+                source_range,
+            )
+            transcript = self._transcriber.transcribe(
+                source_path,
+                start_seconds=source_range["start_seconds"],
+                end_seconds=source_range["end_seconds"],
+            )
+            dialogue = _dialogue_metrics(
+                transcript,
+                reference_tokens,
+                source_range["end_seconds"] - source_range["start_seconds"],
+            )
+            result["dialogue"] = dialogue
+            result["selection_score"] = round(
+                0.35 * result["technical_score"]
+                + 0.65 * dialogue["reference_f1"] * 100,
+                3,
+            )
+            measured.append(result)
+        ranked = sorted(
+            measured,
+            key=lambda item: (-item["selection_score"], item["candidate_id"]),
+        )
+        for rank, candidate in enumerate(ranked, start=1):
+            candidate["rank"] = rank
+        score_gap = round(
+            ranked[0]["selection_score"] - ranked[1]["selection_score"],
+            3,
+        )
+        confidence = "high" if score_gap >= 10 else (
+            "medium" if score_gap >= 4 else "low"
+        )
+        payload = {
+            "selection_version": SCRIPTED_SELECTION_VERSION,
+            "status": "pending_review",
+            "selection_name": name,
+            "reference": reference_payload,
+            "policy": _scripted_policy(),
+            "candidates": ranked,
+            "recommendation": {
+                "candidate_id": ranked[0]["candidate_id"],
+                "confidence": confidence,
+                "score_gap": score_gap,
+                "basis": "bounded technical and transcript measurements",
+                "limitations": [
+                    "Transcript matching can contain speech-recognition errors.",
+                    "No acting, emotion, framing, or story-quality judgment.",
+                    "Reference text and source ranges are caller-selected.",
+                    "A human must approve or reject the recommendation.",
+                ],
+            },
+            "review_required": True,
+        }
+        result = {**payload, "selection_id": _canonical_sha256(payload)}
+        validate_contract("take-selection", result)
+        self._selections_root.mkdir(parents=True, exist_ok=True)
+        selection_path = self._selections_root / f"{result['selection_id']}.json"
+        if selection_path.is_file():
+            existing = read_json_object(selection_path)
+            if existing != result:
+                raise TakeSelectionError(
+                    "Stored take selection does not match deterministic analysis."
+                )
+            stored = existing
+        else:
+            atomic_write_json(selection_path, result)
+            stored = result
+        request_root.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(
+            request_path,
+            {"request_id": request_id, "selection_id": result["selection_id"]},
+        )
+        return stored
+
     def get(self, selection_id: str) -> dict[str, Any]:
         """Return one stored take-selection report."""
         identifier = _sha256(selection_id, "selection_id")
@@ -137,6 +283,10 @@ class TakeSelectionWorkflow:
         validate_contract("take-selection", result)
         if result.get("selection_id") != identifier:
             raise TakeSelectionError("The stored take selection ID is invalid.")
+        canonical_payload = dict(result)
+        canonical_payload.pop("selection_id", None)
+        if _canonical_sha256(canonical_payload) != identifier:
+            raise TakeSelectionError("The stored take selection content is invalid.")
         return result
 
     def list(self, limit: int = 20) -> dict[str, Any]:
@@ -647,6 +797,153 @@ def _limitations(segment_mode: bool) -> list[str]:
         "Candidate ranges are caller-selected and are not discovered automatically.",
         "A human must approve or reject the recommendation.",
     ]
+
+
+def _scripted_request_id(
+    selection_name: str,
+    candidates: list[dict[str, Any]],
+    paths: list[str],
+    reference: dict[str, Any],
+) -> str:
+    sources: list[dict[str, Any]] = []
+    for candidate, path_value in zip(candidates, paths, strict=True):
+        path = Path(path_value)
+        stat = path.stat()
+        sources.append(
+            {
+                "candidate_id": candidate["candidate_id"],
+                "source_range": candidate["source_range"],
+                "fingerprint": _file_fingerprint(path, stat.st_size),
+                "size_bytes": stat.st_size,
+            }
+        )
+    return _canonical_sha256(
+        {
+            "selection_version": SCRIPTED_SELECTION_VERSION,
+            "selection_name": selection_name,
+            "policy_id": SCRIPTED_POLICY_ID,
+            "reference": reference,
+            "candidates": sources,
+        }
+    )
+
+
+def _reference_tokens(reference_text: str) -> list[str]:
+    if (
+        not isinstance(reference_text, str)
+        or not reference_text.strip()
+        or len(reference_text) > MAX_REFERENCE_TEXT_LENGTH
+    ):
+        raise TakeSelectionError(
+            "reference_text must contain between 1 and 20000 characters."
+        )
+    tokens = _text_tokens(reference_text)
+    if not tokens:
+        raise TakeSelectionError("reference_text must contain words or numbers.")
+    return tokens
+
+
+def _text_tokens(text: str) -> list[str]:
+    return re.findall(r"[^\W_]+(?:['’][^\W_]+)?", text.casefold(), re.UNICODE)
+
+
+def _dialogue_metrics(
+    transcript: dict[str, Any],
+    reference_tokens: list[str],
+    range_duration_seconds: float,
+) -> dict[str, Any]:
+    segments = transcript.get("segments")
+    if not isinstance(segments, list) or not 1 <= len(segments) <= 10_000:
+        raise TakeSelectionError("Transcript segments are invalid.")
+    texts: list[str] = []
+    speech_duration_ms = 0
+    previous_end = 0
+    for segment in segments:
+        if not isinstance(segment, dict):
+            raise TakeSelectionError("Transcript segment is invalid.")
+        start_ms = segment.get("start_ms")
+        end_ms = segment.get("end_ms")
+        text = segment.get("text")
+        if (
+            not isinstance(start_ms, int)
+            or isinstance(start_ms, bool)
+            or not isinstance(end_ms, int)
+            or isinstance(end_ms, bool)
+            or start_ms < previous_end
+            or end_ms <= start_ms
+            or not isinstance(text, str)
+            or not text.strip()
+            or len(text) > 4_000
+        ):
+            raise TakeSelectionError("Transcript segment is invalid.")
+        previous_end = end_ms
+        speech_duration_ms += end_ms - start_ms
+        texts.append(" ".join(text.split()))
+    transcript_text = " ".join(texts)
+    transcript_tokens = _text_tokens(transcript_text)
+    if not transcript_tokens:
+        raise TakeSelectionError("Transcript contains no words or numbers.")
+    matching_tokens = sum(
+        block.size
+        for block in SequenceMatcher(
+            None,
+            reference_tokens,
+            transcript_tokens,
+            autojunk=False,
+        ).get_matching_blocks()
+    )
+    precision = matching_tokens / len(transcript_tokens)
+    recall = matching_tokens / len(reference_tokens)
+    f1 = 0.0 if precision + recall == 0 else (
+        2 * precision * recall / (precision + recall)
+    )
+    language = transcript.get("language")
+    backend = transcript.get("backend")
+    model = transcript.get("model")
+    probability = transcript.get("language_probability", 0.0)
+    if (
+        not isinstance(language, str)
+        or not language
+        or not isinstance(backend, str)
+        or not backend
+        or not isinstance(model, str)
+        or not model
+        or isinstance(probability, bool)
+        or not isinstance(probability, (int, float))
+        or not math.isfinite(float(probability))
+        or not 0 <= float(probability) <= 1
+    ):
+        raise TakeSelectionError("Transcript metadata is invalid.")
+    return {
+        "backend": backend,
+        "model": model,
+        "language": language,
+        "language_probability": round(float(probability), 6),
+        "transcript_sha256": hashlib.sha256(
+            transcript_text.encode("utf-8")
+        ).hexdigest(),
+        "word_count": len(transcript_tokens),
+        "speech_duration_seconds": round(speech_duration_ms / 1000, 3),
+        "speech_coverage": round(
+            min(1.0, speech_duration_ms / 1000 / range_duration_seconds),
+            6,
+        ),
+        "reference_precision": round(precision, 6),
+        "reference_recall": round(recall, 6),
+        "reference_f1": round(f1, 6),
+    }
+
+
+def _scripted_policy() -> dict[str, Any]:
+    return {
+        "policy_id": SCRIPTED_POLICY_ID,
+        "sampling": {
+            **POLICY["sampling"],
+            "max_segment_seconds": MAX_SEGMENT_SECONDS,
+            "transcription_model": "faster-whisper-small-uk",
+        },
+        "weights": {"technical": 0.35, "reference_match": 0.65},
+    }
 
 
 def _candidate_id(value: str | None, field: str) -> str:

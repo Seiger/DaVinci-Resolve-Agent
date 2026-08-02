@@ -18,6 +18,12 @@ decoder arguments or executable content. Segment candidates carry explicit
 source ranges of at most 300 seconds; repeated ranges may reference one file,
 while mixed full-file/segment requests are rejected.
 
+Script-aware M54.3 adds a separate path: fixed-policy local transcription sees
+only each bounded audio range, compares normalized word order against one
+caller-provided reference and combines that score with technical measurements.
+Durable artifacts contain only hashes and aggregate metrics, not source paths,
+reference text or raw transcript text. The result still stops at human review.
+
 ## M53 color discovery and preview
 
 ```text

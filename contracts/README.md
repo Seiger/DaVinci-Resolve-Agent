@@ -1,7 +1,8 @@
 # Contracts
 
-`take-selection.schema.json` defines an M54 path-redacted fixed-policy technical
-ranking that always requires review. `take-selection-review.schema.json` binds
+`take-selection.schema.json` defines M54 path-redacted fixed-policy technical
+and script-aware dialogue rankings that always require review.
+`take-selection-review.schema.json` binds
 one immutable approve/reject decision to the exact selection SHA-256 and
 requires `timeline_modified=false`.
 

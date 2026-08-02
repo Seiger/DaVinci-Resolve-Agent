@@ -992,6 +992,13 @@ class StubTakeSelectionWorkflow:
     def analyze(self, **kwargs: Any) -> dict[str, Any]:
         return {"status": "pending_review", "arguments": kwargs}
 
+    def analyze_scripted(self, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "status": "pending_review",
+            "selection_version": "1.2",
+            "arguments": kwargs,
+        }
+
     def get(self, selection_id: str) -> dict[str, Any]:
         return {"selection_id": selection_id, "status": "pending_review"}
 
@@ -1039,6 +1046,25 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         selection_name="Intro",
         candidates=candidates,
     )
+    scripted_candidates: list[dict[str, str | float]] = [
+        {
+            "candidate_id": "take-a",
+            "path": "first.mkv",
+            "start_seconds": 0.0,
+            "end_seconds": 10.0,
+        },
+        {
+            "candidate_id": "take-b",
+            "path": "second.mkv",
+            "start_seconds": 0.0,
+            "end_seconds": 10.0,
+        },
+    ]
+    scripted = application.analyze_scripted_take_candidates(
+        selection_name="Intro script",
+        candidates=scripted_candidates,
+        reference_text="Очікуваний текст",
+    )
     detail = application.get_take_selection("a" * 64)
     listed = application.list_take_selections(5)
     reviewed = application.review_take_selection(
@@ -1049,6 +1075,7 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
     )
 
     assert analyzed["status"] == "pending_review"
+    assert scripted["selection_version"] == "1.2"
     assert detail["selection_id"] == "a" * 64
     assert listed["limit"] == 5
     assert reviewed["timeline_modified"] is False

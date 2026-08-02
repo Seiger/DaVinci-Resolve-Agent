@@ -24,6 +24,22 @@ Fixed policy `technical-take-v1` вимірює:
 range, а report version `1.1` зберігає діапазон біля кожного кандидата. Старий
 full-file report version `1.0` і його API залишаються сумісними.
 
+## M54.3: script-aware dialogue ranking
+
+`analyze_scripted_take_candidates` приймає тільки bounded segment candidates
+і один `reference_text` до 20000 символів. Для кожного range локальний
+faster-whisper отримує лише вирізаний mono 16 кГц audio array; весь великий
+source-файл у модель не передається. Fixed policy `script-aware-take-v1`
+поєднує `65%` ordered token F1 із `35%` technical score.
+
+Report version `1.2` містить reference SHA-256/token count, transcript SHA-256,
+word count, speech coverage, precision/recall/F1 та composite selection score.
+Raw reference text, raw transcript і absolute paths не зберігаються. Ranking не
+оцінює акторську гру, емоцію, framing або драматургію, а помилки speech
+recognition можуть змінити результат. Тому status залишається `pending_review`.
+Exact request replay використовує path-redacted local index і повертає
+persisted report без повторного CPU inference.
+
 Декодування виконує явно задекларована Python-залежність PyAV; зовнішній
 `ffmpeg.exe` та shell-команди для цього workflow не запускаються.
 
@@ -57,3 +73,12 @@ audio, exact replay повернув selection
 `bf51e004dba7e3f57f5fb476a143f4e14cb1a5ab59dc251652d85929013f2cf3`, а
 persisted report записано в configured runtime на G без source path. Review не
 створювався, timeline не змінювався.
+
+M54.3 mechanics smoke на ranges `60–70` і `90–100` секунд повернув selection
+`84baa10da64aaa101351a85ef4679970274590023221296a7f080e94cccce26f`.
+Reference segment отримав F1 `1.0` і score `92.922`, альтернативний — F1
+`0.153846` і score `37.955`; language `uk`, path/reference redaction та
+`pending_review` підтверджено. CPU analysis двох ranges на цій машині є
+хвилинною операцією: indexed first run тривав `224.57` секунди, exact replay —
+`1.05` секунди без повторного inference. Це mechanics evidence, не оцінка
+акторської гри.

@@ -53,6 +53,7 @@ WORKFLOW_CATEGORIES = {
     "preview_color_treatment": "editing",
     "apply_color_treatment": "editing",
     "analyze_take_candidates": "editing",
+    "analyze_scripted_take_candidates": "editing",
     "get_take_selection": "editing",
     "list_take_selections": "editing",
     "review_take_selection": "editing",

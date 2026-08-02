@@ -90,6 +90,7 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "preview_color_treatment",
         "apply_color_treatment",
         "analyze_take_candidates",
+        "analyze_scripted_take_candidates",
         "get_take_selection",
         "list_take_selections",
         "review_take_selection",

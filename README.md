@@ -31,6 +31,11 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 deterministic technical ranking, вимагає immutable human approve/reject review
 і не змінює Resolve timeline.
 
+M54.3 додає окремий script-aware режим для dialogue takes: локальна
+faster-whisper транскрипція обмежується заданими ranges, а ranking поєднує
+reference-text match із technical score. Еталонний текст і transcript не
+зберігаються відкрито; результат усе одно потребує людського review.
+
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
 graph API та deterministic preview, прив'язаний до exact applied M52 receipt.

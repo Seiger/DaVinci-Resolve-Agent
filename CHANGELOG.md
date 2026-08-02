@@ -19,6 +19,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   seconds, including multiple candidate ranges from one allowlisted file.
 - M54.2 live same-file segment smoke on drive G with 7/7 video samples,
   bounded audio, deterministic replay and source-path redaction.
+- M54.3 script-aware dialogue take ranking with bounded local transcription,
+  reference-text fingerprinting and mandatory human review.
+- M54.3 path-redacted request index that returns exact persisted replays without
+  rerunning CPU transcription.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

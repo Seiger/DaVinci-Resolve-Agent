@@ -616,6 +616,20 @@ allowlisted MKV на G. Report `bf51e004d…` має version `1.1`, 7/7 video sa
 ідентичний exact replay. Artifact збережено в configured runtime на G; review
 та будь-які timeline writes не виконувалися.
 
+Для M54.3 виклич `analyze_scripted_take_candidates` з двома bounded ranges і
+коротким exact `reference_text`. Очікуй report version `1.2`, policy
+`script-aware-take-v1`, dialogue precision/recall/F1 і composite score. У JSON
+не повинно бути raw reference, transcript або absolute path. Exact replay має
+повернути той самий ID; review і timeline writes під час mechanics smoke не
+виконуй.
+
+Live M54.3 mechanics smoke повернув selection `84baa10d…`: reference range має
+F1 `1.0`/score `92.922`, другий range — F1 `0.153846`/score `37.955`; redaction
+і `pending_review` підтверджено. Перший CPU analysis може тривати кілька хвилин,
+а exact replay має читатися з local request index без повторної транскрипції.
+На перевіреній машині indexed first run зайняв `224.57` секунди, replay в
+окремому процесі — `1.05` секунди.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

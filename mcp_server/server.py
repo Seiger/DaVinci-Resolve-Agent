@@ -930,6 +930,20 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             candidates=candidates,
         )
 
+    @server.tool(annotations=WRITE_TOOL)
+    async def analyze_scripted_take_candidates(
+        selection_name: str,
+        candidates: list[dict[str, str | float]],
+        reference_text: str,
+    ) -> dict[str, Any]:
+        """Rank bounded dialogue takes against one expected script."""
+        return await asyncio.to_thread(
+            service.analyze_scripted_take_candidates,
+            selection_name=selection_name,
+            candidates=candidates,
+            reference_text=reference_text,
+        )
+
     @server.tool(annotations=READ_ONLY_TOOL)
     async def get_take_selection(selection_id: str) -> dict[str, Any]:
         """Return one stored M54 technical take-selection report."""

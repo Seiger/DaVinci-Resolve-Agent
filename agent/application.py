@@ -856,6 +856,14 @@ class TakeSelectionService(Protocol):
         candidates: list[dict[str, str | float]],
     ) -> dict[str, Any]: ...
 
+    def analyze_scripted(
+        self,
+        *,
+        selection_name: str,
+        candidates: list[dict[str, str | float]],
+        reference_text: str,
+    ) -> dict[str, Any]: ...
+
     def get(self, selection_id: str) -> dict[str, Any]: ...
 
     def list(self, limit: int = 20) -> dict[str, Any]: ...
@@ -2156,6 +2164,23 @@ class AgentApplication:
             ),
         )
 
+    def analyze_scripted_take_candidates(
+        self,
+        *,
+        selection_name: str,
+        candidates: list[dict[str, str | float]],
+        reference_text: str,
+    ) -> dict[str, Any]:
+        """Rank bounded dialogue takes against one expected script."""
+        return self._run_local_workflow(
+            "analyze_scripted_take_candidates",
+            lambda: self._take_selection_service().analyze_scripted(
+                selection_name=selection_name,
+                candidates=candidates,
+                reference_text=reference_text,
+            ),
+        )
+
     def get_take_selection(self, selection_id: str) -> dict[str, Any]:
         """Return one stored M54 technical selection."""
         return self._run_local_workflow(
@@ -2197,7 +2222,10 @@ class AgentApplication:
                 MediaPolicy.from_local_config()
                 if self._media_policy is None
                 else self._media_policy
-            )
+            ),
+            transcriber=FasterWhisperTranscriber(
+                transcription_models_directory()
+            ),
         )
 
     def compose_webcam_picture_in_picture(

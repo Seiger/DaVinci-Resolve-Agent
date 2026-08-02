@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import wave
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import numpy as np
 import pytest
 
 from agent.subtitles import (
@@ -18,13 +20,19 @@ from providers.transcription import faster_whisper
 
 
 class FakeModel:
+    transcribe_sources: list[object] = []
+
     def __init__(self, model: str, **options: Any) -> None:
         assert model == "small"
         assert options["device"] == "cpu"
         assert options["compute_type"] == "int8"
 
-    def transcribe(self, source: str, **options: Any) -> tuple[list[Any], Any]:
-        assert Path(source).is_file()
+    def transcribe(self, source: object, **options: Any) -> tuple[list[Any], Any]:
+        self.transcribe_sources.append(source)
+        if isinstance(source, str):
+            assert Path(source).is_file()
+        else:
+            assert isinstance(source, np.ndarray)
         assert options["language"] == "uk"
         return (
             [SimpleNamespace(start=0.0, end=1.25, text="  Привіт   світе ")],
@@ -52,6 +60,38 @@ def test_faster_whisper_adapter_normalizes_bounded_segments(
     assert result["segments"] == [
         {"start_ms": 0, "end_ms": 1250, "text": "Привіт світе"}
     ]
+
+
+def test_faster_whisper_adapter_decodes_only_bounded_audio_range(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "dialogue.wav"
+    sample_rate = 48_000
+    samples = (
+        np.sin(2 * np.pi * 440 * np.arange(sample_rate * 2) / sample_rate)
+        * 10_000
+    ).astype(np.int16)
+    with source.open("wb") as output, wave.open(output, "wb") as target:
+        target.setnchannels(1)
+        target.setsampwidth(2)
+        target.setframerate(sample_rate)
+        target.writeframes(samples.tobytes())
+    FakeModel.transcribe_sources.clear()
+    monkeypatch.setattr(
+        faster_whisper,
+        "import_module",
+        lambda _: SimpleNamespace(WhisperModel=FakeModel),
+    )
+    transcriber = faster_whisper.FasterWhisperTranscriber(tmp_path / "models")
+
+    transcriber.transcribe(source, start_seconds=0.5, end_seconds=1.0)
+    transcriber.transcribe(source, start_seconds=1.0, end_seconds=1.5)
+
+    assert len(FakeModel.transcribe_sources) == 2
+    for bounded_audio in FakeModel.transcribe_sources:
+        assert isinstance(bounded_audio, np.ndarray)
+        assert 7_990 <= bounded_audio.size <= 8_010
 
 
 def test_srt_render_and_atomic_write_are_deterministic(tmp_path: Path) -> None:
