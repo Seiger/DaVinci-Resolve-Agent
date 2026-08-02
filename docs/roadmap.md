@@ -59,7 +59,9 @@
   approved M54 sequence, а M55.2 — deterministic path-redacted assembly
   preview з локальними media metadata та послідовними ranges. M55.3 прив'язує
   його до exact live timeline FPS/resolution і формує frame mapping; усі три
-  етапи працюють без import або timeline write.
+  етапи працюють без import або timeline write. M55.4 формує conservative
+  Media Pool import preview, дедуплікує sources і блокує ambiguous same-name
+  collisions до review.
 
 Milestone може бути розділений на discovery/preview/apply підетапи, якщо
 Resolve API або безпечне live-тестування цього потребують. Roadmap не є заявою

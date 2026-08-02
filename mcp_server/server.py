@@ -1048,6 +1048,22 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             timeout_seconds=timeout_seconds,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_take_sequence_media_import(
+        binding_id: str,
+        assembly_name: str,
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Plan conservative M55.4 Media Pool imports without writing."""
+        return await asyncio.to_thread(
+            service.preview_take_sequence_media_import,
+            binding_id=binding_id,
+            assembly_name=assembly_name,
+            timeline_id=timeline_id,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,

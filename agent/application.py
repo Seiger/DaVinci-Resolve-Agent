@@ -47,6 +47,7 @@ from agent.take_selection import TakeSelectionWorkflow
 from agent.take_sequence import TakeSequenceWorkflow
 from agent.take_sequence_assembly import TakeSequenceAssemblyWorkflow
 from agent.take_sequence_binding import TakeSequenceBindingWorkflow
+from agent.take_sequence_media_import import TakeSequenceMediaImportWorkflow
 from agent.take_sequence_timeline_mapping import TakeSequenceTimelineMappingWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
 from providers.resolve import ResolveProviderClient
@@ -938,6 +939,19 @@ class TakeSequenceTimelineMappingService(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class TakeSequenceMediaImportService(Protocol):
+    """M55.4 read-only Media Pool import-preview boundary."""
+
+    def preview(
+        self,
+        *,
+        binding_id: str,
+        assembly_name: str,
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -976,6 +990,9 @@ class AgentApplication:
         take_sequence_timeline_mapping_service: (
             TakeSequenceTimelineMappingService | None
         ) = None,
+        take_sequence_media_import_service: (
+            TakeSequenceMediaImportService | None
+        ) = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -1011,6 +1028,7 @@ class AgentApplication:
         self._take_sequence_timeline_mapping = (
             take_sequence_timeline_mapping_service
         )
+        self._take_sequence_media_import = take_sequence_media_import_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -2378,6 +2396,25 @@ class AgentApplication:
             ),
         )
 
+    def preview_take_sequence_media_import(
+        self,
+        *,
+        binding_id: str,
+        assembly_name: str,
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Plan conservative Media Pool imports without modifying Resolve."""
+        return self._run_local_workflow(
+            "preview_take_sequence_media_import",
+            lambda: self._take_sequence_media_import_service().preview(
+                binding_id=binding_id,
+                assembly_name=assembly_name,
+                timeline_id=timeline_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
     def _take_selection_service(self) -> TakeSelectionService:
         if self._take_selection is not None:
             return self._take_selection
@@ -2424,6 +2461,16 @@ class AgentApplication:
             return self._take_sequence_timeline_mapping
         return TakeSequenceTimelineMappingWorkflow(
             self._take_sequence_assembly_service(),
+            self._resolve,
+        )
+
+    def _take_sequence_media_import_service(
+        self,
+    ) -> TakeSequenceMediaImportService:
+        if self._take_sequence_media_import is not None:
+            return self._take_sequence_media_import
+        return TakeSequenceMediaImportWorkflow(
+            self._take_sequence_timeline_mapping_service(),
             self._resolve,
         )
 

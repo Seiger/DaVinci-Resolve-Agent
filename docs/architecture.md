@@ -50,6 +50,13 @@ inclusive source bounds at source FPS and contiguous output positions at the
 verified target FPS. The result remains preview-only and contains no imported
 asset identity, so apply is deliberately unsupported.
 
+M55.4 joins the M55.3 mapping with bounded `media_pool_items()` discovery.
+Source fingerprints deduplicate repeated sequence ranges, while Media Pool
+items remain identified only by canonical asset ID, name and logical folder.
+Because that readback intentionally exposes no path or file fingerprint, a
+same-name match is ambiguous and forces review instead of silent reuse. The
+preview hashes the sorted Media Pool snapshot and performs no import.
+
 ## M53 color discovery and preview
 
 ```text

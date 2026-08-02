@@ -16,6 +16,9 @@ path-redacted, while timeline modification and apply remain disabled.
 FPS/resolution binding, inclusive source-frame bounds and contiguous timeline
 positions. It carries no Media Pool asset IDs and therefore cannot enable
 apply.
+`take-sequence-media-import-preview.schema.json` defines M55.4 unique import
+sources, current Media Pool snapshot identity and conservative same-name
+collision review. It exposes no source path and cannot execute import.
 
 `color-preset.schema.json` defines one immutable packaged M53 CDL preset with a
 fixed scope and apply policy. `color-treatment-preview.schema.json` binds that

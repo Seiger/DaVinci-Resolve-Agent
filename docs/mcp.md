@@ -372,6 +372,13 @@ timeline settings і clip-property snapshots,
 Порожній `asset_ids=[]` повертає лише timeline metadata й не обходить Media
 Pool; цей режим використовується M55.3 до майбутнього safe import.
 
+`preview_take_sequence_media_import` повторно обчислює M55.3 mapping і читає
+bounded Media Pool identities. Повторні sequence ranges одного fingerprint
+стають одним import source. Якщо в Media Pool немає same-name item, action —
+`import`; якщо є — `review_name_collision`, бо name без path/fingerprint не
+доводить identity. Tool не приймає asset override, не імпортує media і завжди
+має `apply_supported=false`.
+
 `resolve_set_clips_linked` приймає один timeline ID, від 2 до 16 унікальних
 TimelineItem IDs та `linked=true|false`. Інструмент працює лише з явно
 адресованими video/audio items, відхиляє locked tracks, створює backup і

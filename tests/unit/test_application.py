@@ -1064,6 +1064,15 @@ class StubTakeSequenceTimelineMappingWorkflow:
         }
 
 
+class StubTakeSequenceMediaImportWorkflow:
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "status": "preview",
+            "plan_id": "0" * 64,
+            "arguments": kwargs,
+        }
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1097,6 +1106,7 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         take_sequence_timeline_mapping_service=(
             StubTakeSequenceTimelineMappingWorkflow()
         ),
+        take_sequence_media_import_service=StubTakeSequenceMediaImportWorkflow(),
     )
     candidates: list[dict[str, str | float]] = [
         {"candidate_id": "take-a", "path": "first.mkv"},
@@ -1156,6 +1166,12 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         timeline_id="timeline-1",
         timeout_seconds=12.5,
     )
+    import_preview = application.preview_take_sequence_media_import(
+        binding_id="d" * 64,
+        assembly_name="Approved assembly",
+        timeline_id="timeline-1",
+        timeout_seconds=13.5,
+    )
 
     assert analyzed["status"] == "pending_review"
     assert scripted["selection_version"] == "1.2"
@@ -1173,6 +1189,9 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
     assert mapping["status"] == "preview"
     assert mapping["arguments"]["timeline_id"] == "timeline-1"
     assert mapping["arguments"]["timeout_seconds"] == 12.5
+    assert import_preview["status"] == "preview"
+    assert import_preview["arguments"]["timeline_id"] == "timeline-1"
+    assert import_preview["arguments"]["timeout_seconds"] == 13.5
 
 
 def test_application_exposes_status_and_read_only_provider_methods() -> None:

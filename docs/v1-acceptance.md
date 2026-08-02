@@ -60,12 +60,30 @@ M55.3 ще не має Media Pool asset IDs і тому не може сформ
 Наступний slice має окремо виконати safe import/binding preview, а confirmed
 write — лише після exact plan review, backup і duplicate-timeline gate.
 
+## M55.4: conservative Media Pool import preview
+
+`preview_take_sequence_media_import` прив'язує M55.3 mapping до sorted live
+Media Pool snapshot. Однаковий fingerprint у кількох sequence entries означає
+один source з кількома `orders`, тому майбутній import не дублюватиме файл для
+кожного range.
+
+Bounded Media Pool readback повертає canonical asset ID, name і logical folder,
+але навмисно не повертає filesystem path або fingerprint. Через це same-name
+item не можна автоматично reuse: plan ставить `review_name_collision`,
+`requires_review=true` та `import_ready=false`. За відсутності збігу action —
+`import`, але M55.4 все одно має `apply_supported=false`.
+
+Plan містить SHA-256 нормалізованого Media Pool snapshot, не містить private
+source paths і не виконує import, backup або timeline write. Confirmed import
+має бути окремим наступним slice з exact plan ID і повторною перевіркою binding
+та live snapshot.
+
 ## Подальша acceptance межа
 
 Після реального людського approve та live M54.4 compose наступні M55 slices
 мають окремо реалізувати:
 
-1. safe Media Pool import/identity binding preview;
+1. confirmed, receipt-backed Media Pool import;
 2. confirmed application лише до duplicate timeline;
 3. повний visual/audio/subtitle/color QC;
 4. confirmed render і output verification;

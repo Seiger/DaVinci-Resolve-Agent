@@ -35,6 +35,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   target positions without import or timeline mutation.
 - Timeline-only `get_editing_metadata` discovery with zero requested assets,
   retaining bounded FPS, resolution and track metadata.
+- M55.4 conservative Media Pool import preview with source-fingerprint
+  deduplication, deterministic live snapshot binding and mandatory review for
+  ambiguous same-name items; no media import is executed.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

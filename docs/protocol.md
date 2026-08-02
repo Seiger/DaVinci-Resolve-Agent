@@ -133,6 +133,9 @@ change existing track types, or accept raw Resolve options.
 asset `Frames`/`FPS`. It normalizes FPS to a positive float and dimensions to
 positive integers, and never returns a raw setting snapshot. An empty
 `asset_ids` list is a timeline-only readback and skips Media Pool traversal.
+`list_media_pool_items` exposes canonical IDs, names and logical folders but
+not file paths or fingerprints. Higher-level import planning must therefore
+treat same-name matches as ambiguous rather than proof of source identity.
 
 ## M38 synchronized pair workflow
 

@@ -684,6 +684,22 @@ Live high-level M55.3 лишається pending до людського M54 app
 binding. Timeline-only low-level readback можна перевіряти окремо: він нічого
 не імпортує та не змінює.
 
+### M55.4 conservative Media Pool import preview
+
+1. Виклич `preview_take_sequence_media_import` з canonical binding, assembly
+   name і exact target timeline ID.
+2. Перевір `media_pool_verified=true`, stable snapshot SHA-256 і відсутність
+   source paths.
+3. Повторні ranges одного fingerprint повинні утворити один source з кількома
+   ordered `orders`.
+4. Source без same-name item має action `import`; existing same-name item —
+   лише `review_name_collision`, `requires_review=true`, `import_ready=false`.
+5. Повторний preview на незміненому Media Pool має повернути exact plan ID.
+6. Переконайся, що item/folder count, backup count і timelines не змінилися.
+
+Live M55.4 high-level preview лишається pending до canonical M54 approve/M55.1
+binding та оновленого M55.3 bridge readback. Tool не виконує майбутній import.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

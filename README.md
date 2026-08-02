@@ -61,6 +61,13 @@ FPS, resolution і track counts exact live timeline через уже перев
 timeline positions. Import, duplicate timeline та вставка кліпів не виконуються;
 `apply_supported=false`.
 
+M55.4 додає read-only `preview_take_sequence_media_import`. Він звіряє
+поточний bounded Media Pool snapshot з unique source fingerprints M55.3,
+дедуплікує повторні ranges одного файла і планує import лише за відсутності
+same-name item. Однакова назва не вважається доказом тотожності: такий source
+отримує `review_name_collision`, а `import_ready=false`. Media Pool і timeline
+не змінюються.
+
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
 graph API та deterministic preview, прив'язаний до exact applied M52 receipt.
