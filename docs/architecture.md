@@ -35,6 +35,13 @@ binding. Public MCP state contains only sequence/file identities; a private
 runtime artifact holds allowlisted absolute paths and is available only to
 in-process orchestration. Neither artifact imports media or enables apply.
 
+M55.2 consumes that private boundary only in process. It revalidates file
+identity, reads duration/FPS/resolution through PyAV and emits a deterministic,
+path-redacted sequence in seconds. Output ranges are contiguous and preserve
+approved order and source ranges. Mixed FPS/resolution becomes an explicit
+warning. No provider is contacted; target-timeline frame mapping remains a
+future capability-gated orchestration step.
+
 ## M53 color discovery and preview
 
 ```text

@@ -45,6 +45,7 @@ ContractName = Literal[
     "take-selection-review",
     "take-sequence",
     "take-sequence-binding",
+    "take-sequence-assembly-preview",
     "audio-report",
     "diagnostics-bundle",
     "audit-record",

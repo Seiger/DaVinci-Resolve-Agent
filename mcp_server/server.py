@@ -1020,6 +1020,18 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             binding_id,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_take_sequence_assembly(
+        binding_id: str,
+        assembly_name: str,
+    ) -> dict[str, Any]:
+        """Calculate a path-redacted sequential M55.2 assembly preview."""
+        return await asyncio.to_thread(
+            service.preview_take_sequence_assembly,
+            binding_id=binding_id,
+            assembly_name=assembly_name,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,

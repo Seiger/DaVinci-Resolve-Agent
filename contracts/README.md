@@ -9,6 +9,9 @@ only from canonical approved reviews. It is not a timeline-apply contract.
 `take-sequence-binding.schema.json` defines the path-redacted public M55.1
 receipt; its machine-local private path artifact is intentionally not an
 external contract.
+`take-sequence-assembly-preview.schema.json` defines the read-only M55.2 plan:
+approved source ranges, sequential output ranges and local video metadata are
+path-redacted, while timeline modification and apply remain disabled.
 
 `color-preset.schema.json` defines one immutable packaged M53 CDL preset with a
 fixed scope and apply policy. `color-treatment-preview.schema.json` binds that

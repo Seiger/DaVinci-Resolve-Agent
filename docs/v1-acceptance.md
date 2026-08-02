@@ -26,12 +26,29 @@ workflow audit. `get_take_sequence_binding` повертає лише public rec
 Binding має `apply_supported=false` і `timeline_modified=false`. Наявність
 binding ще не дозволяє import, ranged insert, timeline replacement або render.
 
+## M55.2: read-only assembly preview
+
+`preview_take_sequence_assembly` споживає private binding лише всередині
+процесу та перед кожним preview повторно перевіряє allowlist і file identity.
+Для кожного source PyAV читає duration, average FPS та resolution без
+повного декодування. Plan:
+
+- зберігає approved order і exact source ranges;
+- формує безперервні output ranges у секундах від нуля;
+- редагує local paths і містить canonical binding SHA-256;
+- попереджає про різні FPS або resolution;
+- має `timeline_modified=false` та `apply_supported=false`.
+
+M55.2 не читає Resolve, не імпортує media і не переводить секунди у frames
+конкретного timeline. Для цього потрібні окремі live target metadata,
+capability gates і reviewed duplicate-timeline semantics.
+
 ## Подальша acceptance межа
 
 Після реального людського approve та live M54.4 compose наступні M55 slices
 мають окремо реалізувати:
 
-1. read-only assembly preview з exact binding і live target metadata;
+1. live target metadata та exact seconds-to-frames mapping;
 2. confirmed application лише до duplicate timeline;
 3. повний visual/audio/subtitle/color QC;
 4. confirmed render і output verification;

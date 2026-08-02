@@ -45,6 +45,7 @@ from agent.synchronized_link import SynchronizedScreenLinker
 from agent.synchronized_pair import SynchronizedPairAssembler
 from agent.take_selection import TakeSelectionWorkflow
 from agent.take_sequence import TakeSequenceWorkflow
+from agent.take_sequence_assembly import TakeSequenceAssemblyWorkflow
 from agent.take_sequence_binding import TakeSequenceBindingWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
 from providers.resolve import ResolveProviderClient
@@ -909,6 +910,19 @@ class TakeSequenceBindingService(Protocol):
 
     def get(self, binding_id: str) -> dict[str, Any]: ...
 
+    def resolve_sources(self, binding_id: str) -> list[dict[str, Any]]: ...
+
+
+class TakeSequenceAssemblyService(Protocol):
+    """M55.2 provider-neutral read-only assembly-preview boundary."""
+
+    def preview(
+        self,
+        *,
+        binding_id: str,
+        assembly_name: str,
+    ) -> dict[str, Any]: ...
+
 
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
@@ -944,6 +958,7 @@ class AgentApplication:
         take_selection_service: TakeSelectionService | None = None,
         take_sequence_service: TakeSequenceService | None = None,
         take_sequence_binding_service: TakeSequenceBindingService | None = None,
+        take_sequence_assembly_service: TakeSequenceAssemblyService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -975,6 +990,7 @@ class AgentApplication:
         self._take_selection = take_selection_service
         self._take_sequence = take_sequence_service
         self._take_sequence_binding = take_sequence_binding_service
+        self._take_sequence_assembly = take_sequence_assembly_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -2308,6 +2324,21 @@ class AgentApplication:
             lambda: self._take_sequence_binding_service().get(binding_id),
         )
 
+    def preview_take_sequence_assembly(
+        self,
+        *,
+        binding_id: str,
+        assembly_name: str,
+    ) -> dict[str, Any]:
+        """Calculate a path-redacted sequential M55.2 assembly preview."""
+        return self._run_local_workflow(
+            "preview_take_sequence_assembly",
+            lambda: self._take_sequence_assembly_service().preview(
+                binding_id=binding_id,
+                assembly_name=assembly_name,
+            ),
+        )
+
     def _take_selection_service(self) -> TakeSelectionService:
         if self._take_selection is not None:
             return self._take_selection
@@ -2338,6 +2369,13 @@ class AgentApplication:
         return TakeSequenceBindingWorkflow(
             self._take_sequence_service(),
             policy,
+        )
+
+    def _take_sequence_assembly_service(self) -> TakeSequenceAssemblyService:
+        if self._take_sequence_assembly is not None:
+            return self._take_sequence_assembly
+        return TakeSequenceAssemblyWorkflow(
+            self._take_sequence_binding_service(),
         )
 
     def compose_webcam_picture_in_picture(

@@ -27,6 +27,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   integrity, ordered path-redacted handoff and no timeline write.
 - M55.1 allowlisted approved-sequence source binding with exact file identity,
   redacted public receipts and private machine-local paths.
+- M55.2 deterministic path-redacted assembly preview with revalidated bound
+  sources, local video metadata, sequential source/output ranges and mixed
+  FPS/resolution warnings; no Resolve or timeline write is performed.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

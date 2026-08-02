@@ -29,6 +29,11 @@ fingerprint. MCP response завжди має `paths_redacted=true`,
 `timeline_modified=false`, `apply_supported=false`.
 `get_take_sequence_binding` повертає лише redacted receipt; private local paths
 ніколи не виходять через MCP.
+`preview_take_sequence_assembly` приймає `binding_id` та bounded
+`assembly_name`. Tool повторно перевіряє private sources, читає лише локальні
+video metadata та повертає deterministic sequential plan без absolute paths.
+Він не імпортує media, не визначає target timeline frames і не викликає
+ResolveBridge; `timeline_modified=false`, `apply_supported=false`.
 
 ## M53 color discovery tools
 

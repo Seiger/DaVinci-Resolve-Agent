@@ -193,6 +193,26 @@ def test_workflow_audit_records_m48_recipe_operations_as_editing(
     assert "receipt_id" not in str(record)
 
 
+def test_workflow_audit_records_m55_assembly_preview_as_editing(
+    tmp_path: Path,
+) -> None:
+    audit = WorkflowAuditLog(tmp_path, FixedClock())
+
+    audit.run(
+        "preview_take_sequence_assembly",
+        lambda: {"plan_id": "private"},
+    )
+    records = [
+        read_json_object(path)
+        for path in (tmp_path / "workflow").glob("*.json")
+    ]
+    completed = [record for record in records if record["status"] == "success"]
+
+    assert completed[0]["operation"] == "preview_take_sequence_assembly"
+    assert completed[0]["category"] == "editing"
+    assert "plan_id" not in str(completed[0])
+
+
 @pytest.mark.parametrize(
     "operation",
     [

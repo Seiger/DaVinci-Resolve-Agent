@@ -651,6 +651,22 @@ unreviewed/rejected selection повинен блокувати compose. Mechani
 Live M55.1 bind лишається pending до справжнього M54 approve/sequence; mechanics
 тести не створюють review від імені користувача та не викликають ResolveBridge.
 
+### M55.2 read-only assembly preview
+
+1. Використай лише canonical M55.1 `binding_id`.
+2. Виклич `preview_take_sequence_assembly` з bounded `assembly_name`.
+3. Перевір approved order, exact source ranges і безперервні output ranges від
+   `0.0` до `total_duration_seconds`.
+4. Переконайся, що response не містить local paths, має
+   `timeline_modified=false` та `apply_supported=false`.
+5. Для sources з різними FPS/resolution очікуй explicit warnings.
+6. Змінений після bind файл або range поза media duration повинен блокувати
+   preview до будь-якого provider call.
+
+Live M55.2 preview лишається pending разом із M55.1: поточний M54.3 selection
+ще не має людського approve. Mechanics тести не створюють approval і не
+викликають ResolveBridge.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

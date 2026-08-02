@@ -1042,6 +1042,18 @@ class StubTakeSequenceBindingWorkflow:
     def get(self, binding_id: str) -> dict[str, Any]:
         return {"binding_id": binding_id, "status": "bound"}
 
+    def resolve_sources(self, binding_id: str) -> list[dict[str, Any]]:
+        return [{"binding_id": binding_id}]
+
+
+class StubTakeSequenceAssemblyWorkflow:
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "status": "preview",
+            "plan_id": "e" * 64,
+            "arguments": kwargs,
+        }
+
 
 class StubWorkflowAuditor:
     def __init__(self) -> None:
@@ -1072,6 +1084,7 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         take_selection_service=StubTakeSelectionWorkflow(),
         take_sequence_service=StubTakeSequenceWorkflow(),
         take_sequence_binding_service=StubTakeSequenceBindingWorkflow(),
+        take_sequence_assembly_service=StubTakeSequenceAssemblyWorkflow(),
     )
     candidates: list[dict[str, str | float]] = [
         {"candidate_id": "take-a", "path": "first.mkv"},
@@ -1121,6 +1134,10 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         sources=[{"order": 1, "path": "first.mkv"}],
     )
     binding_detail = application.get_take_sequence_binding("d" * 64)
+    assembly = application.preview_take_sequence_assembly(
+        binding_id="d" * 64,
+        assembly_name="Approved assembly",
+    )
 
     assert analyzed["status"] == "pending_review"
     assert scripted["selection_version"] == "1.2"
@@ -1133,6 +1150,8 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
     assert sequences["limit"] == 5
     assert binding["status"] == "bound"
     assert binding_detail["binding_id"] == "d" * 64
+    assert assembly["status"] == "preview"
+    assert assembly["arguments"]["binding_id"] == "d" * 64
 
 
 def test_application_exposes_status_and_read_only_provider_methods() -> None:

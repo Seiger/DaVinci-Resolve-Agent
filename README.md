@@ -47,6 +47,13 @@ approved sequence entries до exact allowlisted source-файлів: public rec
 редагує paths, а private machine-local binding зберігається лише в configured
 runtime. Import, timeline apply і render поки не виконуються.
 
+M55.2 додає read-only `preview_take_sequence_assembly`: він повторно перевіряє
+private binding, читає локальні FPS/роздільність/тривалість через PyAV і
+розраховує послідовні source/output ranges. Результат не містить paths,
+попереджає про неоднорідні формати та не викликає ResolveBridge. Перетворення
+секунд у frames конкретного timeline, import і apply залишаються наступними
+окремо gated етапами.
+
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
 graph API та deterministic preview, прив'язаний до exact applied M52 receipt.

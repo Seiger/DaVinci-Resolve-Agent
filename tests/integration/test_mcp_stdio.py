@@ -100,6 +100,7 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "list_take_sequences",
         "bind_take_sequence_sources",
         "get_take_sequence_binding",
+        "preview_take_sequence_assembly",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
         "preview_synchronized_pause_compaction",
