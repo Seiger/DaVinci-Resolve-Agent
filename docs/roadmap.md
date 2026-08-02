@@ -66,6 +66,8 @@
   path-redacted receipt без timeline mutation. M55.6 формує exact preview і
   confirmed V1/A1 assembly лише на duplicate порожнього source timeline,
   перевіряє source/target readback та відновлює interrupted apply покроково.
+  M55.7 додає structural QC exact sequence, явний перелік ще не перевірених
+  creative шарів та immutable human acceptance без timeline mutation.
 
 Milestone може бути розділений на discovery/preview/apply підетапи, якщо
 Resolve API або безпечне live-тестування цього потребують. Roadmap не є заявою

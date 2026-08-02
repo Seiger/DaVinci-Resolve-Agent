@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/take-sequence-qc-review.schema.json",
+  "title": "M55.7 take-sequence human QC review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["review_version", "review_id", "report_id", "report_sha256", "decision", "note", "timeline_modified"],
+  "properties": {
+    "review_version": {"const": "1.0"},
+    "review_id": {"$ref": "#/$defs/sha256"},
+    "report_id": {"$ref": "#/$defs/sha256"},
+    "report_sha256": {"$ref": "#/$defs/sha256"},
+    "decision": {"enum": ["approve", "reject"]},
+    "note": {"type": "string", "maxLength": 1000},
+    "timeline_modified": {"const": false}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

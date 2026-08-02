@@ -54,6 +54,12 @@ receipt; exact replay не повторює write. Обидва tools не зм�
 дублює source, вставляє bounded video/audio batches і перевіряє target та
 незмінність source. `get_take_sequence_timeline_apply` read-only перевіряє
 applied receipt проти актуального Resolve readback.
+`inspect_take_sequence_qc` read-only формує M55.7 structural report тільки
+після fresh M55.6 readback. `get_take_sequence_qc` повторно перевіряє live
+evidence. `review_take_sequence_qc` записує immutable human `approve|reject`,
+але має `timeline_modified=false`; `get_take_sequence_qc_review` повертає цей
+record. Звіт не заявляє автоматичну перевірку audio processing, subtitle
+alignment, color або visual/editorial quality.
 
 ## M53 color discovery tools
 

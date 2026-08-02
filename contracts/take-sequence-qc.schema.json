@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/take-sequence-qc.schema.json",
+  "title": "M55.7 take-sequence structural QC report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["qc_version", "report_id", "timeline_apply_receipt_id", "timeline_apply_sha256", "status", "target_timeline", "checks", "summary", "unverified_areas", "manual_review_required", "timeline_modified", "paths_redacted"],
+  "properties": {
+    "qc_version": {"const": "1.0"},
+    "report_id": {"$ref": "#/$defs/sha256"},
+    "timeline_apply_receipt_id": {"$ref": "#/$defs/sha256"},
+    "timeline_apply_sha256": {"$ref": "#/$defs/sha256"},
+    "status": {"const": "ready_for_review"},
+    "target_timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check", "status", "evidence"],
+        "properties": {
+          "check": {"enum": ["application_applied", "source_timeline_unchanged", "video_sequence_exact", "audio_sequence_exact", "video_sequence_contiguous"]},
+          "status": {"const": "pass"},
+          "evidence": {"type": "integer", "minimum": 0, "maximum": 200}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["placement_count", "video_item_count", "audio_item_count", "gap_count"],
+      "properties": {
+        "placement_count": {"type": "integer", "minimum": 1, "maximum": 100},
+        "video_item_count": {"type": "integer", "minimum": 1, "maximum": 100},
+        "audio_item_count": {"type": "integer", "minimum": 0, "maximum": 100},
+        "gap_count": {"const": 0}
+      }
+    },
+    "unverified_areas": {
+      "type": "array",
+      "prefixItems": [
+        {"const": "dialogue_audio_processing"},
+        {"const": "subtitle_content_and_alignment"},
+        {"const": "color_treatment"},
+        {"const": "visual_and_editorial_quality"}
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "manual_review_required": {"const": true},
+    "timeline_modified": {"const": false},
+    "paths_redacted": {"const": true}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

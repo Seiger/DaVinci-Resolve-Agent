@@ -137,10 +137,7 @@ class StubResolveReader:
         return {
             "timeline_id": timeline_id,
             "preset_id": preset_id,
-            "items": [
-                {"timeline_item_id": item_id}
-                for item_id in timeline_item_ids
-            ],
+            "items": [{"timeline_item_id": item_id} for item_id in timeline_item_ids],
         }
 
     def create_subtitles_from_audio(
@@ -1096,6 +1093,62 @@ class StubTakeSequenceTimelineApplyWorkflow:
         return {"status": "applied", "receipt_id": receipt_id, "arguments": kwargs}
 
 
+class StubTakeSequenceQcWorkflow:
+    def inspect(
+        self,
+        timeline_apply_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "status": "ready_for_review",
+            "receipt_id": timeline_apply_receipt_id,
+            "arguments": {"timeout_seconds": timeout_seconds},
+        }
+
+    def get(
+        self,
+        report_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "status": "ready_for_review",
+            "report_id": report_id,
+            "arguments": {"timeout_seconds": timeout_seconds},
+        }
+
+    def review(
+        self,
+        *,
+        report_id: str,
+        decision: str,
+        note: str = "",
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "decision": decision,
+            "timeline_modified": False,
+            "arguments": {
+                "report_id": report_id,
+                "note": note,
+                "timeout_seconds": timeout_seconds,
+            },
+        }
+
+    def get_review(
+        self,
+        report_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        return {
+            "decision": "approve",
+            "report_id": report_id,
+            "arguments": {"timeout_seconds": timeout_seconds},
+        }
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1133,9 +1186,8 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         take_sequence_media_import_apply_service=(
             StubTakeSequenceMediaImportApplyWorkflow()
         ),
-        take_sequence_timeline_apply_service=(
-            StubTakeSequenceTimelineApplyWorkflow()
-        ),
+        take_sequence_timeline_apply_service=(StubTakeSequenceTimelineApplyWorkflow()),
+        take_sequence_qc_service=StubTakeSequenceQcWorkflow(),
     )
     candidates: list[dict[str, str | float]] = [
         {"candidate_id": "take-a", "path": "first.mkv"},
@@ -1226,6 +1278,18 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         "7" * 64,
         timeout_seconds=17.5,
     )
+    qc = application.inspect_take_sequence_qc("7" * 64, timeout_seconds=18.5)
+    qc_detail = application.get_take_sequence_qc("6" * 64, timeout_seconds=19.5)
+    qc_review = application.review_take_sequence_qc(
+        report_id="6" * 64,
+        decision="approve",
+        note="Reviewed.",
+        timeout_seconds=20.5,
+    )
+    qc_review_detail = application.get_take_sequence_qc_review(
+        "6" * 64,
+        timeout_seconds=21.5,
+    )
 
     assert analyzed["status"] == "pending_review"
     assert scripted["selection_version"] == "1.2"
@@ -1254,6 +1318,11 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
     assert timeline_apply["arguments"]["confirm_apply"] is True
     assert timeline_apply["arguments"]["timeout_seconds"] == 16.5
     assert timeline_apply_receipt["arguments"]["timeout_seconds"] == 17.5
+    assert qc["arguments"]["timeout_seconds"] == 18.5
+    assert qc_detail["arguments"]["timeout_seconds"] == 19.5
+    assert qc_review["decision"] == "approve"
+    assert qc_review["arguments"]["timeout_seconds"] == 20.5
+    assert qc_review_detail["arguments"]["timeout_seconds"] == 21.5
 
 
 def test_application_exposes_status_and_read_only_provider_methods() -> None:
@@ -1266,17 +1335,19 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
     assert status["bridge"]["status"] == "ready"
     assert application.resolve_get_project(10) == {"name": "Test Project"}
     assert application.resolve_stop_bridge(12) == {"status": "stopping"}
-    assert application.resolve_list_timelines(20) == [
-        {"index": 1, "name": "Main"}
-    ]
+    assert application.resolve_list_timelines(20) == [{"index": 1, "name": "Main"}]
     assert application.resolve_get_timeline(30) == {"name": "Main"}
-    assert application.resolve_list_timeline_items(
-        "timeline-1",
-        35,
-    )["items"][0]["timeline_item_id"] == "item-1"
-    assert application.resolve_list_media_pool_items(37)["items"][0][
-        "asset_id"
-    ] == "asset-1"
+    assert (
+        application.resolve_list_timeline_items(
+            "timeline-1",
+            35,
+        )["items"][0]["timeline_item_id"]
+        == "item-1"
+    )
+    assert (
+        application.resolve_list_media_pool_items(37)["items"][0]["asset_id"]
+        == "asset-1"
+    )
     editing_metadata = application.resolve_get_editing_metadata(
         "timeline-1", ["asset-1"], 37.5
     )
@@ -1305,10 +1376,10 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
         20,
         30,
         35,
-            37,
-            37.5,
-            37.5,
-            37.75,
+        37,
+        37.5,
+        37.5,
+        37.75,
         38,
         40,
     ]
@@ -1482,9 +1553,7 @@ def test_application_verifies_completed_render_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     profile = tmp_path / "profile"
-    output_directory = (
-        tmp_path / "local" / "DaVinciResolveAgent" / "media" / "renders"
-    )
+    output_directory = tmp_path / "local" / "DaVinciResolveAgent" / "media" / "renders"
     output_directory.mkdir(parents=True)
     output_file = output_directory / "M11 Test.mp4"
     output_file.write_bytes(b"rendered")

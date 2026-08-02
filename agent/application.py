@@ -49,6 +49,7 @@ from agent.take_sequence_assembly import TakeSequenceAssemblyWorkflow
 from agent.take_sequence_binding import TakeSequenceBindingWorkflow
 from agent.take_sequence_media_import import TakeSequenceMediaImportWorkflow
 from agent.take_sequence_media_import_apply import TakeSequenceMediaImporter
+from agent.take_sequence_qc import TakeSequenceQcWorkflow
 from agent.take_sequence_timeline_apply import TakeSequenceTimelineApplyWorkflow
 from agent.take_sequence_timeline_mapping import TakeSequenceTimelineMappingWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
@@ -1000,6 +1001,40 @@ class TakeSequenceTimelineApplyService(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class TakeSequenceQcService(Protocol):
+    """M55.7 structural QC and immutable human-review boundary."""
+
+    def inspect(
+        self,
+        timeline_apply_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def get(
+        self,
+        report_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def review(
+        self,
+        *,
+        report_id: str,
+        decision: str,
+        note: str = "",
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def get_review(
+        self,
+        report_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -1047,6 +1082,7 @@ class AgentApplication:
         take_sequence_timeline_apply_service: (
             TakeSequenceTimelineApplyService | None
         ) = None,
+        take_sequence_qc_service: TakeSequenceQcService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -1087,6 +1123,7 @@ class AgentApplication:
             take_sequence_media_import_apply_service
         )
         self._take_sequence_timeline_apply = take_sequence_timeline_apply_service
+        self._take_sequence_qc = take_sequence_qc_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -2556,6 +2593,70 @@ class AgentApplication:
             ),
         )
 
+    def inspect_take_sequence_qc(
+        self,
+        timeline_apply_receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Build an M55.7 structural QC report after fresh live readback."""
+        return self._run_local_workflow(
+            "inspect_take_sequence_qc",
+            lambda: self._take_sequence_qc_service().inspect(
+                timeline_apply_receipt_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def get_take_sequence_qc(
+        self,
+        report_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return an M55.7 report after fresh live evidence verification."""
+        return self._run_local_workflow(
+            "get_take_sequence_qc",
+            lambda: self._take_sequence_qc_service().get(
+                report_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def review_take_sequence_qc(
+        self,
+        *,
+        report_id: str,
+        decision: str,
+        note: str = "",
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Approve or reject one M55.7 report without modifying Resolve."""
+        return self._run_local_workflow(
+            "review_take_sequence_qc",
+            lambda: self._take_sequence_qc_service().review(
+                report_id=report_id,
+                decision=decision,
+                note=note,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def get_take_sequence_qc_review(
+        self,
+        report_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return an immutable M55.7 review after live revalidation."""
+        return self._run_local_workflow(
+            "get_take_sequence_qc_review",
+            lambda: self._take_sequence_qc_service().get_review(
+                report_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
     def _take_selection_service(self) -> TakeSelectionService:
         if self._take_selection is not None:
             return self._take_selection
@@ -2643,6 +2744,13 @@ class AgentApplication:
             bindings=self._take_sequence_binding_service(),
             gateway=self._resolve,
             capabilities=capabilities,
+        )
+
+    def _take_sequence_qc_service(self) -> TakeSequenceQcService:
+        if self._take_sequence_qc is not None:
+            return self._take_sequence_qc
+        return TakeSequenceQcWorkflow(
+            self._take_sequence_timeline_apply_service()
         )
 
     def compose_webcam_picture_in_picture(

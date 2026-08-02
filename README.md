@@ -45,7 +45,8 @@ Sequence є path-redacted монтажним handoff для M55, не викли
 Проєкт почав **M55: creative v1 acceptance**. Перший slice безпечно прив'язує
 approved sequence entries до exact allowlisted source-файлів: public receipt
 редагує paths, а private machine-local binding зберігається лише в configured
-runtime. Import, timeline apply і render поки не виконуються.
+runtime. Подальші slices уже реалізують окремо підтверджені import та duplicate
+timeline apply; render залишається наступною окремою межею.
 
 M55.2 додає read-only `preview_take_sequence_assembly`: він повторно перевіряє
 private binding, читає локальні FPS/роздільність/тривалість через PyAV і
@@ -83,6 +84,14 @@ M55.6 додає `preview_take_sequence_timeline_apply` та підтвердж�
 items і незмінність source. Операції мають окремі backups/idempotency keys;
 durable receipt дозволяє продовжити interrupted apply без повторення завершених
 кроків і не містить local paths.
+
+M55.7 додає structural quality gate: `inspect_take_sequence_qc` виконує свіже
+M55.6 readback і доводить точний V1/A1 склад, спільний timeline origin,
+безперервність video та незмінність source. Звіт чесно залишає dialogue audio
+processing, subtitle alignment, color і візуально-редакторську якість поза
+автоматичним доказом та вимагає immutable `approve|reject` human review. Цей
+етап не змінює Resolve і не підміняє старими несумісними receipts перевірки
+іншої timeline.
 
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color

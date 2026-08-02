@@ -270,6 +270,10 @@ def test_workflow_audit_records_m55_media_import_as_editing(
         "preview_take_sequence_timeline_apply",
         "apply_take_sequence_timeline",
         "get_take_sequence_timeline_apply",
+        "inspect_take_sequence_qc",
+        "get_take_sequence_qc",
+        "review_take_sequence_qc",
+        "get_take_sequence_qc_review",
     ],
 )
 def test_workflow_audit_records_m55_timeline_apply_as_editing(

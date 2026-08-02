@@ -119,11 +119,24 @@ pending step. Фінальний gate вимагає exact target items та п�
 що source timeline не змінився. Caller не передає raw clipInfo, track indexes,
 asset IDs або filesystem paths.
 
+## M55.7: structural QC та human acceptance
+
+`inspect_take_sequence_qc` приймає лише applied M55.6 receipt. Перед створенням
+детермінованого path-redacted report він виконує свіже source/target readback
+через M55.6 boundary і перевіряє exact V1 order/ranges, A1 лише для sources з
+audio stream, спільний timeline origin та відсутність video gaps.
+
+Структурний pass не є заявою про готовність відео: dialogue audio processing,
+subtitle content/alignment, color treatment і visual/editorial quality явно
+внесені до `unverified_areas`. `review_take_sequence_qc` записує один immutable
+людський `approve|reject`, прив'язаний до exact report hash. Get/review повторно
+перевіряють live M55.6 evidence. Жоден M55.7 tool не редагує Resolve.
+
 ## Подальша acceptance межа
 
 Після реального людського approve та live M54.4 compose наступні M55 slices
 мають окремо реалізувати:
 
-1. повний visual/audio/subtitle/color QC;
+1. сумісне застосування/підтвердження visual/audio/subtitle/color шарів;
 2. confirmed render і output verification;
 3. повторне встановлення та acceptance на чистому Windows-комп'ютері.

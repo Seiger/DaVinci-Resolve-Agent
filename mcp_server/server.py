@@ -1138,6 +1138,58 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             timeout_seconds=timeout_seconds,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def inspect_take_sequence_qc(
+        timeline_apply_receipt_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Verify exact M55.6 structure and create an M55.7 QC report."""
+        return await asyncio.to_thread(
+            service.inspect_take_sequence_qc,
+            timeline_apply_receipt_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_take_sequence_qc(
+        report_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return an M55.7 report after fresh live timeline verification."""
+        return await asyncio.to_thread(
+            service.get_take_sequence_qc,
+            report_id,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def review_take_sequence_qc(
+        report_id: str,
+        decision: str,
+        note: str = "",
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Record an immutable human approve/reject decision without editing."""
+        return await asyncio.to_thread(
+            service.review_take_sequence_qc,
+            report_id=report_id,
+            decision=decision,
+            note=note,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_take_sequence_qc_review(
+        report_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return one immutable M55.7 human QC decision."""
+        return await asyncio.to_thread(
+            service.get_take_sequence_qc_review,
+            report_id,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,

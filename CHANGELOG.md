@@ -44,6 +44,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M55.6 exact-plan duplicate-timeline take-sequence application with empty-source
   and target-name guards, local audio-stream detection, bounded V1/A1 batches,
   canonical source/target readback and durable per-step recovery.
+- M55.7 deterministic structural sequence QC with fresh M55.6 readback, exact
+  V1/A1 alignment and contiguity checks, explicit unverified creative areas and
+  immutable human approve/reject review without timeline mutation.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

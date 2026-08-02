@@ -217,6 +217,20 @@ def take_sequence_timeline_applications_directory(
     return runtime_directory(environment) / "take-sequence-timeline-applications"
 
 
+def take_sequence_qc_reports_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable M55.7 structural sequence QC reports."""
+    return runtime_directory(environment) / "take-sequence-qc-reports"
+
+
+def take_sequence_qc_reviews_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return immutable M55.7 human sequence QC reviews."""
+    return runtime_directory(environment) / "take-sequence-qc-reviews"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

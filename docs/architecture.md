@@ -72,6 +72,14 @@ documented `DuplicateTimeline` and `AppendToTimeline` clipInfo. Sanitized
 per-step receipts allow recovery without storing source or backup paths, and
 final readback proves both the exact target items and unchanged source.
 
+M55.7 consumes only the canonical M55.6 receipt through its live-verifying
+reader. It recomputes V1/A1 counts, ranges, common origin and video contiguity,
+then stores a deterministic path-redacted report. Audio processing, subtitles,
+color and aesthetic judgement remain explicit unverified areas. A separate
+immutable human decision binds to the exact report hash and performs no
+provider write; receipts from older pipelines are not treated as evidence for
+this different timeline.
+
 ## M53 color discovery and preview
 
 ```text

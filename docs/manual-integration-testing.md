@@ -742,6 +742,22 @@ Live M55.6 лишається pending до справжнього M54 approve �
 M55.5 import і окремого підтвердження timeline write. Mechanics tests не
 створюють approval від імені користувача.
 
+### M55.7 structural sequence QC
+
+1. Використай лише canonical applied M55.6 receipt після успішного live get.
+2. Виклич `inspect_take_sequence_qc`; очікуй `ready_for_review`, exact video та
+   audio counts, `gap_count=0`, `manual_review_required=true` і redacted paths.
+3. Переконайся, що `unverified_areas` містить audio processing, subtitles,
+   color та visual/editorial quality: structural pass не підміняє ці gates.
+4. Переглянь exact target timeline у Resolve. Лише користувач може викликати
+   `review_take_sequence_qc` з `approve` або `reject`.
+5. Повтори `get_take_sequence_qc` і `get_take_sequence_qc_review`: вони мають
+   пройти fresh M55.6 readback. Зміна source/target мусить блокувати результат.
+6. Перевір, що M55.7 не створив timeline, backup, Media Pool item або render.
+
+Live M55.7 pending до canonical M55.6 apply та реального людського перегляду.
+Mechanics tests не створюють approval від імені користувача.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.
