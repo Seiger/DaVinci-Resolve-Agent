@@ -42,6 +42,14 @@ approved order and source ranges. Mixed FPS/resolution becomes an explicit
 warning. No provider is contacted; target-timeline frame mapping remains a
 future capability-gated orchestration step.
 
+M55.3 performs that first live binding through the existing provider-neutral
+`editing_metadata(timeline_id, [])` call. The Resolve adapter uses only the
+already documented `Timeline.GetSetting`, `GetTrackCount` and `GetName`
+surface; an empty asset request skips Media Pool traversal. Core converts
+inclusive source bounds at source FPS and contiguous output positions at the
+verified target FPS. The result remains preview-only and contains no imported
+asset identity, so apply is deliberately unsupported.
+
 ## M53 color discovery and preview
 
 ```text

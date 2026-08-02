@@ -667,6 +667,23 @@ Live M55.2 preview лишається pending разом із M55.1: поточ�
 ще не має людського approve. Mechanics тести не створюють approval і не
 викликають ResolveBridge.
 
+### M55.3 live target timeline frame mapping
+
+1. Запусти persistent ResolveBridge і отримай exact target `timeline_id`.
+2. Перевір `resolve_get_editing_metadata(timeline_id, [])`: очікуй live FPS,
+   resolution, track counts і `assets=[]` без backup.
+3. Виклич `preview_take_sequence_timeline_mapping` з canonical M55.1 binding,
+   тим самим assembly name і target timeline ID.
+4. Перевір, що source bounds inclusive, наступний `position_frames` дорівнює
+   попередньому `timeline_end_position_frames`, а output duration відповідає
+   останній позиції.
+5. Очікуй `live_metadata_verified=true`, `paths_redacted=true`,
+   `timeline_modified=false`, `apply_supported=false`.
+
+Live high-level M55.3 лишається pending до людського M54 approve і M55.1
+binding. Timeline-only low-level readback можна перевіряти окремо: він нічого
+не імпортує та не змінює.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

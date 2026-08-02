@@ -1876,6 +1876,40 @@ def test_editing_metadata_is_bounded_read_only_discovery(
     assert state["capabilities"]["media.metadata.read"] is True
 
 
+def test_editing_metadata_supports_timeline_only_discovery(
+    tmp_path: Path,
+) -> None:
+    resolve = FakeResolve()
+    timeline = FakeTimeline("timeline-target", "M55 Target")
+    resolve.project.timelines.append(timeline)
+    resolve.project.current_timeline = timeline
+    state = collect_bridge_state(resolve)
+    command = _command(
+        "timeline-only-metadata",
+        "get_editing_metadata",
+        {"timeline_id": "timeline-target", "asset_ids": []},
+    )
+    command["safety"]["create_backup"] = False
+
+    response = _run_command(tmp_path, resolve, state, command)
+
+    assert response["status"] == "success"
+    assert response["result"] == {
+        "timeline": {
+            "timeline_id": "timeline-target",
+            "name": "M55 Target",
+            "video_track_count": 1,
+            "audio_track_count": 1,
+            "frame_rate": 60.0,
+            "resolution_width": 1920,
+            "resolution_height": 1080,
+        },
+        "assets": [],
+    }
+    assert resolve.project_manager.export_count == 0
+    assert state["capabilities"]["media.metadata.read"] is True
+
+
 def test_workspace_snapshot_collects_read_only_sections_in_one_command(
     tmp_path: Path,
 ) -> None:

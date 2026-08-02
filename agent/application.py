@@ -47,6 +47,7 @@ from agent.take_selection import TakeSelectionWorkflow
 from agent.take_sequence import TakeSequenceWorkflow
 from agent.take_sequence_assembly import TakeSequenceAssemblyWorkflow
 from agent.take_sequence_binding import TakeSequenceBindingWorkflow
+from agent.take_sequence_timeline_mapping import TakeSequenceTimelineMappingWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
 from providers.resolve import ResolveProviderClient
 from providers.transcription import FasterWhisperTranscriber
@@ -924,6 +925,19 @@ class TakeSequenceAssemblyService(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class TakeSequenceTimelineMappingService(Protocol):
+    """M55.3 live target timeline frame-mapping preview boundary."""
+
+    def preview(
+        self,
+        *,
+        binding_id: str,
+        assembly_name: str,
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -959,6 +973,9 @@ class AgentApplication:
         take_sequence_service: TakeSequenceService | None = None,
         take_sequence_binding_service: TakeSequenceBindingService | None = None,
         take_sequence_assembly_service: TakeSequenceAssemblyService | None = None,
+        take_sequence_timeline_mapping_service: (
+            TakeSequenceTimelineMappingService | None
+        ) = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -991,6 +1008,9 @@ class AgentApplication:
         self._take_sequence = take_sequence_service
         self._take_sequence_binding = take_sequence_binding_service
         self._take_sequence_assembly = take_sequence_assembly_service
+        self._take_sequence_timeline_mapping = (
+            take_sequence_timeline_mapping_service
+        )
         self._workflow_audit = workflow_audit
 
     def status(
@@ -1068,7 +1088,7 @@ class AgentApplication:
         if not timeline_id or len(timeline_id) > 128:
             raise ValueError("timeline_id must contain 1 to 128 characters.")
         if (
-            not 1 <= len(asset_ids) <= 100
+            not 0 <= len(asset_ids) <= 100
             or len(set(asset_ids)) != len(asset_ids)
             or not all(
                 isinstance(asset_id, str)
@@ -1077,7 +1097,7 @@ class AgentApplication:
             )
         ):
             raise ValueError(
-                "asset_ids must contain 1 to 100 unique identifiers of up to "
+                "asset_ids must contain 0 to 100 unique identifiers of up to "
                 "128 characters."
             )
         return self._resolve.editing_metadata(
@@ -2339,6 +2359,25 @@ class AgentApplication:
             ),
         )
 
+    def preview_take_sequence_timeline_mapping(
+        self,
+        *,
+        binding_id: str,
+        assembly_name: str,
+        timeline_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Map one M55.2 assembly to verified live target timeline frames."""
+        return self._run_local_workflow(
+            "preview_take_sequence_timeline_mapping",
+            lambda: self._take_sequence_timeline_mapping_service().preview(
+                binding_id=binding_id,
+                assembly_name=assembly_name,
+                timeline_id=timeline_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
     def _take_selection_service(self) -> TakeSelectionService:
         if self._take_selection is not None:
             return self._take_selection
@@ -2376,6 +2415,16 @@ class AgentApplication:
             return self._take_sequence_assembly
         return TakeSequenceAssemblyWorkflow(
             self._take_sequence_binding_service(),
+        )
+
+    def _take_sequence_timeline_mapping_service(
+        self,
+    ) -> TakeSequenceTimelineMappingService:
+        if self._take_sequence_timeline_mapping is not None:
+            return self._take_sequence_timeline_mapping
+        return TakeSequenceTimelineMappingWorkflow(
+            self._take_sequence_assembly_service(),
+            self._resolve,
         )
 
     def compose_webcam_picture_in_picture(

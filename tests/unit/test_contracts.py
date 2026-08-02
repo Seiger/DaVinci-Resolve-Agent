@@ -32,6 +32,14 @@ def test_valid_command_contract() -> None:
     validate_contract("command", _valid_command())
 
 
+def test_editing_metadata_contract_allows_timeline_only_readback() -> None:
+    command = _valid_command()
+    command["action"] = "get_editing_metadata"
+    command["arguments"] = {"timeline_id": "timeline-1", "asset_ids": []}
+
+    validate_contract("command", command)
+
+
 def test_valid_subtitle_generation_receipt_contract() -> None:
     validate_contract(
         "subtitle-generation",

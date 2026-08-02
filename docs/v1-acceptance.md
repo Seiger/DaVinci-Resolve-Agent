@@ -43,12 +43,29 @@ M55.2 не читає Resolve, не імпортує media і не перево�
 конкретного timeline. Для цього потрібні окремі live target metadata,
 capability gates і reviewed duplicate-timeline semantics.
 
+## M55.3: live target timeline frame mapping
+
+`preview_take_sequence_timeline_mapping` повторно обчислює M55.2 preview і
+читає exact target timeline через existing `get_editing_metadata` із
+`asset_ids=[]`. Це backward-compatible timeline-only режим чинного
+документованого readback, а не новий Resolve API.
+
+Plan містить verified timeline identity, FPS, resolution, track counts,
+inclusive source-frame bounds і безперервні timeline-relative positions.
+Source bounds округлюються за source FPS; тривалість placement переводиться у
+target FPS. Результат path-redacted, deterministic і має
+`timeline_modified=false`, `apply_supported=false`.
+
+M55.3 ще не має Media Pool asset IDs і тому не може сформувати apply command.
+Наступний slice має окремо виконати safe import/binding preview, а confirmed
+write — лише після exact plan review, backup і duplicate-timeline gate.
+
 ## Подальша acceptance межа
 
 Після реального людського approve та live M54.4 compose наступні M55 slices
 мають окремо реалізувати:
 
-1. live target metadata та exact seconds-to-frames mapping;
+1. safe Media Pool import/identity binding preview;
 2. confirmed application лише до duplicate timeline;
 3. повний visual/audio/subtitle/color QC;
 4. confirmed render і output verification;

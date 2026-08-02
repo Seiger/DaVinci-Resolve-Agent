@@ -213,6 +213,28 @@ def test_workflow_audit_records_m55_assembly_preview_as_editing(
     assert "plan_id" not in str(completed[0])
 
 
+def test_workflow_audit_records_m55_timeline_mapping_as_editing(
+    tmp_path: Path,
+) -> None:
+    audit = WorkflowAuditLog(tmp_path, FixedClock())
+
+    audit.run(
+        "preview_take_sequence_timeline_mapping",
+        lambda: {"plan_id": "private"},
+    )
+    records = [
+        read_json_object(path)
+        for path in (tmp_path / "workflow").glob("*.json")
+    ]
+    completed = [record for record in records if record["status"] == "success"]
+
+    assert completed[0]["operation"] == (
+        "preview_take_sequence_timeline_mapping"
+    )
+    assert completed[0]["category"] == "editing"
+    assert "plan_id" not in str(completed[0])
+
+
 @pytest.mark.parametrize(
     "operation",
     [

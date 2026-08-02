@@ -30,6 +30,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M55.2 deterministic path-redacted assembly preview with revalidated bound
   sources, local video metadata, sequential source/output ranges and mixed
   FPS/resolution warnings; no Resolve or timeline write is performed.
+- M55.3 live timeline frame-mapping preview using the existing documented
+  editing-metadata readback, deterministic source-frame bounds and contiguous
+  target positions without import or timeline mutation.
+- Timeline-only `get_editing_metadata` discovery with zero requested assets,
+  retaining bounded FPS, resolution and track metadata.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

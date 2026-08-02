@@ -54,6 +54,13 @@ private binding, читає локальні FPS/роздільність/три
 секунд у frames конкретного timeline, import і apply залишаються наступними
 окремо gated етапами.
 
+M55.3 додає read-only `preview_take_sequence_timeline_mapping`. Він читає
+FPS, resolution і track counts exact live timeline через уже перевірений
+`resolve_get_editing_metadata` з порожнім списком asset IDs, після чого
+перетворює M55.2 source ranges на inclusive source-frame bounds і безперервні
+timeline positions. Import, duplicate timeline та вставка кліпів не виконуються;
+`apply_supported=false`.
+
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
 graph API та deterministic preview, прив'язаний до exact applied M52 receipt.
@@ -607,9 +614,10 @@ Media Pool і повертає `asset_id`, назву, `folder_id` та логі
 read-only, не створює backup, не читає файлові шляхи та не викликає
 `GetClipProperty`.
 
-`resolve_get_editing_metadata` приймає один `timeline_id` та 1–100 унікальних
-`asset_id`. Він повертає кількість video/audio tracks і лише потрібні для
-placement значення: FPS цільового timeline, а для asset — `Frames` та `FPS`;
+`resolve_get_editing_metadata` приймає один `timeline_id` та 0–100 унікальних
+`asset_id`. Він повертає кількість video/audio tracks, FPS і resolution
+цільового timeline; для переданих asset також повертає `Frames` та `FPS`.
+Порожній список є timeline-only readback і не обходить Media Pool;
 raw property snapshot і файлові шляхи
 не повертаються. Capability стає підтвердженою лише після успішного live
 readback.

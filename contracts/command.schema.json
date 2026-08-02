@@ -186,7 +186,7 @@
               },
               "asset_ids": {
                 "type": "array",
-                "minItems": 1,
+                "minItems": 0,
                 "maxItems": 100,
                 "uniqueItems": true,
                 "items": {

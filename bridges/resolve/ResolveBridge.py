@@ -605,7 +605,7 @@ def _validate_editing_metadata_arguments(
     asset_ids = arguments["asset_ids"]
     if (
         not isinstance(asset_ids, list)
-        or not 1 <= len(asset_ids) <= 100
+        or not 0 <= len(asset_ids) <= 100
         or len(set(asset_ids)) != len(asset_ids)
         or not all(
             isinstance(asset_id, str)
@@ -614,7 +614,7 @@ def _validate_editing_metadata_arguments(
         )
     ):
         raise ValueError(
-            "asset_ids must contain 1 to 100 unique identifiers of up to "
+            "asset_ids must contain 0 to 100 unique identifiers of up to "
             "128 characters."
         )
     return timeline_id, asset_ids
@@ -1912,7 +1912,18 @@ def _editing_metadata(
             "Timeline.GetSetting() returned invalid bounded editing metadata.",
         ) from None
 
+    timeline_metadata = {
+        "timeline_id": timeline_id,
+        "name": str(timeline.GetName()),
+        "video_track_count": tracks["video"],
+        "audio_track_count": tracks["audio"],
+        "frame_rate": timeline_frame_rate,
+        "resolution_width": timeline_width,
+        "resolution_height": timeline_height,
+    }
     requested = set(asset_ids)
+    if not requested:
+        return {"timeline": timeline_metadata, "assets": []}
     found: dict[str, Any] = {}
     get_root_folder = getattr(media_pool, "GetRootFolder", None)
     if not callable(get_root_folder):
@@ -2016,15 +2027,7 @@ def _editing_metadata(
             }
         )
     return {
-        "timeline": {
-            "timeline_id": timeline_id,
-            "name": str(timeline.GetName()),
-            "video_track_count": tracks["video"],
-            "audio_track_count": tracks["audio"],
-            "frame_rate": timeline_frame_rate,
-            "resolution_width": timeline_width,
-            "resolution_height": timeline_height,
-        },
+        "timeline": timeline_metadata,
         "assets": assets,
     }
 

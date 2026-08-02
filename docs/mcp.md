@@ -34,6 +34,11 @@ fingerprint. MCP response завжди має `paths_redacted=true`,
 video metadata та повертає deterministic sequential plan без absolute paths.
 Він не імпортує media, не визначає target timeline frames і не викликає
 ResolveBridge; `timeline_modified=false`, `apply_supported=false`.
+`preview_take_sequence_timeline_mapping` додатково приймає exact live
+`timeline_id`. Він викликає наявний documented editing-metadata readback із
+`asset_ids=[]`, звіряє timeline identity/FPS/resolution і повертає source-frame
+bounds та безперервні target positions. Tool read-only і не створює timeline,
+backup, Media Pool item або clip.
 
 ## M53 color discovery tools
 
@@ -353,7 +358,7 @@ link для одного canonical M38 receipt. Recipe не може перед�
 Lua, PowerShell, Resolve expression, MCP tool name або довільний action.
 
 `resolve_get_editing_metadata` є read-only підготовкою до точного placement.
-Він приймає canonical `timeline_id` і від 1 до 100 явних `asset_ids`, читає
+Він приймає canonical `timeline_id` і від 0 до 100 явних `asset_ids`, читає
 лише bounded `MediaPoolItem.GetClipProperty("Frames")` та
 `GetClipProperty("FPS")`, а також `Timeline.GetTrackCount("video"|"audio")`
 і named settings `timelineFrameRate`, `timelineResolutionWidth`,
@@ -364,6 +369,8 @@ timeline settings і clip-property snapshots,
 файлові шляхи, Resolve handles і будь-які write-операції не входять до
 контракту; backup не створюється. Live readback у Resolve 21 Free 21.0.3.7
 підтвердив обидва синхронні MKV assets як 60 FPS із різними frame counts.
+Порожній `asset_ids=[]` повертає лише timeline metadata й не обходить Media
+Pool; цей режим використовується M55.3 до майбутнього safe import.
 
 `resolve_set_clips_linked` приймає один timeline ID, від 2 до 16 унікальних
 TimelineItem IDs та `linked=true|false`. Інструмент працює лише з явно

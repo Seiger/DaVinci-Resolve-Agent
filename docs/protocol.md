@@ -131,7 +131,8 @@ change existing track types, or accept raw Resolve options.
 `timelineFrameRate`, `timelineResolutionWidth`, and
 `timelineResolutionHeight` in addition to bounded track counts and requested
 asset `Frames`/`FPS`. It normalizes FPS to a positive float and dimensions to
-positive integers, and never returns a raw setting snapshot.
+positive integers, and never returns a raw setting snapshot. An empty
+`asset_ids` list is a timeline-only readback and skips Media Pool traversal.
 
 ## M38 synchronized pair workflow
 

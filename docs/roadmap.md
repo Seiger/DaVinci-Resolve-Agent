@@ -57,8 +57,9 @@
 - **M55 — у роботі** — повний creative v1 end-to-end acceptance і repeatable
   install test; M55.1 додає allowlisted machine-local source binding для
   approved M54 sequence, а M55.2 — deterministic path-redacted assembly
-  preview з локальними media metadata та послідовними ranges; обидва етапи
-  працюють без import або timeline write.
+  preview з локальними media metadata та послідовними ranges. M55.3 прив'язує
+  його до exact live timeline FPS/resolution і формує frame mapping; усі три
+  етапи працюють без import або timeline write.
 
 Milestone може бути розділений на discovery/preview/apply підетапи, якщо
 Resolve API або безпечне live-тестування цього потребують. Roadmap не є заявою

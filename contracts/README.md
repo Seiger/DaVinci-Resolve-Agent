@@ -12,6 +12,10 @@ external contract.
 `take-sequence-assembly-preview.schema.json` defines the read-only M55.2 plan:
 approved source ranges, sequential output ranges and local video metadata are
 path-redacted, while timeline modification and apply remain disabled.
+`take-sequence-timeline-preview.schema.json` defines M55.3 live target
+FPS/resolution binding, inclusive source-frame bounds and contiguous timeline
+positions. It carries no Media Pool asset IDs and therefore cannot enable
+apply.
 
 `color-preset.schema.json` defines one immutable packaged M53 CDL preset with a
 fixed scope and apply policy. `color-treatment-preview.schema.json` binds that

@@ -1055,6 +1055,15 @@ class StubTakeSequenceAssemblyWorkflow:
         }
 
 
+class StubTakeSequenceTimelineMappingWorkflow:
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "status": "preview",
+            "plan_id": "f" * 64,
+            "arguments": kwargs,
+        }
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1085,6 +1094,9 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         take_sequence_service=StubTakeSequenceWorkflow(),
         take_sequence_binding_service=StubTakeSequenceBindingWorkflow(),
         take_sequence_assembly_service=StubTakeSequenceAssemblyWorkflow(),
+        take_sequence_timeline_mapping_service=(
+            StubTakeSequenceTimelineMappingWorkflow()
+        ),
     )
     candidates: list[dict[str, str | float]] = [
         {"candidate_id": "take-a", "path": "first.mkv"},
@@ -1138,6 +1150,12 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         binding_id="d" * 64,
         assembly_name="Approved assembly",
     )
+    mapping = application.preview_take_sequence_timeline_mapping(
+        binding_id="d" * 64,
+        assembly_name="Approved assembly",
+        timeline_id="timeline-1",
+        timeout_seconds=12.5,
+    )
 
     assert analyzed["status"] == "pending_review"
     assert scripted["selection_version"] == "1.2"
@@ -1152,6 +1170,9 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
     assert binding_detail["binding_id"] == "d" * 64
     assert assembly["status"] == "preview"
     assert assembly["arguments"]["binding_id"] == "d" * 64
+    assert mapping["status"] == "preview"
+    assert mapping["arguments"]["timeline_id"] == "timeline-1"
+    assert mapping["arguments"]["timeout_seconds"] == 12.5
 
 
 def test_application_exposes_status_and_read_only_provider_methods() -> None:
@@ -1180,6 +1201,11 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
     )
     assert editing_metadata["assets"][0]["frame_rate"] == 60.0
     assert editing_metadata["timeline"]["frame_rate"] == 60.0
+    timeline_only_metadata = application.resolve_get_editing_metadata(
+        "timeline-1", [], 37.5
+    )
+    assert timeline_only_metadata["assets"] == []
+    assert timeline_only_metadata["timeline"]["frame_rate"] == 60.0
     subtitle_environment = application.resolve_get_subtitle_environment(
         "timeline-1", 37.75
     )
@@ -1198,9 +1224,10 @@ def test_application_exposes_status_and_read_only_provider_methods() -> None:
         20,
         30,
         35,
-        37,
-        37.5,
-        37.75,
+            37,
+            37.5,
+            37.5,
+            37.75,
         38,
         40,
     ]
