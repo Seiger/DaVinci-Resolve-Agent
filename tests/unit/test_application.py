@@ -1073,6 +1073,18 @@ class StubTakeSequenceMediaImportWorkflow:
         }
 
 
+class StubTakeSequenceMediaImportApplyWorkflow:
+    def apply(self, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "status": "applied",
+            "receipt_id": "9" * 64,
+            "arguments": kwargs,
+        }
+
+    def get(self, receipt_id: str) -> dict[str, Any]:
+        return {"status": "applied", "receipt_id": receipt_id}
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1107,6 +1119,9 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
             StubTakeSequenceTimelineMappingWorkflow()
         ),
         take_sequence_media_import_service=StubTakeSequenceMediaImportWorkflow(),
+        take_sequence_media_import_apply_service=(
+            StubTakeSequenceMediaImportApplyWorkflow()
+        ),
     )
     candidates: list[dict[str, str | float]] = [
         {"candidate_id": "take-a", "path": "first.mkv"},
@@ -1172,6 +1187,15 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         timeline_id="timeline-1",
         timeout_seconds=13.5,
     )
+    import_result = application.apply_take_sequence_media_import(
+        binding_id="d" * 64,
+        assembly_name="Approved assembly",
+        timeline_id="timeline-1",
+        expected_plan_id="0" * 64,
+        confirm_import=True,
+        timeout_seconds=14.5,
+    )
+    import_receipt = application.get_take_sequence_media_import("9" * 64)
 
     assert analyzed["status"] == "pending_review"
     assert scripted["selection_version"] == "1.2"
@@ -1192,6 +1216,10 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
     assert import_preview["status"] == "preview"
     assert import_preview["arguments"]["timeline_id"] == "timeline-1"
     assert import_preview["arguments"]["timeout_seconds"] == 13.5
+    assert import_result["status"] == "applied"
+    assert import_result["arguments"]["confirm_import"] is True
+    assert import_result["arguments"]["timeout_seconds"] == 14.5
+    assert import_receipt["receipt_id"] == "9" * 64
 
 
 def test_application_exposes_status_and_read_only_provider_methods() -> None:

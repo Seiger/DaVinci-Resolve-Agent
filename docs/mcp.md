@@ -39,6 +39,13 @@ ResolveBridge; `timeline_modified=false`, `apply_supported=false`.
 `asset_ids=[]`, звіряє timeline identity/FPS/resolution і повертає source-frame
 bounds та безперервні target positions. Tool read-only і не створює timeline,
 backup, Media Pool item або clip.
+`preview_take_sequence_media_import` read-only звіряє unique sources із live
+Media Pool і блокує existing-name або source-name collisions.
+`apply_take_sequence_media_import` є окремим write-tool без path arguments. Він
+вимагає exact preview plan та `confirm_import=true`, повторно перевіряє binding,
+mapping і Media Pool, виконує один backup-backed import batch та повертає
+path-redacted receipt. `get_take_sequence_media_import` read-only повертає цей
+receipt; exact replay не повторює write. Обидва tools не змінюють timeline.
 
 ## M53 color discovery tools
 

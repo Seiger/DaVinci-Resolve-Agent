@@ -68,6 +68,13 @@ same-name item. Однакова назва не вважається доказ
 отримує `review_name_collision`, а `import_ready=false`. Media Pool і timeline
 не змінюються.
 
+M55.5 додає write-tool `apply_take_sequence_media_import`. Він не приймає
+paths: exact reviewed M55.4 `plan_id` повторно обчислюється, private binding
+розв'язується лише всередині процесу, а один batch import виконується тільки з
+`confirm_import=true` і штатним project backup. Після import агент звіряє
+duration/FPS та Media Pool readback і зберігає path-redacted durable receipt;
+exact replay не створює повторних items або backups. Timeline не змінюється.
+
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
 graph API та deterministic preview, прив'язаний до exact applied M52 receipt.

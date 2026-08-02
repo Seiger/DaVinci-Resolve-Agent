@@ -38,6 +38,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M55.4 conservative Media Pool import preview with source-fingerprint
   deduplication, deterministic live snapshot binding and mandatory review for
   ambiguous same-name items; no media import is executed.
+- M55.5 explicitly confirmed, backup-backed Media Pool import with exact-plan
+  validation, private path resolution, canonical metadata/readback checks and
+  durable path-redacted replay receipts; timelines remain unchanged.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

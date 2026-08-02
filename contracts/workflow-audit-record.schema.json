@@ -89,6 +89,8 @@
         "preview_take_sequence_assembly",
         "preview_take_sequence_timeline_mapping",
         "preview_take_sequence_media_import",
+        "apply_take_sequence_media_import",
+        "get_take_sequence_media_import",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports"
@@ -179,7 +181,9 @@
               "get_take_sequence_binding",
               "preview_take_sequence_assembly",
               "preview_take_sequence_timeline_mapping",
-              "preview_take_sequence_media_import"
+              "preview_take_sequence_media_import",
+              "apply_take_sequence_media_import",
+              "get_take_sequence_media_import"
             ]
           }
         }

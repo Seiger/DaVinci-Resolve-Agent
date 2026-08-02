@@ -700,6 +700,24 @@ binding. Timeline-only low-level readback можна перевіряти окр
 Live M55.4 high-level preview лишається pending до canonical M54 approve/M55.1
 binding та оновленого M55.3 bridge readback. Tool не виконує майбутній import.
 
+### M55.5 confirmed Media Pool import
+
+1. Використай лише M55.4 plan з `import_ready=true` і збережи exact `plan_id`.
+2. Зафіксуй кількість Media Pool items, timelines і project backups.
+3. Виклич `apply_take_sequence_media_import` з тими самими binding, assembly,
+   timeline, `expected_plan_id` та `confirm_import=true`.
+4. Очікуй `status=applied`, `backup_created=true`, `paths_redacted=true`,
+   `media_pool_modified=true`, `timeline_modified=false` і verified asset IDs.
+5. Перевір, що Media Pool має рівно імпортовані unique sources, а timelines не
+   змінилися. Receipt не повинен містити source або backup paths.
+6. Повтори exact apply: receipt, item count і backup count не мають змінитися.
+7. Змінений plan, collision, неповний import або недостатня source duration
+   повинні блокувати завершення без timeline write.
+
+Live M55.5 apply лишається pending до справжнього людського M54 approve,
+canonical sequence/binding і окремого підтвердження write. Не створюй approve
+від імені користувача лише заради smoke test.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

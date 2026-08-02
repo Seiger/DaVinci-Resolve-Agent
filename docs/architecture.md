@@ -57,6 +57,13 @@ Because that readback intentionally exposes no path or file fingerprint, a
 same-name match is ambiguous and forces review instead of silent reuse. The
 preview hashes the sorted Media Pool snapshot and performs no import.
 
+M55.5 keeps filesystem paths inside the private binding boundary. The
+provider-neutral importer recomputes the reviewed plan, calls the existing
+backup-backed Resolve import gateway once, verifies editing metadata and Media
+Pool readback, then persists a path-redacted receipt. Its deterministic receipt
+and provider idempotency keys make interrupted retries safe; no timeline method
+is called.
+
 ## M53 color discovery and preview
 
 ```text

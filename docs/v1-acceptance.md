@@ -78,13 +78,31 @@ source paths і не виконує import, backup або timeline write. Confir
 має бути окремим наступним slice з exact plan ID і повторною перевіркою binding
 та live snapshot.
 
+Різні fingerprints з однаковим filename також не можна безпечно зіставити з
+порядком результатів Resolve. Такі sources отримують
+`review_source_name_collision`; увесь batch лишається заблокованим.
+
+## M55.5: confirmed receipt-backed Media Pool import
+
+`apply_take_sequence_media_import` приймає тільки canonical `binding_id`,
+assembly/timeline identity, exact M55.4 `expected_plan_id` і
+`confirm_import=true`. Absolute paths не входять у MCP: workflow повторно
+обчислює M55.4/M55.3, перевіряє collision-free plan, розв'язує private binding
+всередині процесу та викликає чинний backup-backed `ImportMedia` batch.
+
+Після write агент вимагає по одному однозначному asset ID на unique source,
+звіряє source FPS/duration з approved inclusive ranges і підтверджує canonical
+Media Pool readback. Durable receipt містить лише fingerprints, display names,
+orders, asset IDs і metadata; paths та backup path редагуються. Exact replay
+читає receipt і не виконує provider write повторно. M55.5 змінює Media Pool,
+але не створює, не дублює і не редагує timeline.
+
 ## Подальша acceptance межа
 
 Після реального людського approve та live M54.4 compose наступні M55 slices
 мають окремо реалізувати:
 
-1. confirmed, receipt-backed Media Pool import;
-2. confirmed application лише до duplicate timeline;
-3. повний visual/audio/subtitle/color QC;
-4. confirmed render і output verification;
-5. повторне встановлення та acceptance на чистому Windows-комп'ютері.
+1. confirmed application лише до duplicate timeline;
+2. повний visual/audio/subtitle/color QC;
+3. confirmed render і output verification;
+4. повторне встановлення та acceptance на чистому Windows-комп'ютері.

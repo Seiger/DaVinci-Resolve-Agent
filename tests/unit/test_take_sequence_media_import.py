@@ -149,6 +149,31 @@ def test_preview_rejects_unbounded_same_name_matches() -> None:
         )
 
 
+def test_preview_blocks_different_sources_with_same_name() -> None:
+    workflow = TakeSequenceMediaImportWorkflow(
+        StubMapping(
+            [
+                _placement(1, "take.mkv", "1" * 64),
+                _placement(2, "TAKE.MKV", "2" * 64),
+            ]
+        ),
+        StubMediaPool([]),
+    )
+
+    result = workflow.preview(
+        binding_id="b" * 64,
+        assembly_name="Approved",
+        timeline_id="timeline-1",
+    )
+
+    assert result["collision_count"] == 2
+    assert result["import_ready"] is False
+    assert all(
+        source["action"] == "review_source_name_collision"
+        for source in result["sources"]
+    )
+
+
 def _placement(order: int, name: str, fingerprint: str) -> dict[str, Any]:
     return {"order": order, "display_name": name, "fingerprint": fingerprint}
 

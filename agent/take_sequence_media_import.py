@@ -85,6 +85,10 @@ class TakeSequenceMediaImportWorkflow:
             self._media_pool.media_pool_items(timeout_seconds)
         )
         sources = _unique_sources(placements)
+        source_name_counts: dict[str, int] = {}
+        for source in sources:
+            key = source["display_name"].casefold()
+            source_name_counts[key] = source_name_counts.get(key, 0) + 1
         candidates: list[dict[str, Any]] = []
         for source in sources:
             matches = [
@@ -96,18 +100,25 @@ class TakeSequenceMediaImportWorkflow:
                 raise TakeSequenceMediaImportError(
                     "Same-name Media Pool matches exceed the bounded review limit."
                 )
+            duplicate_source_name = (
+                source_name_counts[source["display_name"].casefold()] > 1
+            )
             candidates.append(
                 {
                     **source,
                     "action": (
-                        "review_name_collision" if matches else "import"
+                        "review_source_name_collision"
+                        if duplicate_source_name
+                        else "review_name_collision"
+                        if matches
+                        else "import"
                     ),
                     "name_matches": matches,
                     "name_match_count": len(matches),
                 }
             )
         collision_count = sum(
-            candidate["action"] == "review_name_collision"
+            candidate["action"] != "import"
             for candidate in candidates
         )
         payload = {

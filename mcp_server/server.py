@@ -1065,6 +1065,36 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def apply_take_sequence_media_import(
+        binding_id: str,
+        assembly_name: str,
+        timeline_id: str,
+        expected_plan_id: str,
+        confirm_import: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Import one exact reviewed M55.4 batch after explicit confirmation."""
+        return await asyncio.to_thread(
+            service.apply_take_sequence_media_import,
+            binding_id=binding_id,
+            assembly_name=assembly_name,
+            timeline_id=timeline_id,
+            expected_plan_id=expected_plan_id,
+            confirm_import=confirm_import,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_take_sequence_media_import(
+        receipt_id: str,
+    ) -> dict[str, Any]:
+        """Return one path-redacted M55.5 confirmed import receipt."""
+        return await asyncio.to_thread(
+            service.get_take_sequence_media_import,
+            receipt_id,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,
         size_percent: float = 25.0,

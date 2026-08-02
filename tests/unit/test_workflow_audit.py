@@ -235,13 +235,22 @@ def test_workflow_audit_records_m55_timeline_mapping_as_editing(
     assert "plan_id" not in str(completed[0])
 
 
-def test_workflow_audit_records_m55_media_import_preview_as_editing(
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "preview_take_sequence_media_import",
+        "apply_take_sequence_media_import",
+        "get_take_sequence_media_import",
+    ],
+)
+def test_workflow_audit_records_m55_media_import_as_editing(
     tmp_path: Path,
+    operation: str,
 ) -> None:
     audit = WorkflowAuditLog(tmp_path, FixedClock())
 
     audit.run(
-        "preview_take_sequence_media_import",
+        operation,
         lambda: {"plan_id": "private"},
     )
     records = [
@@ -250,7 +259,7 @@ def test_workflow_audit_records_m55_media_import_preview_as_editing(
     ]
     completed = [record for record in records if record["status"] == "success"]
 
-    assert completed[0]["operation"] == "preview_take_sequence_media_import"
+    assert completed[0]["operation"] == operation
     assert completed[0]["category"] == "editing"
     assert "plan_id" not in str(completed[0])
 

@@ -27,6 +27,7 @@ from agent.paths import (
     take_selection_reviews_directory,
     take_selections_directory,
     take_sequence_bindings_directory,
+    take_sequence_media_imports_directory,
     take_sequences_directory,
     transcription_models_directory,
     visual_treatments_directory,
@@ -114,6 +115,9 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     )
     assert take_sequence_bindings_directory(first_environment) == (
         first_runtime / "take-sequence-bindings"
+    )
+    assert take_sequence_media_imports_directory(first_environment) == (
+        first_runtime / "take-sequence-media-imports"
     )
     assert transcription_models_directory(first_environment) == (
         first_runtime / "models" / "faster-whisper"

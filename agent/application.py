@@ -48,6 +48,7 @@ from agent.take_sequence import TakeSequenceWorkflow
 from agent.take_sequence_assembly import TakeSequenceAssemblyWorkflow
 from agent.take_sequence_binding import TakeSequenceBindingWorkflow
 from agent.take_sequence_media_import import TakeSequenceMediaImportWorkflow
+from agent.take_sequence_media_import_apply import TakeSequenceMediaImporter
 from agent.take_sequence_timeline_mapping import TakeSequenceTimelineMappingWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
 from providers.resolve import ResolveProviderClient
@@ -952,6 +953,23 @@ class TakeSequenceMediaImportService(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class TakeSequenceMediaImportApplyService(Protocol):
+    """M55.5 confirmed receipt-backed Media Pool import boundary."""
+
+    def apply(
+        self,
+        *,
+        binding_id: str,
+        assembly_name: str,
+        timeline_id: str,
+        expected_plan_id: str,
+        confirm_import: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def get(self, receipt_id: str) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -993,6 +1011,9 @@ class AgentApplication:
         take_sequence_media_import_service: (
             TakeSequenceMediaImportService | None
         ) = None,
+        take_sequence_media_import_apply_service: (
+            TakeSequenceMediaImportApplyService | None
+        ) = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -1029,6 +1050,9 @@ class AgentApplication:
             take_sequence_timeline_mapping_service
         )
         self._take_sequence_media_import = take_sequence_media_import_service
+        self._take_sequence_media_import_apply = (
+            take_sequence_media_import_apply_service
+        )
         self._workflow_audit = workflow_audit
 
     def status(
@@ -2415,6 +2439,36 @@ class AgentApplication:
             ),
         )
 
+    def apply_take_sequence_media_import(
+        self,
+        *,
+        binding_id: str,
+        assembly_name: str,
+        timeline_id: str,
+        expected_plan_id: str,
+        confirm_import: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Import one exact reviewed M55.4 source batch and persist a receipt."""
+        return self._run_local_workflow(
+            "apply_take_sequence_media_import",
+            lambda: self._take_sequence_media_import_apply_service().apply(
+                binding_id=binding_id,
+                assembly_name=assembly_name,
+                timeline_id=timeline_id,
+                expected_plan_id=expected_plan_id,
+                confirm_import=confirm_import,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def get_take_sequence_media_import(self, receipt_id: str) -> dict[str, Any]:
+        """Return one path-redacted M55.5 confirmed import receipt."""
+        return self._run_local_workflow(
+            "get_take_sequence_media_import",
+            lambda: self._take_sequence_media_import_apply_service().get(receipt_id),
+        )
+
     def _take_selection_service(self) -> TakeSelectionService:
         if self._take_selection is not None:
             return self._take_selection
@@ -2471,6 +2525,18 @@ class AgentApplication:
             return self._take_sequence_media_import
         return TakeSequenceMediaImportWorkflow(
             self._take_sequence_timeline_mapping_service(),
+            self._resolve,
+        )
+
+    def _take_sequence_media_import_apply_service(
+        self,
+    ) -> TakeSequenceMediaImportApplyService:
+        if self._take_sequence_media_import_apply is not None:
+            return self._take_sequence_media_import_apply
+        return TakeSequenceMediaImporter(
+            self._take_sequence_media_import_service(),
+            self._take_sequence_timeline_mapping_service(),
+            self._take_sequence_binding_service(),
             self._resolve,
         )
 

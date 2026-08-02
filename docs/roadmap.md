@@ -61,7 +61,9 @@
   його до exact live timeline FPS/resolution і формує frame mapping; усі три
   етапи працюють без import або timeline write. M55.4 формує conservative
   Media Pool import preview, дедуплікує sources і блокує ambiguous same-name
-  collisions до review.
+  collisions до review. M55.5 виконує лише exact confirmed source batch import,
+  створює backup, перевіряє metadata/Media Pool readback і зберігає durable
+  path-redacted receipt без timeline mutation.
 
 Milestone може бути розділений на discovery/preview/apply підетапи, якщо
 Resolve API або безпечне live-тестування цього потребують. Roadmap не є заявою

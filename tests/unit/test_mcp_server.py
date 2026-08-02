@@ -925,6 +925,12 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             } == {"resolve_delete_clip"}
             status_annotations = annotations["video_agent_status"]
             import_annotations = annotations["resolve_import_media"]
+            sequence_import_annotations = annotations[
+                "apply_take_sequence_media_import"
+            ]
+            sequence_import_get_annotations = annotations[
+                "get_take_sequence_media_import"
+            ]
             rough_cut_annotations = annotations["create_rough_cut"]
             approval_annotations = annotations["approve_rough_cut"]
             get_plan_annotations = annotations["get_rough_cut_plan"]
@@ -1008,6 +1014,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             delete_annotations = annotations["resolve_delete_clip"]
             assert status_annotations is not None
             assert import_annotations is not None
+            assert sequence_import_annotations is not None
+            assert sequence_import_get_annotations is not None
             assert rough_cut_annotations is not None
             assert approval_annotations is not None
             assert get_plan_annotations is not None
@@ -1055,6 +1063,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert delete_annotations is not None
             assert status_annotations.read_only_hint is True
             assert import_annotations.read_only_hint is False
+            assert sequence_import_annotations.read_only_hint is False
+            assert sequence_import_get_annotations.read_only_hint is True
             assert rough_cut_annotations.read_only_hint is False
             assert approval_annotations.read_only_hint is False
             assert get_plan_annotations.read_only_hint is True
@@ -1573,6 +1583,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "preview_take_sequence_assembly",
             "preview_take_sequence_timeline_mapping",
             "preview_take_sequence_media_import",
+            "apply_take_sequence_media_import",
+            "get_take_sequence_media_import",
             "compose_webcam_picture_in_picture",
             "link_synchronized_screen_pair",
             "preview_synchronized_pause_compaction",

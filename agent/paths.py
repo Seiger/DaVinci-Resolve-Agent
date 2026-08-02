@@ -203,6 +203,13 @@ def take_sequence_bindings_directory(
     return runtime_directory(environment) / "take-sequence-bindings"
 
 
+def take_sequence_media_imports_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable M55 confirmed Media Pool import receipts."""
+    return runtime_directory(environment) / "take-sequence-media-imports"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:
