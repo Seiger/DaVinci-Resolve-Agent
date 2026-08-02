@@ -148,6 +148,20 @@ subtitle content/alignment, color treatment і visual/editorial quality явно
 non-empty MP4 у configured managed render root. Receipt редагує paths і
 дозволяє exact replay без повторного prepare/start.
 
+## M55.9: repeatable Windows installer inventory
+
+Python runtime paths і PowerShell installer тепер мають один еквівалентний
+набір durable M54/M55 directories: selections/reviews/sequences, private
+bindings, Media Pool imports, timeline applications, QC reports/reviews і
+render receipts. `install.ps1` створює їх idempotently, а `verify.ps1` вимагає
+кожен каталог і перевіряє write/delete probe.
+
+Sandboxed Windows lifecycle переносить лише tracked repository files у
+тимчасовий profile, виконує install двічі, offline verify та uninstall, перевіряє
+відновлення pre-existing bridge/template і sentinel поза installer scope. Це
+автоматизований доказ repeatability; окрема фізична Windows 11 + Resolve Free
+acceptance лишається manual matrix evidence.
+
 ## Подальша acceptance межа
 
 Після реального людського approve та live M54.4 compose наступні M55 slices
@@ -155,4 +169,4 @@ non-empty MP4 у configured managed render root. Receipt редагує paths і
 
 1. сумісне застосування/підтвердження visual/audio/subtitle/color шарів;
 2. live підтвердження M55.8 render/output на canonical sequence;
-3. повторне встановлення та acceptance на чистому Windows-комп'ютері.
+3. фізичне встановлення та acceptance на другому Windows-комп'ютері.

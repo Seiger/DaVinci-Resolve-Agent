@@ -101,6 +101,12 @@ primitives і не дозволяє caller-defined codec/settings/path. Status �
 перевіряє QC approval, live job identity та непорожній MP4 тільки в configured
 managed render root.
 
+M55.9 закриває repeatable installer inventory: `install.ps1` і `verify.ps1`
+тепер використовують той самий canonical набір M54/M55 runtime directories,
+включно з bindings, imports, timeline receipts, QC та renders. Ізольований
+Windows lifecycle у тимчасовому profile перевіряє install, повторний install,
+offline verification і uninstall без доступу до реальних media/Resolve data.
+
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
 graph API та deterministic preview, прив'язаний до exact applied M52 receipt.

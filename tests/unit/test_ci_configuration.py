@@ -89,6 +89,8 @@ def test_installer_lifecycle_script_has_bounded_sandbox() -> None:
     assert "-PreserveConfig $false" in script
     assert "-PreserveLogs $false" in script
     assert "Remove-Item -LiteralPath $sandboxRoot -Recurse -Force" in script
+    assert 'StartsWith("# pre-existing config`n")' in script
+    assert "Installer did not update its three managed storage paths." in script
 
 
 def test_installer_lifecycle_runs_offline_verification() -> None:
@@ -116,3 +118,36 @@ def test_installer_lifecycle_runs_offline_verification() -> None:
     assert "function Test-DirectoryWriteAccess" in common
     assert "[System.IO.FileMode]::CreateNew" in common
     assert "Remove-Item -LiteralPath $probePath -Force" in common
+
+
+def test_installer_and_verifier_cover_all_take_sequence_directories() -> None:
+    repository_root = Path(__file__).parents[2]
+    common = (repository_root / "installer" / "common.ps1").read_text(
+        encoding="utf-8"
+    )
+    install = (repository_root / "installer" / "install.ps1").read_text(
+        encoding="utf-8"
+    )
+    verify = (repository_root / "installer" / "verify.ps1").read_text(
+        encoding="utf-8"
+    )
+    lifecycle = (
+        repository_root / "scripts" / "test-installer-lifecycle.ps1"
+    ).read_text(encoding="utf-8")
+
+    paths = {
+        "TakeSequencesRoot": "take-sequences",
+        "TakeSequenceBindingsRoot": "take-sequence-bindings",
+        "TakeSequenceMediaImportsRoot": "take-sequence-media-imports",
+        "TakeSequenceTimelineApplicationsRoot": (
+            "take-sequence-timeline-applications"
+        ),
+        "TakeSequenceQcReportsRoot": "take-sequence-qc-reports",
+        "TakeSequenceQcReviewsRoot": "take-sequence-qc-reviews",
+        "TakeSequenceRendersRoot": "take-sequence-renders",
+    }
+    for property_name, directory_name in paths.items():
+        assert property_name in common
+        assert f"$paths.{property_name}" in install
+        assert f"$paths.{property_name}" in verify
+        assert f'"{directory_name}"' in lifecycle

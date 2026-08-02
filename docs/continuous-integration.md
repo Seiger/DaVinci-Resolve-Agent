@@ -22,6 +22,8 @@ installed state без підробленого Resolve heartbeat.
 - read-only syntax parse чотирьох installer PowerShell scripts.
 
 Ще одна Python 3.12 job виконує `scripts/test-installer-lifecycle.ps1`.
+Lifecycle також вимагає повний M54/M55 runtime directory inventory, щоб новий
+workflow не залежав від lazy directory creation після інсталяції.
 Job має явний timeout 15 хвилин.
 Скрипт копіює лише tracked files поточного checkout у нову директорію під
 Windows temporary root і спрямовує `APPDATA`, `LOCALAPPDATA` та `USERPROFILE`

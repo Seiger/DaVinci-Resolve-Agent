@@ -160,6 +160,25 @@ function Get-AgentPaths {
         TakeSelectionReviewsRoot = Join-Path (
             $runtimeRoot
         ) "take-selection-reviews"
+        TakeSequencesRoot = Join-Path $runtimeRoot "take-sequences"
+        TakeSequenceBindingsRoot = Join-Path (
+            $runtimeRoot
+        ) "take-sequence-bindings"
+        TakeSequenceMediaImportsRoot = Join-Path (
+            $runtimeRoot
+        ) "take-sequence-media-imports"
+        TakeSequenceTimelineApplicationsRoot = Join-Path (
+            $runtimeRoot
+        ) "take-sequence-timeline-applications"
+        TakeSequenceQcReportsRoot = Join-Path (
+            $runtimeRoot
+        ) "take-sequence-qc-reports"
+        TakeSequenceQcReviewsRoot = Join-Path (
+            $runtimeRoot
+        ) "take-sequence-qc-reviews"
+        TakeSequenceRendersRoot = Join-Path (
+            $runtimeRoot
+        ) "take-sequence-renders"
         TranscriptionModelsRoot = Join-Path (
             Join-Path $runtimeRoot "models"
         ) "faster-whisper"

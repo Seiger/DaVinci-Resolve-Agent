@@ -50,6 +50,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M55.8 approved-sequence render preview/start/status with exact-plan
   confirmation, deterministic collision-resistant names, allowlisted 1080p/4K
   H.264 profiles and managed non-empty MP4 output verification.
+- M55.9 synchronized Windows installer path inventory for every M54/M55 durable
+  artifact, including idempotent creation, offline write verification and
+  isolated install/rerun/uninstall lifecycle assertions.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

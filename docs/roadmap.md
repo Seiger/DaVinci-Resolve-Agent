@@ -69,7 +69,9 @@
   M55.7 додає structural QC exact sequence, явний перелік ще не перевірених
   creative шарів та immutable human acceptance без timeline mutation. M55.8
   прив'язує approved QC до exact confirmed 1080p/4K render і перевіряє live job
-  та непорожній MP4 лише у configured managed output root.
+  та непорожній MP4 лише у configured managed output root. M55.9 синхронізує
+  повний M54/M55 directory inventory між Python та Windows installer/verify і
+  перевіряє його в ізольованому install/rerun/uninstall lifecycle.
 
 Milestone може бути розділений на discovery/preview/apply підетапи, якщо
 Resolve API або безпечне live-тестування цього потребують. Roadmap не є заявою

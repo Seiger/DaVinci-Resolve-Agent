@@ -157,6 +157,21 @@ try {
     Assert-PathExists -LiteralPath $cli -PathType Leaf
     Assert-PathExists -LiteralPath $configFile -PathType Leaf
     Assert-PathExists -LiteralPath $runtimeRoot -PathType Container
+    foreach ($directoryName in @(
+        "take-selections",
+        "take-selection-reviews",
+        "take-sequences",
+        "take-sequence-bindings",
+        "take-sequence-media-imports",
+        "take-sequence-timeline-applications",
+        "take-sequence-qc-reports",
+        "take-sequence-qc-reviews",
+        "take-sequence-renders"
+    )) {
+        Assert-PathExists `
+            -LiteralPath (Join-Path $runtimeRoot $directoryName) `
+            -PathType Container
+    }
     Assert-PathExists -LiteralPath $bridgeTarget -PathType Leaf
     Assert-PathExists -LiteralPath $bridgeBackup -PathType Leaf
     Assert-PathExists -LiteralPath (
@@ -169,8 +184,24 @@ try {
     ) -PathType Leaf
 
     $preservedConfig = Get-Content -LiteralPath $configFile -Raw
-    if ($preservedConfig -ne $seededConfig) {
-        throw "Installer replaced the pre-existing local configuration."
+    if (-not $preservedConfig.StartsWith("# pre-existing config`n")) {
+        throw "Installer removed pre-existing local configuration content."
+    }
+    $expectedDataRoot = (
+        Join-Path $env:LOCALAPPDATA "DaVinciResolveAgent"
+    ).Replace("\", "/")
+    if (
+        $preservedConfig -notmatch (
+            'data_root = "' + [regex]::Escape($expectedDataRoot) + '"'
+        ) -or
+        $preservedConfig -notmatch (
+            'root = "' + [regex]::Escape($expectedDataRoot) + '/runtime"'
+        ) -or
+        $preservedConfig -notmatch (
+            'managed_root = "' + [regex]::Escape($expectedDataRoot) + '/media"'
+        )
+    ) {
+        throw "Installer did not update its three managed storage paths."
     }
 
     & $venvPython -c (

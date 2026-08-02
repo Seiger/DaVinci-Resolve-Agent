@@ -20,7 +20,8 @@
 
 Both scripts derive the repository root from their own location. They do not
 contain user- or drive-specific absolute paths. Re-running `install.ps1`
-preserves an existing local configuration file and re-applies the editable
+idempotently preserves configuration and creates the complete M54/M55 durable
+directory inventory under the selected `DataRoot`, then re-applies the editable
 package installation.
 
 The installer copies the internal script to the current user's documented
