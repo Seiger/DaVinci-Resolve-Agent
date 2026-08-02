@@ -24,6 +24,8 @@ from agent.paths import (
     subtitle_receipts_directory,
     synchronized_links_directory,
     synchronized_pairs_directory,
+    take_selection_reviews_directory,
+    take_selections_directory,
     transcription_models_directory,
     visual_treatments_directory,
 )
@@ -99,6 +101,12 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     assert color_treatment_runs_directory(first_environment) == (
         first_runtime / "color-treatment-runs"
     )
+    assert take_selections_directory(first_environment) == (
+        first_runtime / "take-selections"
+    )
+    assert take_selection_reviews_directory(first_environment) == (
+        first_runtime / "take-selection-reviews"
+    )
     assert transcription_models_directory(first_environment) == (
         first_runtime / "models" / "faster-whisper"
     )
@@ -106,26 +114,26 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
         first_runtime / "diagnostics"
     )
     assert processed_audio_directory(first_environment) == (
-        Path(r"C:\Users\first-user")
-        / "Videos"
+        Path(first_environment["LOCALAPPDATA"])
         / "DaVinciResolveAgent"
+        / "media"
         / "processed"
     )
     assert render_output_directory(first_environment) == (
-        Path(r"C:\Users\first-user")
-        / "Videos"
+        Path(first_environment["LOCALAPPDATA"])
         / "DaVinciResolveAgent"
+        / "media"
         / "renders"
     )
     assert subtitle_output_directory(first_environment) == (
-        Path(r"C:\Users\first-user")
-        / "Videos"
+        Path(first_environment["LOCALAPPDATA"])
         / "DaVinciResolveAgent"
+        / "media"
         / "subtitles"
     )
     assert audio_source_directory(first_environment) == (
-        Path(r"C:\Users\first-user")
-        / "Videos"
+        Path(first_environment["LOCALAPPDATA"])
         / "DaVinciResolveAgent"
+        / "media"
         / "audio-sources"
     )

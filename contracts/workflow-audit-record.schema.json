@@ -75,6 +75,10 @@
         "get_color_preset",
         "preview_color_treatment",
         "apply_color_treatment",
+        "analyze_take_candidates",
+        "get_take_selection",
+        "list_take_selections",
+        "review_take_selection",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports"
@@ -151,7 +155,11 @@
               "list_color_presets",
               "get_color_preset",
               "preview_color_treatment",
-              "apply_color_treatment"
+              "apply_color_treatment",
+              "analyze_take_candidates",
+              "get_take_selection",
+              "list_take_selections",
+              "review_take_selection"
             ]
           }
         }

@@ -56,7 +56,10 @@ function Find-CompatiblePython {
 function Get-AgentPaths {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$RepositoryRoot
+        [string]$RepositoryRoot,
+
+        [Parameter(Mandatory = $false)]
+        [string]$DataRoot
     )
 
     if (-not $env:APPDATA) {
@@ -70,9 +73,46 @@ function Get-AgentPaths {
     }
 
     $configRoot = Join-Path $env:APPDATA $script:ApplicationDirectoryName
-    $runtimeRoot = Join-Path (
-        Join-Path $env:LOCALAPPDATA $script:ApplicationDirectoryName
-    ) "runtime"
+    $storageManifest = Join-Path $configRoot "storage.json"
+    if ($DataRoot) {
+        $resolvedDataRoot = [System.IO.Path]::GetFullPath($DataRoot)
+    } elseif (Test-Path -LiteralPath $storageManifest -PathType Leaf) {
+        try {
+            $storage = Get-Content -LiteralPath $storageManifest -Raw |
+                ConvertFrom-Json
+        } catch {
+            throw "Storage manifest is unreadable: $storageManifest"
+        }
+        if (
+            $storage.storage_version -ne "1.0" -or
+            -not $storage.data_root
+        ) {
+            throw "Storage manifest does not match version 1.0: $storageManifest"
+        }
+        $resolvedDataRoot = [System.IO.Path]::GetFullPath(
+            [string]$storage.data_root
+        )
+    } else {
+        $resolvedDataRoot = Join-Path (
+            $env:LOCALAPPDATA
+        ) $script:ApplicationDirectoryName
+    }
+    $resolvedDataRoot = $resolvedDataRoot.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    $volumeRoot = [System.IO.Path]::GetPathRoot($resolvedDataRoot).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    if (-not [System.IO.Path]::IsPathFullyQualified($resolvedDataRoot)) {
+        throw "DataRoot must be an absolute path: $resolvedDataRoot"
+    }
+    if ($resolvedDataRoot -eq $volumeRoot) {
+        throw "DataRoot must not be a volume root: $resolvedDataRoot"
+    }
+    $runtimeRoot = Join-Path $resolvedDataRoot "runtime"
+    $mediaRoot = Join-Path $resolvedDataRoot "media"
     $resolveScriptsRoot = Join-Path $env:APPDATA (
         "Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit"
     )
@@ -95,6 +135,9 @@ function Get-AgentPaths {
         VirtualEnvironment = Join-Path $RepositoryRoot ".venv"
         ConfigRoot = $configRoot
         ConfigFile = Join-Path $configRoot "config.toml"
+        StorageManifest = $storageManifest
+        DataRoot = $resolvedDataRoot
+        MediaRoot = $mediaRoot
         RuntimeRoot = $runtimeRoot
         LogsRoot = Join-Path $runtimeRoot "logs"
         CommandsRoot = Join-Path $runtimeRoot "commands"
@@ -113,25 +156,24 @@ function Get-AgentPaths {
             $runtimeRoot
         ) "animation-template-runs"
         ColorTreatmentRunsRoot = Join-Path $runtimeRoot "color-treatment-runs"
+        TakeSelectionsRoot = Join-Path $runtimeRoot "take-selections"
+        TakeSelectionReviewsRoot = Join-Path (
+            $runtimeRoot
+        ) "take-selection-reviews"
         TranscriptionModelsRoot = Join-Path (
             Join-Path $runtimeRoot "models"
         ) "faster-whisper"
         DiagnosticsRoot = Join-Path $runtimeRoot "diagnostics"
-        ProcessedAudioRoot = Join-Path (
-            Join-Path (
-                Join-Path $env:USERPROFILE "Videos"
-            ) $script:ApplicationDirectoryName
-        ) "processed"
-        RenderOutputRoot = Join-Path (
-            Join-Path (
-                Join-Path $env:USERPROFILE "Videos"
-            ) $script:ApplicationDirectoryName
-        ) "renders"
-        SubtitleOutputRoot = Join-Path (
-            Join-Path (
-                Join-Path $env:USERPROFILE "Videos"
-            ) $script:ApplicationDirectoryName
-        ) "subtitles"
+        ProcessedAudioRoot = Join-Path $mediaRoot "processed"
+        RenderOutputRoot = Join-Path $mediaRoot "renders"
+        SubtitleOutputRoot = Join-Path $mediaRoot "subtitles"
+        AudioSourceRoot = Join-Path $mediaRoot "audio-sources"
+        LegacyRuntimeLink = Join-Path (
+            Join-Path $env:LOCALAPPDATA $script:ApplicationDirectoryName
+        ) "runtime"
+        LegacyMediaLink = Join-Path (
+            Join-Path $env:USERPROFILE "Videos"
+        ) $script:ApplicationDirectoryName
         BridgeStateFile = Join-Path (Join-Path $runtimeRoot "state") "bridge.json"
         ResolveScriptsRoot = $resolveScriptsRoot
         BridgeSource = Join-Path $RepositoryRoot "bridges\resolve\ResolveBridge.py"
@@ -151,6 +193,29 @@ function Get-AgentPaths {
             "$animationTemplateTarget.davinci-agent.sha256"
         )
     }
+}
+
+function Write-StorageManifest {
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Paths
+    )
+
+    New-Item -ItemType Directory -Path $Paths.ConfigRoot -Force | Out-Null
+    $payload = [ordered]@{
+        storage_version = "1.0"
+        data_root = $Paths.DataRoot
+    } | ConvertTo-Json
+    $temporaryPath = "$($Paths.StorageManifest).tmp"
+    [System.IO.File]::WriteAllText(
+        $temporaryPath,
+        $payload + [Environment]::NewLine,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    Move-Item `
+        -LiteralPath $temporaryPath `
+        -Destination $Paths.StorageManifest `
+        -Force
 }
 
 function Test-DirectoryWriteAccess {

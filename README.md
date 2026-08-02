@@ -20,6 +20,14 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 [документації анімаційних шаблонів](docs/animation-templates.md).
 Поточний discovery/preview M53 описано в
 [документації кольорокорекції](docs/color-correction.md).
+Поточний M54 описано в
+[документації вибору дублів](docs/take-selection.md).
+Конфігуроване винесення всіх великих даних на окремий диск описано в
+[документації storage layout](docs/storage.md).
+
+Проєкт почав **Milestone M54: аналіз і розумний вибір дублів**. Перший slice
+виконує bounded локальний technical analysis, повертає deterministic ranking і
+вимагає immutable human approve/reject review. Він не змінює Resolve timeline.
 
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
@@ -492,7 +500,7 @@ nominal gain із hard limiter. Обидва потоково обробляют
 `resolve_prepare_render_job` використовує лише allowlisted профілі
 `youtube-1080p-h264-v1` і `youtube-2160p-h264-v1`, створює `.drp` backup,
 пише output у
-`%USERPROFILE%\Videos\DaVinciResolveAgent\renders` і додає job у queue.
+`<DataRoot>\media\renders` і додає job у queue.
 1080p залишається default. Довільні dimensions, preset, codec і path не
 приймаються. Rendering залишається незапущеним.
 
@@ -503,7 +511,7 @@ nominal gain із hard limiter. Обидва потоково обробляют
 
 `resolve_verify_render_output` повторно читає live status job і локально
 перевіряє, що завершений MP4 існує в
-`%USERPROFILE%\Videos\DaVinciResolveAgent\renders` та має ненульовий розмір.
+`<DataRoot>\media\renders` та має ненульовий розмір.
 Інструмент read-only і не запускає render.
 
 `resolve_insert_clip` приймає asset/timeline IDs, source frame bounds,

@@ -76,6 +76,7 @@ def test_cli_ping_round_trip(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
     root = runtime_directory({"LOCALAPPDATA": str(tmp_path)})
     worker = threading.Thread(target=_process_one_command, args=(root,))
     worker.start()
@@ -93,6 +94,7 @@ def test_cli_timeout_has_distinct_exit_code(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
 
     assert main(["ping", "--timeout-seconds", "0.03"]) == EXIT_TIMEOUT
     assert "timed out" in capsys.readouterr().err

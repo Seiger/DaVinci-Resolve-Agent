@@ -9,6 +9,7 @@ description = "Provider-neutral local automation framework for video editors"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
+  "av>=11,<19",
   "faster-whisper==1.2.1",
   "jsonschema>=4.23,<5",
   "mcp>=2.0,<3",

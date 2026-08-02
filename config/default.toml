@@ -7,6 +7,9 @@ heartbeat_max_age_seconds = 120
 [runtime]
 root = "${LOCALAPPDATA}/DaVinciResolveAgent/runtime"
 
+[storage]
+data_root = "${LOCALAPPDATA}/DaVinciResolveAgent"
+
 [resolve]
 scripts_category = "Edit"
 poll_interval_ms = 500
@@ -16,4 +19,5 @@ allow_destructive = false
 create_backup = true
 
 [media]
+managed_root = "${LOCALAPPDATA}/DaVinciResolveAgent/media"
 allowed_roots = ["${USERPROFILE}/Videos"]

@@ -6,6 +6,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
+from agent.storage import ensure_storage_capacity
+
 MODEL_NAME = "small"
 LANGUAGE = "uk"
 MAX_SEGMENTS = 10_000
@@ -27,7 +29,7 @@ class FasterWhisperTranscriber:
         resolved = source_path.resolve()
         if not resolved.is_file():
             raise ValueError(f"Transcription source does not exist: {resolved}")
-        self._model_root.mkdir(parents=True, exist_ok=True)
+        ensure_storage_capacity(self._model_root, 2 * 1024 * 1024 * 1024)
         try:
             module = import_module("faster_whisper")
             model_class = module.WhisperModel

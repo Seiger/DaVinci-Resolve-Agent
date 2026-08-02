@@ -1,5 +1,21 @@
 # Architecture
 
+## M54 technical take-selection boundary
+
+```text
+allowlisted local candidates
+ └─ fixed bounded decoder sampling
+      ├─ technical video/audio metrics
+      ├─ deterministic ranking + limitations
+      └─ pending_review selection artifact
+           └─ immutable human approve/reject (no timeline write)
+```
+
+The analyzer is provider-neutral and local. ResolveBridge is not involved.
+Source paths are validated before decoding and omitted from durable reports.
+Scoring weights, sample limits and observations are code-owned; MCP cannot pass
+decoder arguments or executable content.
+
 ## M53 color discovery and preview
 
 ```text

@@ -12,6 +12,12 @@
 .\installer\install.ps1
 ```
 
+Для зберігання runtime, моделей і всіх generated media на окремому диску:
+
+```powershell
+.\installer\install.ps1 -DataRoot "G:\DaVinciResolveAgent"
+```
+
 Both scripts derive the repository root from their own location. They do not
 contain user- or drive-specific absolute paths. Re-running `install.ps1`
 preserves an existing local configuration file and re-applies the editable
@@ -79,22 +85,24 @@ For an M2 live request, start a command in PowerShell and invoke
 
 ```text
 %APPDATA%\DaVinciResolveAgent\config.toml
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\commands\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\processing\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\responses\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\failed\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\state\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\state\receipts\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\logs\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\logs\audit\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\logs\workflow\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\diagnostics\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\backups\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\plans\
-%LOCALAPPDATA%\DaVinciResolveAgent\runtime\audio-reports\
-%USERPROFILE%\Videos\DaVinciResolveAgent\processed\
-%USERPROFILE%\Videos\DaVinciResolveAgent\renders\
+<DataRoot>\runtime\
+<DataRoot>\runtime\commands\
+<DataRoot>\runtime\processing\
+<DataRoot>\runtime\responses\
+<DataRoot>\runtime\failed\
+<DataRoot>\runtime\state\
+<DataRoot>\runtime\state\receipts\
+<DataRoot>\runtime\logs\
+<DataRoot>\runtime\logs\audit\
+<DataRoot>\runtime\logs\workflow\
+<DataRoot>\runtime\diagnostics\
+<DataRoot>\runtime\backups\
+<DataRoot>\runtime\plans\
+<DataRoot>\runtime\audio-reports\
+<DataRoot>\media\processed\
+<DataRoot>\media\renders\
+<DataRoot>\media\audio-sources\
+<DataRoot>\media\subtitles\
 ```
 
 ## Uninstall

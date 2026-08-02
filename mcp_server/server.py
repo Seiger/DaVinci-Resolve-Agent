@@ -919,6 +919,44 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def analyze_take_candidates(
+        selection_name: str,
+        candidates: list[dict[str, str]],
+    ) -> dict[str, Any]:
+        """Analyze 2–8 local video candidates with one fixed technical policy."""
+        return await asyncio.to_thread(
+            service.analyze_take_candidates,
+            selection_name=selection_name,
+            candidates=candidates,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_take_selection(selection_id: str) -> dict[str, Any]:
+        """Return one stored M54 technical take-selection report."""
+        return await asyncio.to_thread(service.get_take_selection, selection_id)
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def list_take_selections(limit: int = 20) -> dict[str, Any]:
+        """List bounded M54 take-selection summaries."""
+        return await asyncio.to_thread(service.list_take_selections, limit)
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def review_take_selection(
+        selection_id: str,
+        decision: str,
+        selected_candidate_id: str | None = None,
+        note: str = "",
+    ) -> dict[str, Any]:
+        """Approve or reject one selection without modifying Resolve."""
+        return await asyncio.to_thread(
+            service.review_take_selection,
+            selection_id=selection_id,
+            decision=decision,
+            selected_candidate_id=selected_candidate_id,
+            note=note,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,
         size_percent: float = 25.0,

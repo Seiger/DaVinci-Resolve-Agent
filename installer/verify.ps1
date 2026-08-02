@@ -53,6 +53,8 @@ try {
 
     $requiredDirectories = @(
         $paths.ConfigRoot,
+        $paths.DataRoot,
+        $paths.MediaRoot,
         $paths.RuntimeRoot,
         $paths.CommandsRoot,
         $paths.ProcessingRoot,
@@ -68,11 +70,14 @@ try {
         $paths.VisualTreatmentsRoot,
         $paths.AnimationTemplateRunsRoot,
         $paths.ColorTreatmentRunsRoot,
+        $paths.TakeSelectionsRoot,
+        $paths.TakeSelectionReviewsRoot,
         $paths.TranscriptionModelsRoot,
         $paths.DiagnosticsRoot,
         $paths.ProcessedAudioRoot,
         $paths.RenderOutputRoot,
         $paths.SubtitleOutputRoot,
+        $paths.AudioSourceRoot,
         $paths.LogsRoot,
         $paths.ResolveScriptsRoot
     )
@@ -84,6 +89,10 @@ try {
     if (-not (Test-Path -LiteralPath $paths.ConfigFile -PathType Leaf)) {
         throw "Local configuration file not found: $($paths.ConfigFile)"
     }
+    if (-not (Test-Path -LiteralPath $paths.StorageManifest -PathType Leaf)) {
+        throw "Storage manifest not found: $($paths.StorageManifest)"
+    }
+    Write-Host "Managed data root: $($paths.DataRoot)"
     if (-not (Test-Path -LiteralPath $paths.BridgeTarget -PathType Leaf)) {
         throw "Installed Resolve bridge not found: $($paths.BridgeTarget)"
     }

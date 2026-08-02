@@ -63,7 +63,7 @@ Read-only інструменти:
 Похідний WAV створюється в:
 
 ```text
-%USERPROFILE%\Videos\DaVinciResolveAgent\processed\
+<DataRoot>\media\processed\
 ```
 
 Канонічний JSON-report зберігається в:
@@ -94,7 +94,7 @@ codec, sample rate або довільний output path від MCP-клієнт
 Файли extraction зберігаються в:
 
 ```text
-%USERPROFILE%\Videos\DaVinciResolveAgent\audio-sources\
+<DataRoot>\media\audio-sources\
 ```
 
 `apply_finalized_timeline_audio` завершує M46 і вимагає:

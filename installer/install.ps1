@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    [Parameter(Mandatory = $false)]
+    [string]$DataRoot
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -7,7 +10,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$paths = Get-AgentPaths -RepositoryRoot $repositoryRoot
+$paths = Get-AgentPaths -RepositoryRoot $repositoryRoot -DataRoot $DataRoot
 $python = Find-CompatiblePython
 $pythonArguments = @($python.Arguments)
 
@@ -84,6 +87,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 New-Item -ItemType Directory -Path $paths.ConfigRoot -Force | Out-Null
+Write-StorageManifest -Paths $paths
 foreach ($runtimeDirectory in @(
     $paths.CommandsRoot,
     $paths.ProcessingRoot,
@@ -99,15 +103,19 @@ foreach ($runtimeDirectory in @(
     $paths.VisualTreatmentsRoot,
     $paths.AnimationTemplateRunsRoot,
     $paths.ColorTreatmentRunsRoot,
+    $paths.TakeSelectionsRoot,
+    $paths.TakeSelectionReviewsRoot,
     $paths.TranscriptionModelsRoot,
     $paths.DiagnosticsRoot,
     $paths.ProcessedAudioRoot,
     $paths.RenderOutputRoot,
     $paths.SubtitleOutputRoot,
+    $paths.AudioSourceRoot,
     $paths.LogsRoot
 )) {
     New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
 }
+Write-Host "Managed data root: $($paths.DataRoot)"
 
 if (-not (Test-Path -LiteralPath $paths.ConfigFile)) {
     $defaultConfig = Join-Path $repositoryRoot "config\default.toml"
@@ -116,6 +124,14 @@ if (-not (Test-Path -LiteralPath $paths.ConfigFile)) {
 } else {
     Write-Host "Preserved existing local configuration: $($paths.ConfigFile)"
 }
+$storageConfigUpdater = Join-Path (
+    Join-Path $repositoryRoot "installer"
+) "update_storage_config.py"
+& $venvPython $storageConfigUpdater $paths.ConfigFile $paths.DataRoot
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to update local storage configuration."
+}
+Write-Host "Updated local storage configuration: $($paths.ConfigFile)"
 
 if (-not (Test-Path -LiteralPath $paths.BridgeSource -PathType Leaf)) {
     throw "Resolve bridge source not found: $($paths.BridgeSource)"

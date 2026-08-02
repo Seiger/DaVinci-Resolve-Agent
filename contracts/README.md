@@ -1,5 +1,10 @@
 # Contracts
 
+`take-selection.schema.json` defines an M54 path-redacted fixed-policy technical
+ranking that always requires review. `take-selection-review.schema.json` binds
+one immutable approve/reject decision to the exact selection SHA-256 and
+requires `timeline_modified=false`.
+
 `color-preset.schema.json` defines one immutable packaged M53 CDL preset with a
 fixed scope and apply policy. `color-treatment-preview.schema.json` binds that
 preset to an applied M52 receipt, exact live source snapshot, media-video target

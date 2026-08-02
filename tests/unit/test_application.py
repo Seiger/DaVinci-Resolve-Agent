@@ -988,6 +988,20 @@ class StubAnimationTemplateWorkflow:
         return {"status": "applied", "receipt_id": "c" * 64, "arguments": kwargs}
 
 
+class StubTakeSelectionWorkflow:
+    def analyze(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "pending_review", "arguments": kwargs}
+
+    def get(self, selection_id: str) -> dict[str, Any]:
+        return {"selection_id": selection_id, "status": "pending_review"}
+
+    def list(self, limit: int = 20) -> dict[str, Any]:
+        return {"selections": [], "count": 0, "limit": limit}
+
+    def review(self, **kwargs: Any) -> dict[str, Any]:
+        return {"timeline_modified": False, "arguments": kwargs}
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1009,6 +1023,35 @@ def _fresh_state() -> dict[str, Any]:
         "last_heartbeat": datetime.now(timezone.utc).isoformat(),
         "capabilities": {"bridge.ping": True},
     }
+
+
+def test_application_exposes_take_analysis_and_review_boundary() -> None:
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        take_selection_service=StubTakeSelectionWorkflow(),
+    )
+    candidates = [
+        {"candidate_id": "take-a", "path": "first.mkv"},
+        {"candidate_id": "take-b", "path": "second.mkv"},
+    ]
+
+    analyzed = application.analyze_take_candidates(
+        selection_name="Intro",
+        candidates=candidates,
+    )
+    detail = application.get_take_selection("a" * 64)
+    listed = application.list_take_selections(5)
+    reviewed = application.review_take_selection(
+        selection_id="a" * 64,
+        decision="approve",
+        selected_candidate_id="take-b",
+        note="Use take B.",
+    )
+
+    assert analyzed["status"] == "pending_review"
+    assert detail["selection_id"] == "a" * 64
+    assert listed["limit"] == 5
+    assert reviewed["timeline_modified"] is False
 
 
 def test_application_exposes_status_and_read_only_provider_methods() -> None:
@@ -1232,12 +1275,14 @@ def test_application_verifies_completed_render_output(
 ) -> None:
     profile = tmp_path / "profile"
     output_directory = (
-        profile / "Videos" / "DaVinciResolveAgent" / "renders"
+        tmp_path / "local" / "DaVinciResolveAgent" / "media" / "renders"
     )
     output_directory.mkdir(parents=True)
     output_file = output_directory / "M11 Test.mp4"
     output_file.write_bytes(b"rendered")
     monkeypatch.setenv("USERPROFILE", str(profile))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     resolve = StubCompletedResolveReader(output_directory)
     application = AgentApplication(resolve=resolve)
 

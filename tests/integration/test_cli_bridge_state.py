@@ -39,10 +39,10 @@ def test_cached_status_command(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
     _write_state(tmp_path)
 
     assert main(["status"]) == 0
     status_output = capsys.readouterr().out
     assert "Bridge: ready" in status_output
     assert "Project: CLI Test Project" in status_output
-

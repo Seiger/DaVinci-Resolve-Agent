@@ -43,6 +43,7 @@ from agent.rough_cut_apply import RoughCutApplier
 from agent.subtitles import SubtitleGenerator
 from agent.synchronized_link import SynchronizedScreenLinker
 from agent.synchronized_pair import SynchronizedPairAssembler
+from agent.take_selection import TakeSelectionWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
 from providers.resolve import ResolveProviderClient
 from providers.transcription import FasterWhisperTranscriber
@@ -701,7 +702,6 @@ class EditingRecipeWorkflow(Protocol):
         timeout_seconds: float = 30,
     ) -> dict[str, Any]: ...
 
-
 class VisualTreatmentService(Protocol):
     """Bounded title and static reframing workflow boundary."""
 
@@ -846,6 +846,30 @@ class ColorTreatmentService(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class TakeSelectionService(Protocol):
+    """M54 bounded technical analysis and immutable review boundary."""
+
+    def analyze(
+        self,
+        *,
+        selection_name: str,
+        candidates: list[dict[str, str]],
+    ) -> dict[str, Any]: ...
+
+    def get(self, selection_id: str) -> dict[str, Any]: ...
+
+    def list(self, limit: int = 20) -> dict[str, Any]: ...
+
+    def review(
+        self,
+        *,
+        selection_id: str,
+        decision: str,
+        selected_candidate_id: str | None,
+        note: str = "",
+    ) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -877,6 +901,7 @@ class AgentApplication:
         broll_service: BrollService | None = None,
         animation_template_service: AnimationTemplateService | None = None,
         color_treatment_service: ColorTreatmentService | None = None,
+        take_selection_service: TakeSelectionService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -905,6 +930,7 @@ class AgentApplication:
         self._broll = broll_service
         self._animation_templates = animation_template_service
         self._color_treatment = color_treatment_service
+        self._take_selection = take_selection_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -2113,6 +2139,65 @@ class AgentApplication:
         return ColorTreatmentWorkflow(
             gateway=self._resolve,
             capabilities=lambda: self.status()["bridge"].get("capabilities", {}),
+        )
+
+    def analyze_take_candidates(
+        self,
+        *,
+        selection_name: str,
+        candidates: list[dict[str, str]],
+    ) -> dict[str, Any]:
+        """Analyze bounded local candidates and create a pending review."""
+        return self._run_local_workflow(
+            "analyze_take_candidates",
+            lambda: self._take_selection_service().analyze(
+                selection_name=selection_name,
+                candidates=candidates,
+            ),
+        )
+
+    def get_take_selection(self, selection_id: str) -> dict[str, Any]:
+        """Return one stored M54 technical selection."""
+        return self._run_local_workflow(
+            "get_take_selection",
+            lambda: self._take_selection_service().get(selection_id),
+        )
+
+    def list_take_selections(self, limit: int = 20) -> dict[str, Any]:
+        """List bounded M54 technical selection summaries."""
+        return self._run_local_workflow(
+            "list_take_selections",
+            lambda: self._take_selection_service().list(limit),
+        )
+
+    def review_take_selection(
+        self,
+        *,
+        selection_id: str,
+        decision: str,
+        selected_candidate_id: str | None = None,
+        note: str = "",
+    ) -> dict[str, Any]:
+        """Approve or reject one recommendation without editing Resolve."""
+        return self._run_local_workflow(
+            "review_take_selection",
+            lambda: self._take_selection_service().review(
+                selection_id=selection_id,
+                decision=decision,
+                selected_candidate_id=selected_candidate_id,
+                note=note,
+            ),
+        )
+
+    def _take_selection_service(self) -> TakeSelectionService:
+        if self._take_selection is not None:
+            return self._take_selection
+        return TakeSelectionWorkflow(
+            media_policy=(
+                MediaPolicy.from_local_config()
+                if self._media_policy is None
+                else self._media_policy
+            )
         )
 
     def compose_webcam_picture_in_picture(

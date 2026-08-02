@@ -8,6 +8,7 @@ import json
 import math
 import os
 import re
+import shutil
 import time
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
@@ -18,6 +19,10 @@ from uuid import uuid4
 BRIDGE_VERSION = "0.1.0"
 PROTOCOL_VERSION = "1.0"
 APPLICATION_DIRECTORY_NAME = "DaVinciResolveAgent"
+STORAGE_LAYOUT_VERSION = "1.0"
+STORAGE_MANIFEST_NAME = "storage.json"
+MAX_STORAGE_MANIFEST_BYTES = 16384
+MINIMUM_OUTPUT_FREE_BYTES = 10 * 1024 * 1024 * 1024
 DEFAULT_RENDER_PROFILE = "youtube-1080p-h264-v1"
 POLL_INTERVAL_SECONDS = 0.5
 RENDER_PROFILES = {
@@ -187,12 +192,68 @@ def utc_now() -> str:
 
 
 def runtime_root(environment: Mapping[str, str] | None = None) -> Path:
-    """Resolve the shared runtime root from LOCALAPPDATA."""
+    """Resolve the shared runtime root from the installed storage manifest."""
+    return _storage_data_root(environment) / "runtime"
+
+
+def _storage_data_root(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Read the tiny provider-neutral storage bootstrap available in Resolve."""
     source = os.environ if environment is None else environment
+    app_data = source.get("APPDATA")
+    if app_data:
+        manifest = (
+            Path(app_data)
+            / APPLICATION_DIRECTORY_NAME
+            / STORAGE_MANIFEST_NAME
+        )
+        if manifest.is_file():
+            try:
+                if manifest.stat().st_size > MAX_STORAGE_MANIFEST_BYTES:
+                    raise ValueError("Storage manifest is unexpectedly large.")
+                with manifest.open("r", encoding="utf-8") as stream:
+                    payload = json.load(stream)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                raise RuntimeError(
+                    f"Storage manifest is unreadable: {error}"
+                ) from error
+            if (
+                not isinstance(payload, dict)
+                or set(payload) != {"storage_version", "data_root"}
+                or payload.get("storage_version") != STORAGE_LAYOUT_VERSION
+                or not isinstance(payload.get("data_root"), str)
+            ):
+                raise RuntimeError(
+                    "Storage manifest does not match version 1.0."
+                )
+            root = Path(payload["data_root"])
+            if not root.is_absolute() or root == Path(root.anchor):
+                raise RuntimeError(
+                    "Storage data_root must be an absolute non-volume-root path."
+                )
+            return root.resolve()
     local_app_data = source.get("LOCALAPPDATA")
     if not local_app_data:
         raise RuntimeError("LOCALAPPDATA is not set inside Resolve.")
-    return Path(local_app_data) / APPLICATION_DIRECTORY_NAME / "runtime"
+    return Path(local_app_data) / APPLICATION_DIRECTORY_NAME
+
+
+def _managed_media_root() -> Path:
+    """Return the configured root for generated media."""
+    return _storage_data_root() / "media"
+
+
+def _ensure_output_capacity(output: Path) -> None:
+    """Keep a fixed safety reserve on the configured output volume."""
+    free = shutil.disk_usage(output).free
+    if free < MINIMUM_OUTPUT_FREE_BYTES:
+        raise BridgeOperationError(
+            "OUTPUT_STORAGE_LOW",
+            "The configured output volume has less than 10 GiB free.",
+            retryable=False,
+            details={"output_directory": str(output), "free_bytes": free},
+        )
 
 
 def runtime_directories(root: Path) -> dict[str, Path]:
@@ -1117,36 +1178,16 @@ def _validate_render_profile(value: Any) -> dict[str, Any]:
 
 
 def _render_output_directory() -> Path:
-    user_profile = os.environ.get("USERPROFILE")
-    if not user_profile:
-        raise BridgeOperationError(
-            "PATH_CONFIGURATION_ERROR",
-            "The USERPROFILE environment variable is not set.",
-        )
-    output = (
-        Path(user_profile)
-        / "Videos"
-        / APPLICATION_DIRECTORY_NAME
-        / "renders"
-    ).resolve()
+    output = (_managed_media_root() / "renders").resolve()
     output.mkdir(parents=True, exist_ok=True)
+    _ensure_output_capacity(output)
     return output
 
 
 def _audio_source_output_directory() -> Path:
-    user_profile = os.environ.get("USERPROFILE")
-    if not user_profile:
-        raise BridgeOperationError(
-            "PATH_CONFIGURATION_ERROR",
-            "The USERPROFILE environment variable is not set.",
-        )
-    output = (
-        Path(user_profile)
-        / "Videos"
-        / APPLICATION_DIRECTORY_NAME
-        / "audio-sources"
-    ).resolve()
+    output = (_managed_media_root() / "audio-sources").resolve()
     output.mkdir(parents=True, exist_ok=True)
+    _ensure_output_capacity(output)
     return output
 
 

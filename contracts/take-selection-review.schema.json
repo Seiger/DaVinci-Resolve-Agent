@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/take-selection-review.schema.json",
+  "title": "M54 take-selection human review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["review_version", "review_id", "selection_id", "selection_sha256", "decision", "selected_candidate_id", "note", "timeline_modified"],
+  "properties": {
+    "review_version": {"const": "1.0"},
+    "review_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "selection_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "selection_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decision": {"enum": ["approve", "reject"]},
+    "selected_candidate_id": {"type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
+    "note": {"type": "string", "maxLength": 1000},
+    "timeline_modified": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"decision": {"const": "approve"}}},
+      "then": {"properties": {"selected_candidate_id": {"type": "string"}}}
+    },
+    {
+      "if": {"properties": {"decision": {"const": "reject"}}},
+      "then": {"properties": {"selected_candidate_id": {"type": "null"}}}
+    }
+  ]
+}

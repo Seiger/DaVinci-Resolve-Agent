@@ -2,47 +2,27 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from pathlib import Path
 
-APPLICATION_DIRECTORY_NAME = "DaVinciResolveAgent"
+from agent import storage
 
-
-class PathConfigurationError(ValueError):
-    """Raised when a required platform directory is unavailable."""
-
-
-def _environment_value(name: str, environment: Mapping[str, str] | None) -> str:
-    source = os.environ if environment is None else environment
-    value = source.get(name)
-    if not value:
-        raise PathConfigurationError(
-            f"Required Windows environment variable {name} is not set."
-        )
-    return value
+PathConfigurationError = storage.StorageConfigurationError
 
 
 def config_directory(environment: Mapping[str, str] | None = None) -> Path:
     """Return the per-user application configuration directory."""
-    return (
-        Path(_environment_value("APPDATA", environment))
-        / APPLICATION_DIRECTORY_NAME
-    )
+    return storage.config_directory(environment)
 
 
 def config_file(environment: Mapping[str, str] | None = None) -> Path:
     """Return the per-user application configuration file."""
-    return config_directory(environment) / "config.toml"
+    return storage.config_file(environment)
 
 
 def runtime_directory(environment: Mapping[str, str] | None = None) -> Path:
-    """Return the per-user local runtime directory."""
-    return (
-        Path(_environment_value("LOCALAPPDATA", environment))
-        / APPLICATION_DIRECTORY_NAME
-        / "runtime"
-    )
+    """Return the configured local runtime directory."""
+    return storage.runtime_root(environment)
 
 
 def logs_directory(environment: Mapping[str, str] | None = None) -> Path:
@@ -129,24 +109,14 @@ def processed_audio_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:
     """Return the durable per-user derived audio directory."""
-    return (
-        Path(_environment_value("USERPROFILE", environment))
-        / "Videos"
-        / APPLICATION_DIRECTORY_NAME
-        / "processed"
-    )
+    return storage.managed_media_root(environment) / "processed"
 
 
 def subtitle_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:
     """Return the durable per-user generated subtitle directory."""
-    return (
-        Path(_environment_value("USERPROFILE", environment))
-        / "Videos"
-        / APPLICATION_DIRECTORY_NAME
-        / "subtitles"
-    )
+    return storage.managed_media_root(environment) / "subtitles"
 
 
 def transcription_models_directory(
@@ -205,28 +175,32 @@ def color_treatment_runs_directory(
     return runtime_directory(environment) / "color-treatment-runs"
 
 
+def take_selections_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable M54 technical take-selection reports."""
+    return runtime_directory(environment) / "take-selections"
+
+
+def take_selection_reviews_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return immutable human review records for M54 selections."""
+    return runtime_directory(environment) / "take-selection-reviews"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:
     """Return the fixed durable output directory for prepared render jobs."""
-    return (
-        Path(_environment_value("USERPROFILE", environment))
-        / "Videos"
-        / APPLICATION_DIRECTORY_NAME
-        / "renders"
-    )
+    return storage.managed_media_root(environment) / "renders"
 
 
 def audio_source_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:
     """Return the managed directory for full-timeline PCM WAV exports."""
-    return (
-        Path(_environment_value("USERPROFILE", environment))
-        / "Videos"
-        / APPLICATION_DIRECTORY_NAME
-        / "audio-sources"
-    )
+    return storage.managed_media_root(environment) / "audio-sources"
 
 
 def finalized_audio_extractions_directory(

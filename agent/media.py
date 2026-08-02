@@ -11,6 +11,7 @@ from typing import Any
 
 from agent.configuration import load_config
 from agent.paths import runtime_directory
+from agent.storage import managed_media_root
 
 POLICY_VERSION = "1.0"
 ENVIRONMENT_PLACEHOLDER = re.compile(r"\$\{([A-Z][A-Z0-9_]*)\}")
@@ -72,11 +73,15 @@ class MediaPolicy:
             raise MediaPolicyError(
                 "media.allowed_roots must be a non-empty string array."
             )
-        return cls(
-            [
+        resolved_roots = [
                 Path(_expand_environment(root, source))
                 for root in roots
-            ],
+            ]
+        generated_root = managed_media_root(source)
+        if generated_root not in resolved_roots:
+            resolved_roots.append(generated_root)
+        return cls(
+            resolved_roots,
             runtime_root,
         )
 

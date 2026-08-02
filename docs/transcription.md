@@ -26,8 +26,8 @@ Resolve 21 Free 21.0.3.7 expose-ить документований
 Під час першого запуску модель завантажується у
 `%LOCALAPPDATA%\DaVinciResolveAgent\runtime\models\faster-whisper`. Після
 цього inference використовує локальний кеш. Артефакти SRT зберігаються у
-`%USERPROFILE%\Videos\DaVinciResolveAgent\subtitles`, а receipts — у
-`%LOCALAPPDATA%\DaVinciResolveAgent\runtime\subtitle-receipts`.
+`<DataRoot>\media\subtitles`, а receipts — у
+`<DataRoot>\runtime\subtitle-receipts`.
 
 ## Safety та replay
 

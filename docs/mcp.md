@@ -1,5 +1,13 @@
 # Налаштування MCP-клієнта
 
+## M54 take-selection tools
+
+`analyze_take_candidates` приймає 2–8 `{candidate_id, path}` об'єктів, перевіряє
+paths через локальний allowlist і створює `pending_review` technical report.
+`get_take_selection` та `list_take_selections` read-only. Окремий
+`review_take_selection` записує immutable `approve|reject`, але завжди повертає
+`timeline_modified=false`. Довільні weights, decoder flags і команди відсутні.
+
 ## M53 color discovery tools
 
 `resolve_get_color_environment` є read-only probe для media video items: він

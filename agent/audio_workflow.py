@@ -11,6 +11,7 @@ from typing import Any
 
 from agent.contracts import validate_contract
 from agent.paths import audio_reports_directory, processed_audio_directory
+from agent.storage import ensure_storage_capacity
 from providers.audio import PcmWavAudioProvider
 from transports.filesystem import atomic_write_json, read_json_object
 
@@ -88,6 +89,8 @@ class DialogueAudioWorkflow:
             existing_report = read_json_object(report_path)
             validate_contract("audio-report", existing_report)
             return existing_report
+
+        ensure_storage_capacity(self._output_root, source.stat().st_size)
 
         processing = self._provider.apply_dialogue_level_preset(
             source,

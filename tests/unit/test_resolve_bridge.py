@@ -17,6 +17,7 @@ from bridges.resolve.ResolveBridge import (
     get_resolve_application,
     process_pending_commands,
     run_persistent_bridge,
+    runtime_root,
 )
 
 
@@ -48,6 +49,36 @@ def test_bridge_atomic_write_retries_transient_permission_error(
         "status": "ready"
     }
     assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_bridge_uses_installed_storage_manifest(tmp_path: Path) -> None:
+    roaming = tmp_path / "roaming"
+    manifest = roaming / "DaVinciResolveAgent" / "storage.json"
+    manifest.parent.mkdir(parents=True)
+    data_root = tmp_path / "video-drive" / "DaVinciResolveAgent"
+    manifest.write_text(
+        json.dumps(
+            {"storage_version": "1.0", "data_root": str(data_root)}
+        ),
+        encoding="utf-8",
+    )
+
+    assert runtime_root(
+        {"APPDATA": str(roaming), "LOCALAPPDATA": str(tmp_path / "local")}
+    ) == data_root.resolve() / "runtime"
+
+
+def test_bridge_blocks_large_output_when_storage_reserve_is_low(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    usage = type("Usage", (), {"free": 9 * 1024 * 1024 * 1024})()
+    monkeypatch.setattr("shutil.disk_usage", lambda _: usage)
+
+    with pytest.raises(resolve_bridge.BridgeOperationError) as raised:
+        resolve_bridge._ensure_output_capacity(tmp_path)
+
+    assert raised.value.code == "OUTPUT_STORAGE_LOW"
 
 
 def test_bridge_atomic_write_cleans_temporary_file_after_final_denial(

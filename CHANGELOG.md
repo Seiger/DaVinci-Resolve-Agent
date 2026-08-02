@@ -9,6 +9,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- Configurable installed `DataRoot` shared by Python and ResolveBridge, verified
+  legacy-data migration, compatibility junctions and a 10 GiB output reserve.
+- Live storage migration of 1440 files (8.369 GiB) to drive G with per-file
+  SHA-256 verification, a fresh bridge heartbeat and successful CLI ping.
+- M54 fixed-policy bounded video/audio candidate analysis with deterministic
+  technical ranking, redacted source paths and explicit limitations.
+- M54 immutable approve/reject review records that never modify Resolve.
+- M54 live bounded analysis of the two allowlisted synchronized MKV sources,
+  including deterministic replay and source-path redaction; human review remains
+  pending because the files are complementary camera/screen sources, not takes.
 - M53 immutable `tutorial-clean-v1` CDL preset catalogue and schemas with no
   caller-supplied grade values, node indexes, LUT/DRX paths or expressions.
 - M53 read-only Resolve color-environment discovery and M52-bound deterministic

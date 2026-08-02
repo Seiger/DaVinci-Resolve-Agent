@@ -585,6 +585,25 @@ fade-in/fade-out. Новий item `c4050675-00c3-47f7-a987-d0b84f227c5b` на ti
 той самий receipt `b0c0835108038962748065e6cf5c04778b99f0a7f6e04feef4f1befed69f1d76`,
 item і timeline; backups лишилися `87`, timelines — `14`.
 
+### M54 technical take-selection smoke test
+
+1. Переконайся, що два candidate files входять до `media.allowed_roots`.
+2. Виклич `analyze_take_candidates` з двома унікальними IDs. Очікуй bounded
+   video/audio metrics, deterministic ranking, `pending_review` і відсутність
+   абсолютних paths у result.
+3. Повтори exact analysis: `selection_id` та report мають бути ідентичними.
+4. Виклич `review_take_selection` лише після людського перегляду. `approve`
+   вимагає candidate ID, `reject` — null; `timeline_modified` завжди false.
+5. Повтор exact review має повернути той самий record; інше рішення для того
+   самого selection блокується.
+
+Live smoke 2 серпня 2026 року на двох allowlisted synchronized MKV sources
+повернув selection
+`2548a854ab96a6b27321a979d46365dce0cf909068ba356005686fe4e4dad679`.
+Exact replay, `get`, `list`, 7/7 video samples, bounded audio і path redaction
+підтверджено. Review не записувався, бо camera/screen sources не є альтернативними
+дублями й потребують іншої creative інтерпретації.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

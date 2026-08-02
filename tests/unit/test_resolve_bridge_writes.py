@@ -2083,6 +2083,8 @@ def test_prepare_render_job_is_backed_up_and_replay_safe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     resolve = FakeResolve()
     timeline = resolve.project.media_pool.CreateEmptyTimeline("Render Timeline")
     resolve.project.SetCurrentTimeline(timeline)
@@ -2112,9 +2114,9 @@ def test_prepare_render_job_is_backed_up_and_replay_safe(
     assert first_response["result"]["height"] == 1080
     assert Path(first_response["result"]["target_directory"]) == (
         tmp_path
-        / "profile"
-        / "Videos"
+        / "local"
         / "DaVinciResolveAgent"
+        / "media"
         / "renders"
     )
     assert len(resolve.project.render_jobs) == 1
@@ -2194,6 +2196,8 @@ def test_prepare_and_start_fixed_audio_only_wav_profile(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     resolve = FakeResolve()
     timeline = resolve.project.media_pool.CreateEmptyTimeline("M46 Audio")
     resolve.project.SetCurrentTimeline(timeline)
@@ -2224,9 +2228,9 @@ def test_prepare_and_start_fixed_audio_only_wav_profile(
     assert prepared["result"]["audio_sample_rate"] == 48_000
     assert Path(prepared["result"]["target_directory"]) == (
         tmp_path
-        / "profile"
-        / "Videos"
+        / "local"
         / "DaVinciResolveAgent"
+        / "media"
         / "audio-sources"
     )
 

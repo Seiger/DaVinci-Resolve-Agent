@@ -62,7 +62,10 @@ def test_media_policy_validates_and_publishes_resolved_roots(
     )
     assert published == {
         "policy_version": "1.0",
-        "allowed_roots": [str(media_root.resolve())],
+        "allowed_roots": [
+            str(media_root.resolve()),
+            str((tmp_path / "local" / "DaVinciResolveAgent" / "media").resolve()),
+        ],
     }
 
 

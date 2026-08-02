@@ -22,7 +22,10 @@ param(
     [bool]$PreserveRenderOutput = $true,
 
     [Parameter(Mandatory = $false)]
-    [bool]$PreserveSubtitleOutput = $true
+    [bool]$PreserveSubtitleOutput = $true,
+
+    [Parameter(Mandatory = $false)]
+    [bool]$PreserveAudioSources = $true
 )
 
 Set-StrictMode -Version Latest
@@ -226,6 +229,40 @@ if (
     Write-Host "Removed generated subtitles: $($paths.SubtitleOutputRoot)"
 } elseif ($PreserveSubtitleOutput) {
     Write-Host "Preserved generated subtitles: $($paths.SubtitleOutputRoot)"
+}
+
+if (
+    -not $PreserveAudioSources -and
+    (Test-Path -LiteralPath $paths.AudioSourceRoot)
+) {
+    Remove-Item -LiteralPath $paths.AudioSourceRoot -Recurse -Force
+    Write-Host "Removed generated audio sources: $($paths.AudioSourceRoot)"
+} elseif ($PreserveAudioSources) {
+    Write-Host "Preserved generated audio sources: $($paths.AudioSourceRoot)"
+}
+
+foreach ($legacyLink in @(
+    [PSCustomObject]@{
+        Path = $paths.LegacyRuntimeLink
+        Target = $paths.RuntimeRoot
+    },
+    [PSCustomObject]@{
+        Path = $paths.LegacyMediaLink
+        Target = $paths.MediaRoot
+    }
+)) {
+    if (-not (Test-Path -LiteralPath $legacyLink.Path)) {
+        continue
+    }
+    $item = Get-Item -LiteralPath $legacyLink.Path -Force
+    if (
+        $item.LinkType -eq "Junction" -and
+        [System.IO.Path]::GetFullPath([string]$item.Target) -eq
+            [System.IO.Path]::GetFullPath([string]$legacyLink.Target)
+    ) {
+        Remove-Item -LiteralPath $legacyLink.Path -Force
+        Write-Host "Removed managed compatibility junction: $($legacyLink.Path)"
+    }
 }
 
 Write-Host "Uninstallation completed. Repository, media, and Resolve projects were not removed."
