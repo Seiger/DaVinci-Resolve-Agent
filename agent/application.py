@@ -50,6 +50,7 @@ from agent.take_sequence_binding import TakeSequenceBindingWorkflow
 from agent.take_sequence_media_import import TakeSequenceMediaImportWorkflow
 from agent.take_sequence_media_import_apply import TakeSequenceMediaImporter
 from agent.take_sequence_qc import TakeSequenceQcWorkflow
+from agent.take_sequence_render import TakeSequenceRenderWorkflow
 from agent.take_sequence_timeline_apply import TakeSequenceTimelineApplyWorkflow
 from agent.take_sequence_timeline_mapping import TakeSequenceTimelineMappingWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
@@ -1035,6 +1036,37 @@ class TakeSequenceQcService(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class TakeSequenceRenderService(Protocol):
+    """M55.8 approved render preview/start/status boundary."""
+
+    def preview(
+        self,
+        *,
+        qc_report_id: str,
+        custom_name: str,
+        profile: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def start(
+        self,
+        *,
+        qc_report_id: str,
+        custom_name: str,
+        profile: str,
+        expected_plan_id: str,
+        confirm_render: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def status(
+        self,
+        receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -1083,6 +1115,7 @@ class AgentApplication:
             TakeSequenceTimelineApplyService | None
         ) = None,
         take_sequence_qc_service: TakeSequenceQcService | None = None,
+        take_sequence_render_service: TakeSequenceRenderService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -1124,6 +1157,7 @@ class AgentApplication:
         )
         self._take_sequence_timeline_apply = take_sequence_timeline_apply_service
         self._take_sequence_qc = take_sequence_qc_service
+        self._take_sequence_render = take_sequence_render_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -2657,6 +2691,63 @@ class AgentApplication:
             ),
         )
 
+    def preview_take_sequence_render(
+        self,
+        *,
+        qc_report_id: str,
+        custom_name: str,
+        profile: str = DEFAULT_RENDER_PROFILE,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Preview an M55.8 render for one human-approved QC report."""
+        return self._run_local_workflow(
+            "preview_take_sequence_render",
+            lambda: self._take_sequence_render_service().preview(
+                qc_report_id=qc_report_id,
+                custom_name=custom_name,
+                profile=profile,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def start_take_sequence_render(
+        self,
+        *,
+        qc_report_id: str,
+        custom_name: str,
+        expected_plan_id: str,
+        confirm_render: bool,
+        profile: str = DEFAULT_RENDER_PROFILE,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Prepare and start one exact M55.8 managed render."""
+        return self._run_local_workflow(
+            "start_take_sequence_render",
+            lambda: self._take_sequence_render_service().start(
+                qc_report_id=qc_report_id,
+                custom_name=custom_name,
+                profile=profile,
+                expected_plan_id=expected_plan_id,
+                confirm_render=confirm_render,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def get_take_sequence_render_status(
+        self,
+        receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Verify an M55.8 live job and its managed MP4 output."""
+        return self._run_local_workflow(
+            "get_take_sequence_render_status",
+            lambda: self._take_sequence_render_service().status(
+                receipt_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
     def _take_selection_service(self) -> TakeSelectionService:
         if self._take_selection is not None:
             return self._take_selection
@@ -2751,6 +2842,20 @@ class AgentApplication:
             return self._take_sequence_qc
         return TakeSequenceQcWorkflow(
             self._take_sequence_timeline_apply_service()
+        )
+
+    def _take_sequence_render_service(self) -> TakeSequenceRenderService:
+        if self._take_sequence_render is not None:
+            return self._take_sequence_render
+
+        def capabilities() -> dict[str, Any]:
+            discovered = self.status()["bridge"].get("capabilities", {})
+            return discovered if isinstance(discovered, dict) else {}
+
+        return TakeSequenceRenderWorkflow(
+            qc=self._take_sequence_qc_service(),
+            gateway=self._resolve,
+            capabilities=capabilities,
         )
 
     def compose_webcam_picture_in_picture(

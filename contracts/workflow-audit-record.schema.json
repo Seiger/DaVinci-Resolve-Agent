@@ -98,6 +98,9 @@
         "get_take_sequence_qc",
         "review_take_sequence_qc",
         "get_take_sequence_qc_review",
+        "preview_take_sequence_render",
+        "start_take_sequence_render",
+        "get_take_sequence_render_status",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports"
@@ -236,7 +239,10 @@
               "get_finalized_timeline_render_status",
               "preview_baseline_edit",
               "start_baseline_render",
-              "get_baseline_render_status"
+              "get_baseline_render_status",
+              "preview_take_sequence_render",
+              "start_take_sequence_render",
+              "get_take_sequence_render_status"
             ]
           }
         }

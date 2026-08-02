@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/take-sequence-render-result.schema.json",
+  "title": "M55.8 approved take-sequence render result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["render_version", "receipt_id", "status", "inputs", "plan", "job", "operations", "paths_redacted"],
+  "properties": {
+    "render_version": {"const": "1.0"},
+    "receipt_id": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["in_progress", "started"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["qc_report_id", "expected_plan_id"],
+      "properties": {
+        "qc_report_id": {"$ref": "#/$defs/sha256"},
+        "expected_plan_id": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "plan": {"type": "object"},
+    "job": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["job_id", "custom_name", "profile", "resolve_preset", "output_filename", "width", "height"],
+      "properties": {
+        "job_id": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$"},
+        "custom_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "profile": {"enum": ["youtube-1080p-h264-v1", "youtube-2160p-h264-v1"]},
+        "resolve_preset": {"type": "string", "minLength": 1, "maxLength": 128},
+        "output_filename": {"type": "string", "minLength": 5, "maxLength": 132},
+        "width": {"enum": [1920, 3840]},
+        "height": {"enum": [1080, 2160]}
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {"$ref": "#/$defs/operation", "properties": {"operation": {"const": "prepare_render_job"}}},
+        {"$ref": "#/$defs/operation", "properties": {"operation": {"const": "start_render_job"}}}
+      ]
+    },
+    "paths_redacted": {"const": true}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "status", "result"],
+      "properties": {
+        "operation": {"type": "string"},
+        "status": {"enum": ["pending", "ready", "applied"]},
+        "result": {"type": ["object", "null"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "started"}}},
+      "then": {
+        "properties": {
+          "job": {"type": "object"},
+          "operations": {"items": {"properties": {"status": {"const": "applied"}, "result": {"type": "object"}}}}
+        }
+      }
+    }
+  ]
+}

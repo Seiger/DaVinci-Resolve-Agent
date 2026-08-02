@@ -60,6 +60,12 @@ evidence. `review_take_sequence_qc` записує immutable human `approve|reje
 але має `timeline_modified=false`; `get_take_sequence_qc_review` повертає цей
 record. Звіт не заявляє автоматичну перевірку audio processing, subtitle
 alignment, color або visual/editorial quality.
+`preview_take_sequence_render` вимагає approved M55.7 report, safe output stem
+і один із `youtube-1080p-h264-v1|youtube-2160p-h264-v1`. Він read-only і не
+повертає output root. `start_take_sequence_render` додатково вимагає exact
+`expected_plan_id` та `confirm_render=true`; format/codec/preset/path не є
+аргументами MCP. `get_take_sequence_render_status` повторно перевіряє QC
+evidence, live job binding і повертає completion та managed MP4 validation.
 
 ## M53 color discovery tools
 
@@ -98,6 +104,8 @@ Read-only інструменти:
 - `preview_baseline_edit`.
 - `get_baseline_render_status`.
 - `preview_broll_plan`.
+- `preview_take_sequence_render`.
+- `get_take_sequence_render_status`.
 
 Write-інструменти M4:
 
@@ -122,6 +130,7 @@ Write-інструменти M4:
 - `apply_visual_treatment`.
 - `start_baseline_render`.
 - `apply_broll_plan`.
+- `start_take_sequence_render`.
 
 Локальні rough-cut інструменти:
 

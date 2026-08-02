@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/take-sequence-render-preview.schema.json",
+  "title": "M55.8 approved take-sequence render preview",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["render_plan_version", "plan_id", "status", "inputs", "qc_report_sha256", "qc_review_sha256", "target_timeline", "render", "required_capabilities", "unsupported_capabilities", "blockers", "output_root_configured", "paths_redacted", "timeline_modified", "apply_supported"],
+  "properties": {
+    "render_plan_version": {"const": "1.0"},
+    "plan_id": {"$ref": "#/$defs/sha256"},
+    "status": {"const": "preview"},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["qc_report_id", "custom_name", "profile"],
+      "properties": {
+        "qc_report_id": {"$ref": "#/$defs/sha256"},
+        "custom_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "profile": {"$ref": "#/$defs/profile"}
+      }
+    },
+    "qc_report_sha256": {"$ref": "#/$defs/sha256"},
+    "qc_review_sha256": {"$ref": "#/$defs/sha256"},
+    "target_timeline": {"$ref": "#/$defs/timeline"},
+    "render": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["custom_name", "profile", "width", "height", "format", "codec", "output_filename"],
+      "properties": {
+        "custom_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "profile": {"$ref": "#/$defs/profile"},
+        "width": {"enum": [1920, 3840]},
+        "height": {"enum": [1080, 2160]},
+        "format": {"const": "MP4"},
+        "codec": {"const": "H264"},
+        "output_filename": {"type": "string", "minLength": 5, "maxLength": 132, "pattern": "^[^/\\\\]+\\.mp4$"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"profile": {"const": "youtube-1080p-h264-v1"}}},
+          "then": {"properties": {"width": {"const": 1920}, "height": {"const": 1080}}}
+        },
+        {
+          "if": {"properties": {"profile": {"const": "youtube-2160p-h264-v1"}}},
+          "then": {"properties": {"width": {"const": 3840}, "height": {"const": 2160}}}
+        }
+      ]
+    },
+    "required_capabilities": {
+      "type": "array",
+      "prefixItems": [{"const": "render.configure"}, {"const": "render.discovery"}, {"const": "render.start"}],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "unsupported_capabilities": {"type": "array", "uniqueItems": true, "maxItems": 3, "items": {"enum": ["render.configure", "render.discovery", "render.start"]}},
+    "blockers": {"type": "array", "uniqueItems": true, "maxItems": 1, "items": {"const": "managed_output_already_exists"}},
+    "output_root_configured": {"const": true},
+    "paths_redacted": {"const": true},
+    "timeline_modified": {"const": false},
+    "apply_supported": {"type": "boolean"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "profile": {"enum": ["youtube-1080p-h264-v1", "youtube-2160p-h264-v1"]},
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    }
+  }
+}

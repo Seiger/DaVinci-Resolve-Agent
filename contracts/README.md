@@ -175,3 +175,8 @@ report bound to one freshly verified M55.6 receipt. It proves exact V1/A1
 alignment and contiguity while explicitly listing creative areas it cannot
 verify. `take-sequence-qc-review.schema.json` stores one immutable human
 approve/reject decision; neither contract modifies Resolve or exposes paths.
+
+The three `take-sequence-render-*.schema.json` contracts define the M55.8
+approved render preview, durable prepare/start receipt and dynamic verified
+status. They allow only packaged 1080p/4K H.264 profiles and never accept a
+caller-supplied output path, codec, Resolve preset or arbitrary settings.

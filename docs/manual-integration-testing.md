@@ -758,6 +758,26 @@ M55.5 import і окремого підтвердження timeline write. Mech
 Live M55.7 pending до canonical M55.6 apply та реального людського перегляду.
 Mechanics tests не створюють approval від імені користувача.
 
+### M55.8 approved managed render
+
+1. Використай лише canonical M55.7 report з реальним immutable `approve`.
+2. Виклич `preview_take_sequence_render` із safe `custom_name` та потрібним
+   allowlisted 1080p або 2160p profile. Очікуй `apply_supported=true`, exact
+   target timeline, deterministic suffixed filename і відсутність paths.
+3. Переконайся, що preview не змінив backup/job/file counts.
+4. Лише після окремого підтвердження виклич `start_take_sequence_render` з тим
+   самим input, exact `expected_plan_id` та `confirm_render=true`.
+5. Очікуй один prepared job та один start. Exact replay не повинен створювати
+   новий backup, job або start.
+6. Після завершення виклич `get_take_sequence_render_status`. Очікуй
+   `status=complete`, live `JobStatus=Complete`, 100% і
+   `output.validation.passed=true` для непорожнього MP4 у configured render root.
+7. Reject review, змінена timeline/QC evidence, capability drift, existing
+   output або live job identity drift повинні блокувати render/status.
+
+Live M55.8 pending до canonical M55.6 → M55.7 human approve. Не створюй approve
+від імені користувача заради smoke test і не рендер без окремого підтвердження.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

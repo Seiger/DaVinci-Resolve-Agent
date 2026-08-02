@@ -30,6 +30,7 @@ from agent.paths import (
     take_sequence_media_imports_directory,
     take_sequence_qc_reports_directory,
     take_sequence_qc_reviews_directory,
+    take_sequence_renders_directory,
     take_sequence_timeline_applications_directory,
     take_sequences_directory,
     transcription_models_directory,
@@ -130,6 +131,9 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     )
     assert take_sequence_qc_reviews_directory(first_environment) == (
         first_runtime / "take-sequence-qc-reviews"
+    )
+    assert take_sequence_renders_directory(first_environment) == (
+        first_runtime / "take-sequence-renders"
     )
     assert transcription_models_directory(first_environment) == (
         first_runtime / "models" / "faster-whisper"

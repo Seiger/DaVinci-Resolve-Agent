@@ -64,3 +64,8 @@ Resolve 21.0.3.7; CLI `ping` повернув `pong`. Активний bridge st
 M55 source bindings зберігають public redacted receipt і сусідній private JSON
 з allowlisted absolute paths у `<DataRoot>/runtime/take-sequence-bindings`.
 Private artifact є machine-local, не комітиться і не повертається через MCP.
+
+M55.8 durable receipts лежать у `<DataRoot>/runtime/take-sequence-renders` і не
+містять configured absolute path. Великі MP4 пишуться лише у
+`<DataRoot>/media/renders`; dynamic status повертає цей перевірений шлях для
+готового файла та зберігає той самий 10 GiB reserve gate ResolveBridge.

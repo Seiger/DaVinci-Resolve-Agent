@@ -231,6 +231,13 @@ def take_sequence_qc_reviews_directory(
     return runtime_directory(environment) / "take-sequence-qc-reviews"
 
 
+def take_sequence_renders_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable M55.8 take-sequence render receipts."""
+    return runtime_directory(environment) / "take-sequence-renders"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

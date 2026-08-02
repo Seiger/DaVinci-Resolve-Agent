@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/take-sequence-render-status.schema.json",
+  "title": "M55.8 approved take-sequence render status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["receipt_id", "status", "target_timeline", "job", "live", "output"],
+  "properties": {
+    "receipt_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["in_progress", "complete"]},
+    "target_timeline": {"type": "object"},
+    "job": {"type": "object"},
+    "live": {"type": "object"},
+    "output": {"type": "object"}
+  }
+}

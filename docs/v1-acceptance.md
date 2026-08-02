@@ -132,11 +132,27 @@ subtitle content/alignment, color treatment і visual/editorial quality явно
 людський `approve|reject`, прив'язаний до exact report hash. Get/review повторно
 перевіряють live M55.6 evidence. Жоден M55.7 tool не редагує Resolve.
 
+## M55.8: approved managed render
+
+`preview_take_sequence_render` приймає тільки report з immutable людським
+`approve`. Він повторно перевіряє M55.7/M55.6 live evidence, allowlisted
+1080p/2160p profile, capabilities `render.configure/discovery/start` і
+відсутність collision для deterministic suffixed output name. Preview не
+створює backup, job або файл і не повертає configured output root.
+
+`start_take_sequence_render` вимагає exact `expected_plan_id` та
+`confirm_render=true`. Durable workflow виконує наявні backup-backed
+`prepare_render_job`, live Ready preflight та `start_render_job`; caller не
+передає format, codec, Resolve preset, output path або довільні settings.
+`get_take_sequence_render_status` знову перевіряє acceptance, exact live job і
+non-empty MP4 у configured managed render root. Receipt редагує paths і
+дозволяє exact replay без повторного prepare/start.
+
 ## Подальша acceptance межа
 
 Після реального людського approve та live M54.4 compose наступні M55 slices
 мають окремо реалізувати:
 
 1. сумісне застосування/підтвердження visual/audio/subtitle/color шарів;
-2. confirmed render і output verification;
+2. live підтвердження M55.8 render/output на canonical sequence;
 3. повторне встановлення та acceptance на чистому Windows-комп'ютері.

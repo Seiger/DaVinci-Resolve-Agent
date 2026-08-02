@@ -1149,6 +1149,17 @@ class StubTakeSequenceQcWorkflow:
         }
 
 
+class StubTakeSequenceRenderWorkflow:
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "preview", "plan_id": "5" * 64, "arguments": kwargs}
+
+    def start(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "started", "receipt_id": "4" * 64, "arguments": kwargs}
+
+    def status(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "complete", "receipt_id": receipt_id, "arguments": kwargs}
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1188,6 +1199,7 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         ),
         take_sequence_timeline_apply_service=(StubTakeSequenceTimelineApplyWorkflow()),
         take_sequence_qc_service=StubTakeSequenceQcWorkflow(),
+        take_sequence_render_service=StubTakeSequenceRenderWorkflow(),
     )
     candidates: list[dict[str, str | float]] = [
         {"candidate_id": "take-a", "path": "first.mkv"},
@@ -1290,6 +1302,24 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         "6" * 64,
         timeout_seconds=21.5,
     )
+    render_preview = application.preview_take_sequence_render(
+        qc_report_id="6" * 64,
+        custom_name="Approved sequence",
+        profile="youtube-2160p-h264-v1",
+        timeout_seconds=22.5,
+    )
+    render_started = application.start_take_sequence_render(
+        qc_report_id="6" * 64,
+        custom_name="Approved sequence",
+        profile="youtube-2160p-h264-v1",
+        expected_plan_id="5" * 64,
+        confirm_render=True,
+        timeout_seconds=23.5,
+    )
+    render_status = application.get_take_sequence_render_status(
+        "4" * 64,
+        timeout_seconds=24.5,
+    )
 
     assert analyzed["status"] == "pending_review"
     assert scripted["selection_version"] == "1.2"
@@ -1323,6 +1353,12 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
     assert qc_review["decision"] == "approve"
     assert qc_review["arguments"]["timeout_seconds"] == 20.5
     assert qc_review_detail["arguments"]["timeout_seconds"] == 21.5
+    assert render_preview["arguments"]["profile"] == "youtube-2160p-h264-v1"
+    assert render_preview["arguments"]["timeout_seconds"] == 22.5
+    assert render_started["arguments"]["confirm_render"] is True
+    assert render_started["arguments"]["timeout_seconds"] == 23.5
+    assert render_status["status"] == "complete"
+    assert render_status["arguments"]["timeout_seconds"] == 24.5
 
 
 def test_application_exposes_status_and_read_only_provider_methods() -> None:

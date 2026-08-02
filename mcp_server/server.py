@@ -1190,6 +1190,54 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             timeout_seconds=timeout_seconds,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_take_sequence_render(
+        qc_report_id: str,
+        custom_name: str,
+        profile: str = DEFAULT_RENDER_PROFILE,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Preview a fixed managed render for one approved M55.7 report."""
+        return await asyncio.to_thread(
+            service.preview_take_sequence_render,
+            qc_report_id=qc_report_id,
+            custom_name=custom_name,
+            profile=profile,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def start_take_sequence_render(
+        qc_report_id: str,
+        custom_name: str,
+        expected_plan_id: str,
+        confirm_render: bool = False,
+        profile: str = DEFAULT_RENDER_PROFILE,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Prepare and start one exact approved M55.8 managed render."""
+        return await asyncio.to_thread(
+            service.start_take_sequence_render,
+            qc_report_id=qc_report_id,
+            custom_name=custom_name,
+            expected_plan_id=expected_plan_id,
+            confirm_render=confirm_render,
+            profile=profile,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_take_sequence_render_status(
+        receipt_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Verify one M55.8 render job and its managed MP4 output."""
+        return await asyncio.to_thread(
+            service.get_take_sequence_render_status,
+            receipt_id,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,

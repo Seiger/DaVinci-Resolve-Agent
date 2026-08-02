@@ -93,6 +93,14 @@ processing, subtitle alignment, color і візуально-редакторсь
 етап не змінює Resolve і не підміняє старими несумісними receipts перевірки
 іншої timeline.
 
+M55.8 додає confirmed delivery для схваленої M55.7 timeline. Read-only preview
+приймає лише allowlisted 1080p або 2160p H.264 profile, перевіряє live render
+capabilities і формує collision-resistant output name. Start вимагає exact
+`plan_id` та `confirm_render=true`, використовує наявні backup-backed render
+primitives і не дозволяє caller-defined codec/settings/path. Status повторно
+перевіряє QC approval, live job identity та непорожній MP4 тільки в configured
+managed render root.
+
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
 graph API та deterministic preview, прив'язаний до exact applied M52 receipt.

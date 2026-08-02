@@ -80,6 +80,14 @@ immutable human decision binds to the exact report hash and performs no
 provider write; receipts from older pipelines are not treated as evidence for
 this different timeline.
 
+M55.8 consumes only an approved M55.7 review and its freshly revalidated
+report. A provider-neutral workflow creates a deterministic render plan, then
+orchestrates the existing backup-backed prepare/status/start gateways. The MCP
+boundary exposes only an allowlisted profile and safe filename stem; codec,
+format, output root and Resolve preset remain code-owned. Durable receipts
+redact configured paths, while dynamic status may return the verified managed
+output path needed by the caller.
+
 ## M53 color discovery and preview
 
 ```text
