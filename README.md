@@ -22,6 +22,8 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 [документації кольорокорекції](docs/color-correction.md).
 Поточний M54 описано в
 [документації вибору дублів](docs/take-selection.md).
+Поточний M55 описано в
+[документації creative v1 acceptance](docs/v1-acceptance.md).
 Конфігуроване винесення всіх великих даних на окремий диск описано в
 [документації storage layout](docs/storage.md).
 
@@ -39,6 +41,11 @@ reference-text match із technical score. Еталонний текст і tran
 M54.4 збирає 1–100 уже схвалених selections у deterministic approved sequence.
 Sequence є path-redacted монтажним handoff для M55, не викликає ResolveBridge,
 не змінює timeline і навмисно має `apply_supported=false`.
+
+Проєкт почав **M55: creative v1 acceptance**. Перший slice безпечно прив'язує
+approved sequence entries до exact allowlisted source-файлів: public receipt
+редагує paths, а private machine-local binding зберігається лише в configured
+runtime. Import, timeline apply і render поки не виконуються.
 
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color

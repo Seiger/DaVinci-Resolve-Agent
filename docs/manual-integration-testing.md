@@ -637,6 +637,20 @@ canonical selection/review hashes, точні ranges, `timeline_modified=false` 
 unreviewed/rejected selection повинен блокувати compose. Mechanics smoke не
 потребує ResolveBridge.
 
+### M55.1 approved-sequence source binding
+
+1. Використай лише sequence, створений із реальних людських `approve` reviews.
+2. Для кожного entry передай `{order, path}` у `bind_take_sequence_sources`.
+3. Очікуй exact filename/size/fingerprint validation, `paths_redacted=true`,
+   `timeline_modified=false` та `apply_supported=false`.
+4. Перевір, що public receipt не містить absolute path, а private artifact
+   лежить лише в configured runtime на G.
+5. Повтор exact bind має повернути той самий binding ID. Змінений файл,
+   неправильний order або path поза allowlist повинні блокуватися.
+
+Live M55.1 bind лишається pending до справжнього M54 approve/sequence; mechanics
+тести не створюють review від імені користувача та не викликають ResolveBridge.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

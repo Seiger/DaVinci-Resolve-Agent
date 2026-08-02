@@ -14,6 +14,7 @@
     ├── backups/
     ├── state/
     ├── logs/
+    ├── take-sequence-bindings/
     └── інші receipts та queue directories
 ```
 
@@ -59,3 +60,7 @@ manifest і лише потім видаляє source directories. Compatibility
 `verify.ps1` підтвердив `DataRoot=G:`, writable directories, heartbeat 0,1 s та
 Resolve 21.0.3.7; CLI `ping` повернув `pong`. Активний bridge state записується
 безпосередньо в `G:\DaVinciResolveAgent\runtime\state\bridge.json`.
+
+M55 source bindings зберігають public redacted receipt і сусідній private JSON
+з allowlisted absolute paths у `<DataRoot>/runtime/take-sequence-bindings`.
+Private artifact є machine-local, не комітиться і не повертається через MCP.

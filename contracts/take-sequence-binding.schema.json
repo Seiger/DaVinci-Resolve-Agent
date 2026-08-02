@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/take-sequence-binding.schema.json",
+  "title": "M55.1 redacted approved take-sequence source binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["binding_version", "binding_id", "status", "sequence_id", "sequence_sha256", "sources", "source_count", "paths_redacted", "timeline_modified", "apply_supported"],
+  "properties": {
+    "binding_version": {"const": "1.0"},
+    "binding_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"const": "bound"},
+    "sequence_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sequence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["order", "selected_candidate_id", "display_name", "fingerprint", "size_bytes"],
+        "properties": {
+          "order": {"type": "integer", "minimum": 1, "maximum": 100},
+          "selected_candidate_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
+          "display_name": {"type": "string", "minLength": 1, "maxLength": 255},
+          "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "size_bytes": {"type": "integer", "minimum": 1},
+          "source_range": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["start_seconds", "end_seconds"],
+            "properties": {
+              "start_seconds": {"type": "number", "minimum": 0},
+              "end_seconds": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        }
+      }
+    },
+    "source_count": {"type": "integer", "minimum": 1, "maximum": 100},
+    "paths_redacted": {"const": true},
+    "timeline_modified": {"const": false},
+    "apply_supported": {"const": false}
+  }
+}

@@ -61,6 +61,8 @@ WORKFLOW_CATEGORIES = {
     "compose_take_sequence": "editing",
     "get_take_sequence": "editing",
     "list_take_sequences": "editing",
+    "bind_take_sequence_sources": "editing",
+    "get_take_sequence_binding": "editing",
     "clean_dialogue_audio": "audio",
     "get_audio_report": "audio",
     "list_audio_reports": "audio",

@@ -652,6 +652,21 @@ def _file_fingerprint(path: Path, size: int) -> str:
     return digest.hexdigest()
 
 
+def media_file_identity(path: Path) -> dict[str, str | int]:
+    """Return the path-redacted file identity used by M54/M55 contracts."""
+    resolved = path.resolve()
+    if not resolved.is_file():
+        raise TakeSelectionError("Media source file does not exist.")
+    stat = resolved.stat()
+    if stat.st_size <= 0:
+        raise TakeSelectionError("Media source file is empty.")
+    return {
+        "display_name": resolved.name,
+        "fingerprint": _file_fingerprint(resolved, stat.st_size),
+        "size_bytes": stat.st_size,
+    }
+
+
 def _dbfs(value: float) -> float:
     return -120.0 if value <= 0 else 20.0 * math.log10(value)
 

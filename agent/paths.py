@@ -196,6 +196,13 @@ def take_sequences_directory(
     return runtime_directory(environment) / "take-sequences"
 
 
+def take_sequence_bindings_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return M55 machine-local approved-sequence source bindings."""
+    return runtime_directory(environment) / "take-sequence-bindings"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

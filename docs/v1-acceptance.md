@@ -1,0 +1,38 @@
+# M55: creative v1 acceptance
+
+M55 з'єднує підтверджені M0–M54 можливості у відтворюваний шлях до готового
+відео. Кожен write має окремий preview/confirmation, працює з duplicate
+timeline, створює backup і перевіряє canonical readback. Unsupported capability
+повинна блокуватися, а не підмінятися припущенням про Resolve 21 Free.
+
+## M55.1: approved sequence source binding
+
+M54 sequence навмисно не містить absolute paths. Перед майбутнім apply tool
+`bind_take_sequence_sources` повторно приймає по одному `{order, path}` для
+кожного sequence entry та:
+
+- перевіряє path через `media.allowed_roots`;
+- звіряє filename, size і bounded edge fingerprint з approved candidate;
+- зберігає machine-local private artifact у configured runtime;
+- повертає лише path-redacted receipt з exact sequence SHA-256;
+- не імпортує media, не викликає ResolveBridge і не змінює timeline.
+
+Private artifact може містити absolute local paths, бо є непереносним binding
+активної машини. Він не входить до Git, MCP response, sequence report або
+workflow audit. `get_take_sequence_binding` повертає лише public receipt;
+доступ до private sources залишається внутрішнім provider-neutral boundary для
+наступного M55 preview/apply slice.
+
+Binding має `apply_supported=false` і `timeline_modified=false`. Наявність
+binding ще не дозволяє import, ranged insert, timeline replacement або render.
+
+## Подальша acceptance межа
+
+Після реального людського approve та live M54.4 compose наступні M55 slices
+мають окремо реалізувати:
+
+1. read-only assembly preview з exact binding і live target metadata;
+2. confirmed application лише до duplicate timeline;
+3. повний visual/audio/subtitle/color QC;
+4. confirmed render і output verification;
+5. повторне встановлення та acceptance на чистому Windows-комп'ютері.

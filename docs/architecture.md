@@ -30,6 +30,11 @@ ranges and bounded scores, but no source path. It is a provider-neutral handoff
 with `timeline_modified=false` and `apply_supported=false`; M55 must define any
 future confirmed application against already verified provider primitives.
 
+M55.1 resolves the portable/path-redacted handoff through a two-artifact local
+binding. Public MCP state contains only sequence/file identities; a private
+runtime artifact holds allowlisted absolute paths and is available only to
+in-process orchestration. Neither artifact imports media or enables apply.
+
 ## M53 color discovery and preview
 
 ```text

@@ -1001,6 +1001,26 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         return await asyncio.to_thread(service.list_take_sequences, limit)
 
     @server.tool(annotations=WRITE_TOOL)
+    async def bind_take_sequence_sources(
+        sequence_id: str,
+        sources: list[dict[str, str | int]],
+    ) -> dict[str, Any]:
+        """Bind approved sequence entries to exact allowlisted local files."""
+        return await asyncio.to_thread(
+            service.bind_take_sequence_sources,
+            sequence_id=sequence_id,
+            sources=sources,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_take_sequence_binding(binding_id: str) -> dict[str, Any]:
+        """Return one path-redacted M55.1 source binding."""
+        return await asyncio.to_thread(
+            service.get_take_sequence_binding,
+            binding_id,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,
         size_percent: float = 25.0,

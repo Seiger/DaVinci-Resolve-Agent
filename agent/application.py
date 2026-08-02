@@ -45,6 +45,7 @@ from agent.synchronized_link import SynchronizedScreenLinker
 from agent.synchronized_pair import SynchronizedPairAssembler
 from agent.take_selection import TakeSelectionWorkflow
 from agent.take_sequence import TakeSequenceWorkflow
+from agent.take_sequence_binding import TakeSequenceBindingWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
 from providers.resolve import ResolveProviderClient
 from providers.transcription import FasterWhisperTranscriber
@@ -896,6 +897,19 @@ class TakeSequenceService(Protocol):
     def list(self, limit: int = 20) -> dict[str, Any]: ...
 
 
+class TakeSequenceBindingService(Protocol):
+    """M55.1 machine-local approved sequence source-binding boundary."""
+
+    def bind(
+        self,
+        *,
+        sequence_id: str,
+        sources: list[dict[str, str | int]],
+    ) -> dict[str, Any]: ...
+
+    def get(self, binding_id: str) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -929,6 +943,7 @@ class AgentApplication:
         color_treatment_service: ColorTreatmentService | None = None,
         take_selection_service: TakeSelectionService | None = None,
         take_sequence_service: TakeSequenceService | None = None,
+        take_sequence_binding_service: TakeSequenceBindingService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -959,6 +974,7 @@ class AgentApplication:
         self._color_treatment = color_treatment_service
         self._take_selection = take_selection_service
         self._take_sequence = take_sequence_service
+        self._take_sequence_binding = take_sequence_binding_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -2270,6 +2286,28 @@ class AgentApplication:
             lambda: self._take_sequence_service().list(limit),
         )
 
+    def bind_take_sequence_sources(
+        self,
+        *,
+        sequence_id: str,
+        sources: list[dict[str, str | int]],
+    ) -> dict[str, Any]:
+        """Bind approved sequence entries to exact allowlisted local files."""
+        return self._run_local_workflow(
+            "bind_take_sequence_sources",
+            lambda: self._take_sequence_binding_service().bind(
+                sequence_id=sequence_id,
+                sources=sources,
+            ),
+        )
+
+    def get_take_sequence_binding(self, binding_id: str) -> dict[str, Any]:
+        """Return one redacted M55.1 local source-binding receipt."""
+        return self._run_local_workflow(
+            "get_take_sequence_binding",
+            lambda: self._take_sequence_binding_service().get(binding_id),
+        )
+
     def _take_selection_service(self) -> TakeSelectionService:
         if self._take_selection is not None:
             return self._take_selection
@@ -2288,6 +2326,19 @@ class AgentApplication:
         if self._take_sequence is not None:
             return self._take_sequence
         return TakeSequenceWorkflow(self._take_selection_service())
+
+    def _take_sequence_binding_service(self) -> TakeSequenceBindingService:
+        if self._take_sequence_binding is not None:
+            return self._take_sequence_binding
+        policy = (
+            MediaPolicy.from_local_config()
+            if self._media_policy is None
+            else self._media_policy
+        )
+        return TakeSequenceBindingWorkflow(
+            self._take_sequence_service(),
+            policy,
+        )
 
     def compose_webcam_picture_in_picture(
         self,

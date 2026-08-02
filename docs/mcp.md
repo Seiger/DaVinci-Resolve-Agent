@@ -21,6 +21,15 @@ bounded segment candidates. Він локально транскрибує ті�
 ranges і scores, але не paths; `apply_supported=false`, ResolveBridge не
 викликається.
 
+## M55 source binding tools
+
+`bind_take_sequence_sources` приймає approved sequence ID і exact список
+`{order, path}`. Paths проходять allowlist та звіряються за filename, size і
+fingerprint. MCP response завжди має `paths_redacted=true`,
+`timeline_modified=false`, `apply_supported=false`.
+`get_take_sequence_binding` повертає лише redacted receipt; private local paths
+ніколи не виходять через MCP.
+
 ## M53 color discovery tools
 
 `resolve_get_color_environment` є read-only probe для media video items: він

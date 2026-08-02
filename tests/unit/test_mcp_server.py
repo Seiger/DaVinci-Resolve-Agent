@@ -1568,6 +1568,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "compose_take_sequence",
             "get_take_sequence",
             "list_take_sequences",
+            "bind_take_sequence_sources",
+            "get_take_sequence_binding",
             "compose_webcam_picture_in_picture",
             "link_synchronized_screen_pair",
             "preview_synchronized_pause_compaction",
