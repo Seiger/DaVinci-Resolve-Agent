@@ -751,6 +751,14 @@ class StubBaselineEditWorkflow:
         return {"status": "complete", "receipt_id": receipt_id}
 
 
+class StubBrollWorkflow:
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "preview", "plan_id": "e" * 64, "arguments": kwargs}
+
+    def apply(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "applied", "receipt_id": "f" * 64, "arguments": kwargs}
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -771,6 +779,17 @@ def _fresh_state() -> dict[str, Any]:
         "status": "ready",
         "last_heartbeat": datetime.now(timezone.utc).isoformat(),
         "capabilities": {"bridge.ping": True},
+    }
+
+
+def _broll_placement() -> dict[str, Any]:
+    return {
+        "asset_id": "asset-1",
+        "source_start_frame": 0,
+        "source_end_frame": 47,
+        "position_frames": 24,
+        "track_index": 3,
+        "purpose": "Show a detail",
     }
 
 
@@ -798,6 +817,7 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         subtitle_generator=StubSubtitleGenerator(),
         editing_recipe_runner=StubEditingRecipeRunner(),
         baseline_edit_service=StubBaselineEditWorkflow(),
+        broll_service=StubBrollWorkflow(),
         workflow_audit=workflow_audit,
     )
     server = create_server(application)
@@ -837,6 +857,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             baseline_status_annotations = annotations[
                 "get_baseline_render_status"
             ]
+            broll_preview_annotations = annotations["preview_broll_plan"]
+            broll_apply_annotations = annotations["apply_broll_plan"]
             compaction_annotations = annotations[
                 "preview_synchronized_pause_compaction"
             ]
@@ -899,6 +921,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert baseline_preview_annotations is not None
             assert baseline_start_annotations is not None
             assert baseline_status_annotations is not None
+            assert broll_preview_annotations is not None
+            assert broll_apply_annotations is not None
             assert compaction_annotations is not None
             assert compaction_apply_annotations is not None
             assert finalized_render_annotations is not None
@@ -937,6 +961,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert baseline_preview_annotations.read_only_hint is True
             assert baseline_start_annotations.read_only_hint is False
             assert baseline_status_annotations.read_only_hint is True
+            assert broll_preview_annotations.read_only_hint is True
+            assert broll_apply_annotations.read_only_hint is False
             assert compaction_annotations.read_only_hint is True
             assert compaction_apply_annotations.read_only_hint is False
             assert finalized_render_annotations.read_only_hint is False
@@ -1204,6 +1230,24 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
                     "get_baseline_render_status",
                     {"receipt_id": "f" * 64},
                 ),
+                "broll_preview": await client.call_tool(
+                    "preview_broll_plan",
+                    {
+                        "baseline_edit_receipt_id": "a" * 64,
+                        "target_timeline_name": "M51 B-roll",
+                        "placements": [_broll_placement()],
+                    },
+                ),
+                "broll_applied": await client.call_tool(
+                    "apply_broll_plan",
+                    {
+                        "baseline_edit_receipt_id": "a" * 64,
+                        "target_timeline_name": "M51 B-roll",
+                        "placements": [_broll_placement()],
+                        "expected_plan_id": "e" * 64,
+                        "confirm_apply": True,
+                    },
+                ),
                 "compaction": await client.call_tool(
                     "preview_synchronized_pause_compaction",
                     {
@@ -1341,6 +1385,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "preview_baseline_edit",
             "start_baseline_render",
             "get_baseline_render_status",
+            "preview_broll_plan",
+            "apply_broll_plan",
             "compose_webcam_picture_in_picture",
             "link_synchronized_screen_pair",
             "preview_synchronized_pause_compaction",
@@ -1444,6 +1490,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
     assert results["baseline_preview"].structured_content["status"] == "ready"
     assert results["baseline_started"].structured_content["status"] == "started"
     assert results["baseline_status"].structured_content["status"] == "complete"
+    assert results["broll_preview"].structured_content["status"] == "preview"
+    assert results["broll_applied"].structured_content["status"] == "applied"
     assert results["compaction"].structured_content["status"] == "preview"
     assert results["compaction_apply"].structured_content["status"] == "applied"
     assert results["compaction_finalized"].structured_content["status"] == (
@@ -1478,6 +1526,8 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
         "preview_baseline_edit",
         "start_baseline_render",
         "get_baseline_render_status",
+        "preview_broll_plan",
+        "apply_broll_plan",
         "preview_synchronized_pause_compaction",
         "apply_synchronized_pause_compaction",
         "finalize_synchronized_pause_compaction",

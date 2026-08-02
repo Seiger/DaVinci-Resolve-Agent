@@ -37,7 +37,10 @@
   canonical receipt convergence, read-only live QA та deterministic confirmed
   render через перевірені M44/M45 примітиви; live 1080p acceptance і exact
   replay перевірені в Resolve 21.0.3 Free.
-- **M51** — B-roll planning, review та bounded application.
+- **M51 — завершено** — explicit video-only
+  B-roll planning, deterministic review ID, completed-M50 binding і confirmed
+  bounded application на duplicate timeline з canonical readback; live preview,
+  confirmed apply та exact replay перевірені в Resolve 21.0.3 Free.
 - **M52** — складні анімації й reusable templates.
 - **M53** — кольорокорекція, presets та visual QC.
 - **M54** — аналіз і розумний вибір дублів із review boundary.

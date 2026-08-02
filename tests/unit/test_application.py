@@ -896,6 +896,14 @@ class StubBaselineEditWorkflow:
         }
 
 
+class StubBrollWorkflow:
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "preview", "plan_id": "e" * 64, "arguments": kwargs}
+
+    def apply(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "applied", "receipt_id": "f" * 64, "arguments": kwargs}
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1622,6 +1630,46 @@ def test_application_previews_starts_and_inspects_baseline_edit() -> None:
         "start_baseline_render",
         "get_baseline_render_status",
     ]
+
+
+def test_application_previews_and_applies_reviewed_broll() -> None:
+    audit = StubWorkflowAuditor()
+    application = AgentApplication(
+        resolve=StubResolveReader(),
+        broll_service=StubBrollWorkflow(),
+        workflow_audit=audit,
+    )
+    placements = [
+        {
+            "asset_id": "asset-1",
+            "source_start_frame": 0,
+            "source_end_frame": 47,
+            "position_frames": 24,
+            "track_index": 3,
+            "purpose": "Show a detail",
+        }
+    ]
+
+    preview = application.preview_broll_plan(
+        baseline_edit_receipt_id="a" * 64,
+        target_timeline_name="M51 B-roll",
+        placements=placements,
+        timeout_seconds=20,
+    )
+    applied = application.apply_broll_plan(
+        baseline_edit_receipt_id="a" * 64,
+        target_timeline_name="M51 B-roll",
+        placements=placements,
+        expected_plan_id="e" * 64,
+        confirm_apply=True,
+        timeout_seconds=25,
+    )
+
+    assert preview["status"] == "preview"
+    assert preview["arguments"]["timeout_seconds"] == 20
+    assert applied["status"] == "applied"
+    assert applied["arguments"]["confirm_apply"] is True
+    assert audit.operations == ["preview_broll_plan", "apply_broll_plan"]
 
 
 @pytest.mark.parametrize("timeout_seconds", [0, -1, 301])

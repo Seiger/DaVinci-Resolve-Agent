@@ -75,6 +75,8 @@ def test_installed_mcp_server_supports_stdio_handshake() -> None:
         "preview_baseline_edit",
         "start_baseline_render",
         "get_baseline_render_status",
+        "preview_broll_plan",
+        "apply_broll_plan",
         "compose_webcam_picture_in_picture",
         "link_synchronized_screen_pair",
         "preview_synchronized_pause_compaction",

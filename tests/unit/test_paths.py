@@ -5,6 +5,7 @@ from pathlib import Path, PureWindowsPath
 from agent.paths import (
     audio_reports_directory,
     audio_source_directory,
+    broll_applications_directory,
     config_directory,
     diagnostics_directory,
     editing_recipe_runs_directory,
@@ -86,6 +87,9 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     )
     assert visual_treatments_directory(first_environment) == (
         first_runtime / "visual-treatments"
+    )
+    assert broll_applications_directory(first_environment) == (
+        first_runtime / "broll-applications"
     )
     assert transcription_models_directory(first_environment) == (
         first_runtime / "models" / "faster-whisper"

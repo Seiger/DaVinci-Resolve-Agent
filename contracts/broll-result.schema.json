@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/broll-result.schema.json",
+  "title": "DaVinci Resolve Agent M51 B-roll application",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["broll_apply_version", "receipt_id", "status", "plan", "target", "operations", "inserted_items", "readback"],
+  "properties": {
+    "broll_apply_version": {"const": "1.0"},
+    "receipt_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["in_progress", "applied"]},
+    "plan": {
+      "type": "object",
+      "required": ["broll_plan_version", "plan_id", "status", "apply_supported", "inputs", "source", "assets", "placements", "required_capabilities", "unsupported_capabilities"]
+    },
+    "target": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["timeline_id", "timeline_name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {"$ref": "#/$defs/duplicate_operation"},
+        {"$ref": "#/$defs/tracks_operation"},
+        {"$ref": "#/$defs/insert_operation"}
+      ]
+    },
+    "inserted_items": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {"type": "object"}
+    },
+    "readback": {"type": ["object", "null"]}
+  },
+  "$defs": {
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "status", "result"],
+      "properties": {
+        "operation": {"type": "string"},
+        "status": {"enum": ["pending", "applied"]},
+        "result": {"type": ["object", "null"]}
+      }
+    },
+    "duplicate_operation": {
+      "allOf": [
+        {"$ref": "#/$defs/operation"},
+        {"properties": {"operation": {"const": "duplicate_timeline"}}}
+      ]
+    },
+    "tracks_operation": {
+      "allOf": [
+        {"$ref": "#/$defs/operation"},
+        {"properties": {"operation": {"const": "ensure_timeline_tracks"}}}
+      ]
+    },
+    "insert_operation": {
+      "allOf": [
+        {"$ref": "#/$defs/operation"},
+        {"properties": {"operation": {"const": "insert_clips"}}}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "applied"}}},
+      "then": {
+        "properties": {
+          "target": {"type": "object"},
+          "operations": {"items": {"properties": {"status": {"const": "applied"}, "result": {"type": "object"}}}},
+          "inserted_items": {"minItems": 1},
+          "readback": {"type": "object"}
+        }
+      }
+    }
+  ]
+}

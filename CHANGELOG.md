@@ -9,6 +9,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- M51 provider-neutral B-roll review plan with completed-M50 binding, bounded
+  source/timeline ranges, FPS-aware durations and collision checks.
+- Confirmed `apply_broll_plan` on a duplicated baseline timeline using only
+  documented track creation and video-only batch insertion, with exact plan
+  binding, canonical readback and durable replay.
+- M51 read-only live preview in Resolve 21.0.3 Free with completed-M50 binding,
+  verified capability gates and no timeline or backup creation.
+- M51 confirmed live apply on a disposable duplicate timeline: one 48-frame
+  video-only V3 item, unchanged M50 source timeline, three operation backups
+  and exact replay without another timeline, item or backup.
+- M51 persistence readback aligned with the documented generic timeline-item
+  response: asset binding is checked in the immediate insert result, while the
+  durable readback verifies canonical item ID, track and exact frame bounds.
 - M50 canonical baseline edit QA binding required applied M43 rough cut and M46
   cleaned audio plus optional M47 subtitles and M49 visual treatment to one
   exact timeline.

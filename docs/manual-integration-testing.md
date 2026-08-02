@@ -483,3 +483,50 @@ static transform без append-only title; M47 не додавай, доки SRT
 - output SHA-256: `84d870ffdcf2ee2a908cc02e57d772544e13acad05bb3189856ac6579cc4eff6`;
 - M44/M45 створили два safety backups; exact replay зберіг усі receipt і job
   ID без нового job.
+
+### M51 B-roll acceptance
+
+Статус: `verified` у DaVinci Resolve 21.0.3 Free 2 серпня 2026 року. M51 не
+змінює ResolveBridge і використовує вже verified
+`timeline.duplicate`, `timeline.track.create`, `clip.range_insert` та
+`clip.read`.
+
+1. Імпортуй короткий disposable B-roll video через `resolve_import_media` і
+   зафіксуй canonical `asset_id` та metadata.
+2. Виклич `preview_broll_plan` із completed M50 receipt, новою унікальною
+   назвою timeline й одним коротким placement на V3. Перевір `plan_id`, source
+   range, FPS-aware duration, timeline bounds і `apply_supported=true`.
+3. Переконайся, що preview не створив timeline або backup.
+4. Окремо підтвердь `apply_broll_plan` з exact `expected_plan_id` і
+   `confirm_apply=true`.
+5. Перевір новий duplicate timeline, video-only item на V3, canonical
+   source/timeline bounds, незмінний M50 source timeline та safety backups.
+6. Повтори exact apply: receipt, target timeline ID, item IDs і backup count не
+   повинні змінитися.
+
+Live acceptance має використовувати лише тестовий B-roll, який користувач
+явно дозволив вставити. Автоматичний пошук або вибір медіа не входить у M51.
+
+Read-only preview verified у Resolve 21.0.3 Free:
+
+- M50 source: `M42 Pause Compaction Apply`
+  (`7e430372-841d-4f6f-99ac-8647f6d75a31`);
+- asset: `M10 Short Render Test`
+  (`00b0e5ca-0db5-4398-bf28-97eb932a1fc4`), 1527 frames @ 24 fps;
+- placement: source `0–47`, position `240`, V3, duration 48 timeline frames;
+- plan ID: `7d6fb2369c9d6b24b3a71d857f9199927203afb0c701650ecc031394a7809b5e`;
+- `apply_supported=true`, backup і новий timeline не створювалися.
+
+Confirmed apply та exact replay verified:
+
+- receipt: `a7a0343d4af6cb10507e5241e0476bcf28d787080aea58020d2fc67750190c7f`,
+  status `applied`;
+- duplicate timeline: `M51 B-roll Apply Test`
+  (`019fc876-775c-429a-95d6-8b4ca741a802`);
+- inserted item: `97003e7d-8b07-4477-94ee-cc0b3f17a4ef`, video V3, source
+  `0–47`, timeline `86640–86687`;
+- три provider operations створили три `.drp` safety backups;
+- exact replay зберіг backup count `75 → 75` і timeline count `9 → 9`;
+- source M50 timeline залишився з 7 items і без item на V3;
+- generic timeline readback не містить `asset_id`: binding підтверджено
+  immediate insert result, persistence — canonical item ID та exact bounds.

@@ -33,6 +33,8 @@ ContractName = Literal[
     "baseline-edit-qa",
     "baseline-edit-run",
     "baseline-edit-status",
+    "broll-preview",
+    "broll-result",
     "audio-report",
     "diagnostics-bundle",
     "audit-record",

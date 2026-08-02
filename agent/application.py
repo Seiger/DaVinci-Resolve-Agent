@@ -14,6 +14,7 @@ from agent.bridge_state import (
     heartbeat_age_seconds,
     load_bridge_state,
 )
+from agent.broll import BrollWorkflow
 from agent.finalized_audio_extraction import FinalizedAudioExtractor
 from agent.finalized_audio_integration import FinalizedAudioIntegrator
 from agent.finalized_render import FinalizedRenderPreparer
@@ -714,6 +715,30 @@ class BaselineEditService(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class BrollService(Protocol):
+    """Reviewed B-roll preview and duplicate-timeline apply boundary."""
+
+    def preview(
+        self,
+        *,
+        baseline_edit_receipt_id: str,
+        target_timeline_name: str,
+        placements: list[dict[str, Any]],
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def apply(
+        self,
+        *,
+        baseline_edit_receipt_id: str,
+        target_timeline_name: str,
+        placements: list[dict[str, Any]],
+        expected_plan_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -742,6 +767,7 @@ class AgentApplication:
         editing_recipe_runner: EditingRecipeWorkflow | None = None,
         visual_treatment_service: VisualTreatmentService | None = None,
         baseline_edit_service: BaselineEditService | None = None,
+        broll_service: BrollService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -767,6 +793,7 @@ class AgentApplication:
         self._editing_recipe_runner = editing_recipe_runner
         self._visual_treatment = visual_treatment_service
         self._baseline_edit = baseline_edit_service
+        self._broll = broll_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -1724,6 +1751,57 @@ class AgentApplication:
             gateway=self._resolve,
             render_preparer=self._finalized_render_preparation_service(),
             render_executor=self._finalized_render_execution_service(),
+        )
+
+    def preview_broll_plan(
+        self,
+        *,
+        baseline_edit_receipt_id: str,
+        target_timeline_name: str,
+        placements: list[dict[str, Any]],
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Build one read-only M51 B-roll review plan."""
+        return self._run_local_workflow(
+            "preview_broll_plan",
+            lambda: self._broll_service().preview(
+                baseline_edit_receipt_id=baseline_edit_receipt_id,
+                target_timeline_name=target_timeline_name,
+                placements=placements,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def apply_broll_plan(
+        self,
+        *,
+        baseline_edit_receipt_id: str,
+        target_timeline_name: str,
+        placements: list[dict[str, Any]],
+        expected_plan_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply one exact reviewed M51 plan to a duplicate timeline."""
+        return self._run_local_workflow(
+            "apply_broll_plan",
+            lambda: self._broll_service().apply(
+                baseline_edit_receipt_id=baseline_edit_receipt_id,
+                target_timeline_name=target_timeline_name,
+                placements=placements,
+                expected_plan_id=expected_plan_id,
+                confirm_apply=confirm_apply,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def _broll_service(self) -> BrollService:
+        if self._broll is not None:
+            return self._broll
+        return BrollWorkflow(
+            gateway=self._resolve,
+            baseline=self._baseline_edit_service(),
+            capabilities=lambda: self.status()["bridge"].get("capabilities", {}),
         )
 
     def compose_webcam_picture_in_picture(

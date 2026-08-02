@@ -14,15 +14,17 @@ DaVinci Resolve Agent — це розширюваний локальний фр�
 [документації visual treatment](docs/visual-treatment.md).
 Опис M50 наведено в
 [документації baseline edit](docs/baseline-edit.md).
+Опис M51 наведено в
+[документації B-roll](docs/broll.md).
 
-Проєкт виконує **Milestone M50: baseline end-to-end монтаж і QA**. M50 вимагає
-applied M43/M46 receipt одного timeline, а M47/M49 приймає як опційні
-enhancement receipt. Він повторно перевіряє live item/subtitle identities та
-bounds і тільки після успішного read-only QA дозволяє confirmed deterministic
-MP4/H.264 render через вже перевірені M44/M45 примітиви. Реалізація автоматично
-блокує змішування receipt з різних disposable timeline. Live acceptance M50
-завершено в DaVinci Resolve 21.0.3 Free: core QA 6/6, один керований 1080p job,
-валідний MP4 та безпечний deterministic replay.
+Проєкт виконує **Milestone M51: B-roll planning і bounded application**. M51
+будує read-only review plan лише від completed M50 receipt та явних
+video-only placements. Apply вимагає exact `plan_id` і confirmation, дублює
+baseline timeline, додає bounded ranges на V3–V8 і перевіряє canonical
+readback. Автоматичний вибір B-roll, аудіо B-roll та зміна канонічного M50
+timeline виключені. Read-only preview, confirmed duplicate-timeline apply та
+exact replay перевірено у Resolve 21.0.3 Free: B-roll вставлено на V3, source
+M50 timeline не змінився, а replay не створив нового timeline або backup.
 
 M49 preview/apply workflow поєднує лише документовані статичні clip transforms і
 вставку встановленого стандартного title за exact timecode. Він не викликає

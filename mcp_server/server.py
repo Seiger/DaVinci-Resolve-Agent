@@ -728,6 +728,42 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             timeout_seconds=timeout_seconds,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_broll_plan(
+        baseline_edit_receipt_id: str,
+        target_timeline_name: str,
+        placements: list[dict[str, Any]],
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Validate one explicit video-only B-roll placement plan."""
+        return await asyncio.to_thread(
+            service.preview_broll_plan,
+            baseline_edit_receipt_id=baseline_edit_receipt_id,
+            target_timeline_name=target_timeline_name,
+            placements=placements,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def apply_broll_plan(
+        baseline_edit_receipt_id: str,
+        target_timeline_name: str,
+        placements: list[dict[str, Any]],
+        expected_plan_id: str,
+        confirm_apply: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply an exact reviewed B-roll plan to a duplicate timeline."""
+        return await asyncio.to_thread(
+            service.apply_broll_plan,
+            baseline_edit_receipt_id=baseline_edit_receipt_id,
+            target_timeline_name=target_timeline_name,
+            placements=placements,
+            expected_plan_id=expected_plan_id,
+            confirm_apply=confirm_apply,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,

@@ -184,6 +184,13 @@ def baseline_edit_runs_directory(
     return runtime_directory(environment) / "baseline-edit-runs"
 
 
+def broll_applications_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable receipts for reviewed B-roll applications."""
+    return runtime_directory(environment) / "broll-applications"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

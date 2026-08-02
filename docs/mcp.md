@@ -20,6 +20,9 @@ Read-only інструменти:
 - `get_editing_recipe`.
 - `preview_editing_recipe`.
 - `preview_visual_treatment`.
+- `preview_baseline_edit`.
+- `get_baseline_render_status`.
+- `preview_broll_plan`.
 
 Write-інструменти M4:
 
@@ -42,6 +45,8 @@ Write-інструменти M4:
 - `resolve_start_render_job`.
 - `run_editing_recipe`.
 - `apply_visual_treatment`.
+- `start_baseline_render`.
+- `apply_broll_plan`.
 
 Локальні rough-cut інструменти:
 
@@ -413,3 +418,14 @@ timecode має бути не раніше поточного timeline end, а e
 `apply_visual_treatment` вимагає ідентичний plan і `confirm_apply=true`, виконує
 один transform batch та окремі confirmed title inserts із durable replay.
 `SmartReframe`, keyframes, tracking і animated titles не входять до M49.
+
+`preview_broll_plan` приймає completed M50 receipt, нову назву timeline та
+явні video-only placements із `asset_id`, source bounds, relative
+`position_frames`, V3–V8 і `purpose`. Він читає bounded metadata, перевіряє
+FPS-aware duration, timeline bounds, overlap/collision та повертає deterministic
+`plan_id` без write-команд.
+
+`apply_broll_plan` вимагає ті самі inputs, exact `expected_plan_id` і
+`confirm_apply=true`. Tool дублює baseline timeline, забезпечує video tracks,
+виконує один bounded batch insert і звіряє canonical item readback. Source M50
+timeline та аудіо не змінюються; replay applied receipt не виконує нових writes.
