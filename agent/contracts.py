@@ -43,6 +43,7 @@ ContractName = Literal[
     "color-treatment-result",
     "take-selection",
     "take-selection-review",
+    "take-sequence",
     "audio-report",
     "diagnostics-bundle",
     "audit-record",

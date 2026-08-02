@@ -189,6 +189,13 @@ def take_selection_reviews_directory(
     return runtime_directory(environment) / "take-selection-reviews"
 
 
+def take_sequences_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return immutable M54.4 approved take-sequence plans."""
+    return runtime_directory(environment) / "take-sequences"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:

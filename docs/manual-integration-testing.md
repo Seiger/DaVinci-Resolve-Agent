@@ -630,6 +630,13 @@ F1 `1.0`/score `92.922`, другий range — F1 `0.153846`/score `37.955`; re
 На перевіреній машині indexed first run зайняв `224.57` секунди, replay в
 окремому процесі — `1.05` секунди.
 
+Для M54.4 спочатку виконай людський `approve` кожного selection. Передай їхні
+IDs у потрібному порядку до `compose_take_sequence`. Очікуй `approved_plan`,
+canonical selection/review hashes, точні ranges, `timeline_modified=false` та
+`apply_supported=false`. Exact replay має повернути той самий sequence ID;
+unreviewed/rejected selection повинен блокувати compose. Mechanics smoke не
+потребує ResolveBridge.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

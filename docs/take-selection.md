@@ -40,6 +40,20 @@ recognition можуть змінити результат. Тому status за
 Exact request replay використовує path-redacted local index і повертає
 persisted report без повторного CPU inference.
 
+## M54.4: approved take sequence
+
+Після людського `approve` tool `compose_take_sequence` приймає впорядкований
+список 1–100 унікальних selection IDs. Кожен selection і review повторно
+валідуються за canonical SHA-256; unreviewed або rejected selections блокуються.
+Sequence містить candidate ID, display name, fingerprint, duration, source
+range, technical/script-aware scores та selection/review hashes.
+
+Artifact не містить source paths або review note, має
+`timeline_modified=false` і `apply_supported=false`. Це immutable handoff для
+майбутнього M55, а не прихований timeline write. `get_take_sequence` перевіряє
+content-addressed integrity, `list_take_sequences` повертає лише bounded
+summaries.
+
 Декодування виконує явно задекларована Python-залежність PyAV; зовнішній
 `ffmpeg.exe` та shell-команди для цього workflow не запускаються.
 

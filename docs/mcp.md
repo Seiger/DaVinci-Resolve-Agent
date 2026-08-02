@@ -15,6 +15,11 @@ bounded segment candidates. Він локально транскрибує ті�
 `get_take_selection` та `list_take_selections` read-only. Окремий
 `review_take_selection` записує immutable `approve|reject`, але завжди повертає
 `timeline_modified=false`. Довільні weights, decoder flags і команди відсутні.
+`get_take_selection_review` повертає canonical review. M54.4 tools
+`compose_take_sequence`, `get_take_sequence` і `list_take_sequences` працюють
+лише зі схваленими selections. Sequence зберігає порядок, hashes, fingerprints,
+ranges і scores, але не paths; `apply_supported=false`, ResolveBridge не
+викликається.
 
 ## M53 color discovery tools
 

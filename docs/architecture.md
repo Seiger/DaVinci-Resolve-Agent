@@ -24,6 +24,12 @@ caller-provided reference and combines that score with technical measurements.
 Durable artifacts contain only hashes and aggregate metrics, not source paths,
 reference text or raw transcript text. The result still stops at human review.
 
+M54.4 composes canonical approved reviews into one ordered immutable sequence.
+The sequence carries selection/review hashes, candidate fingerprints, source
+ranges and bounded scores, but no source path. It is a provider-neutral handoff
+with `timeline_modified=false` and `apply_supported=false`; M55 must define any
+future confirmed application against already verified provider primitives.
+
 ## M53 color discovery and preview
 
 ```text

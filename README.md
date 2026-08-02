@@ -36,6 +36,10 @@ faster-whisper транскрипція обмежується заданими 
 reference-text match із technical score. Еталонний текст і transcript не
 зберігаються відкрито; результат усе одно потребує людського review.
 
+M54.4 збирає 1–100 уже схвалених selections у deterministic approved sequence.
+Sequence є path-redacted монтажним handoff для M55, не викликає ResolveBridge,
+не змінює timeline і навмисно має `apply_supported=false`.
+
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
 graph API та deterministic preview, прив'язаний до exact applied M52 receipt.

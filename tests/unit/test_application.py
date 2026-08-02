@@ -1008,6 +1008,28 @@ class StubTakeSelectionWorkflow:
     def review(self, **kwargs: Any) -> dict[str, Any]:
         return {"timeline_modified": False, "arguments": kwargs}
 
+    def get_review(self, selection_id: str) -> dict[str, Any]:
+        return {
+            "selection_id": selection_id,
+            "review_id": "b" * 64,
+            "decision": "approve",
+        }
+
+
+class StubTakeSequenceWorkflow:
+    def compose(self, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "status": "approved_plan",
+            "sequence_id": "c" * 64,
+            "arguments": kwargs,
+        }
+
+    def get(self, sequence_id: str) -> dict[str, Any]:
+        return {"sequence_id": sequence_id, "status": "approved_plan"}
+
+    def list(self, limit: int = 20) -> dict[str, Any]:
+        return {"sequences": [], "count": 0, "limit": limit}
+
 
 class StubWorkflowAuditor:
     def __init__(self) -> None:
@@ -1036,6 +1058,7 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
     application = AgentApplication(
         resolve=StubResolveReader(),
         take_selection_service=StubTakeSelectionWorkflow(),
+        take_sequence_service=StubTakeSequenceWorkflow(),
     )
     candidates: list[dict[str, str | float]] = [
         {"candidate_id": "take-a", "path": "first.mkv"},
@@ -1073,12 +1096,23 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         selected_candidate_id="take-b",
         note="Use take B.",
     )
+    review = application.get_take_selection_review("a" * 64)
+    sequence = application.compose_take_sequence(
+        sequence_name="Approved intro",
+        selection_ids=["a" * 64],
+    )
+    sequence_detail = application.get_take_sequence("c" * 64)
+    sequences = application.list_take_sequences(5)
 
     assert analyzed["status"] == "pending_review"
     assert scripted["selection_version"] == "1.2"
     assert detail["selection_id"] == "a" * 64
     assert listed["limit"] == 5
     assert reviewed["timeline_modified"] is False
+    assert review["decision"] == "approve"
+    assert sequence["status"] == "approved_plan"
+    assert sequence_detail["sequence_id"] == "c" * 64
+    assert sequences["limit"] == 5
 
 
 def test_application_exposes_status_and_read_only_provider_methods() -> None:

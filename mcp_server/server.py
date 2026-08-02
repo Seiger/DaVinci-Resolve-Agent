@@ -970,6 +970,36 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             note=note,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_take_selection_review(selection_id: str) -> dict[str, Any]:
+        """Return one immutable M54 take-selection review."""
+        return await asyncio.to_thread(
+            service.get_take_selection_review,
+            selection_id,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def compose_take_sequence(
+        sequence_name: str,
+        selection_ids: list[str],
+    ) -> dict[str, Any]:
+        """Compose an ordered handoff from approved take selections."""
+        return await asyncio.to_thread(
+            service.compose_take_sequence,
+            sequence_name=sequence_name,
+            selection_ids=selection_ids,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_take_sequence(sequence_id: str) -> dict[str, Any]:
+        """Return one persisted M54.4 approved take sequence."""
+        return await asyncio.to_thread(service.get_take_sequence, sequence_id)
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def list_take_sequences(limit: int = 20) -> dict[str, Any]:
+        """List bounded M54.4 take-sequence summaries."""
+        return await asyncio.to_thread(service.list_take_sequences, limit)
+
     @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,

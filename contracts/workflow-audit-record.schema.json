@@ -80,6 +80,10 @@
         "get_take_selection",
         "list_take_selections",
         "review_take_selection",
+        "get_take_selection_review",
+        "compose_take_sequence",
+        "get_take_sequence",
+        "list_take_sequences",
         "clean_dialogue_audio",
         "get_audio_report",
         "list_audio_reports"
@@ -161,7 +165,11 @@
               "analyze_scripted_take_candidates",
               "get_take_selection",
               "list_take_selections",
-              "review_take_selection"
+              "review_take_selection",
+              "get_take_selection_review",
+              "compose_take_sequence",
+              "get_take_sequence",
+              "list_take_sequences"
             ]
           }
         }

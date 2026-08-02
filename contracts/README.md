@@ -3,8 +3,9 @@
 `take-selection.schema.json` defines M54 path-redacted fixed-policy technical
 and script-aware dialogue rankings that always require review.
 `take-selection-review.schema.json` binds
-one immutable approve/reject decision to the exact selection SHA-256 and
-requires `timeline_modified=false`.
+one immutable human decision to the exact selection.
+`take-sequence.schema.json` defines an ordered path-redacted handoff composed
+only from canonical approved reviews. It is not a timeline-apply contract.
 
 `color-preset.schema.json` defines one immutable packaged M53 CDL preset with a
 fixed scope and apply policy. `color-treatment-preview.schema.json` binds that

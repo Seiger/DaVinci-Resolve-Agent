@@ -23,6 +23,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   reference-text fingerprinting and mandatory human review.
 - M54.3 path-redacted request index that returns exact persisted replays without
   rerunning CPU transcription.
+- M54.4 immutable approved take sequences with canonical selection/review
+  integrity, ordered path-redacted handoff and no timeline write.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

@@ -375,6 +375,25 @@ class TakeSelectionWorkflow:
         atomic_write_json(path, result)
         return result
 
+    def get_review(self, selection_id: str) -> dict[str, Any]:
+        """Return one canonical immutable take-selection review."""
+        selection = self.get(selection_id)
+        path = self._reviews_root / f"{selection['selection_id']}.json"
+        if not path.is_file():
+            raise TakeSelectionError("The take selection has not been reviewed.")
+        review = read_json_object(path)
+        validate_contract("take-selection-review", review)
+        review_payload = dict(review)
+        review_id = review_payload.pop("review_id", None)
+        if (
+            review.get("selection_id") != selection["selection_id"]
+            or review.get("selection_sha256") != _canonical_sha256(selection)
+            or not isinstance(review_id, str)
+            or _canonical_sha256(review_payload) != review_id
+        ):
+            raise TakeSelectionError("Stored take-selection review is invalid.")
+        return review
+
 
 def _analyze_file(
     path: Path,

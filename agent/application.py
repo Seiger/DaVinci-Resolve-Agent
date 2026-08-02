@@ -44,6 +44,7 @@ from agent.subtitles import SubtitleGenerator
 from agent.synchronized_link import SynchronizedScreenLinker
 from agent.synchronized_pair import SynchronizedPairAssembler
 from agent.take_selection import TakeSelectionWorkflow
+from agent.take_sequence import TakeSequenceWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
 from providers.resolve import ResolveProviderClient
 from providers.transcription import FasterWhisperTranscriber
@@ -877,6 +878,23 @@ class TakeSelectionService(Protocol):
         note: str = "",
     ) -> dict[str, Any]: ...
 
+    def get_review(self, selection_id: str) -> dict[str, Any]: ...
+
+
+class TakeSequenceService(Protocol):
+    """M54.4 approved provider-neutral sequence-plan boundary."""
+
+    def compose(
+        self,
+        *,
+        sequence_name: str,
+        selection_ids: list[str],
+    ) -> dict[str, Any]: ...
+
+    def get(self, sequence_id: str) -> dict[str, Any]: ...
+
+    def list(self, limit: int = 20) -> dict[str, Any]: ...
+
 
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
@@ -910,6 +928,7 @@ class AgentApplication:
         animation_template_service: AnimationTemplateService | None = None,
         color_treatment_service: ColorTreatmentService | None = None,
         take_selection_service: TakeSelectionService | None = None,
+        take_sequence_service: TakeSequenceService | None = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -939,6 +958,7 @@ class AgentApplication:
         self._animation_templates = animation_template_service
         self._color_treatment = color_treatment_service
         self._take_selection = take_selection_service
+        self._take_sequence = take_sequence_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -2214,6 +2234,42 @@ class AgentApplication:
             ),
         )
 
+    def get_take_selection_review(self, selection_id: str) -> dict[str, Any]:
+        """Return one immutable M54 human review record."""
+        return self._run_local_workflow(
+            "get_take_selection_review",
+            lambda: self._take_selection_service().get_review(selection_id),
+        )
+
+    def compose_take_sequence(
+        self,
+        *,
+        sequence_name: str,
+        selection_ids: list[str],
+    ) -> dict[str, Any]:
+        """Compose an ordered handoff from approved take selections."""
+        return self._run_local_workflow(
+            "compose_take_sequence",
+            lambda: self._take_sequence_service().compose(
+                sequence_name=sequence_name,
+                selection_ids=selection_ids,
+            ),
+        )
+
+    def get_take_sequence(self, sequence_id: str) -> dict[str, Any]:
+        """Return one persisted approved take sequence."""
+        return self._run_local_workflow(
+            "get_take_sequence",
+            lambda: self._take_sequence_service().get(sequence_id),
+        )
+
+    def list_take_sequences(self, limit: int = 20) -> dict[str, Any]:
+        """List bounded approved take-sequence summaries."""
+        return self._run_local_workflow(
+            "list_take_sequences",
+            lambda: self._take_sequence_service().list(limit),
+        )
+
     def _take_selection_service(self) -> TakeSelectionService:
         if self._take_selection is not None:
             return self._take_selection
@@ -2227,6 +2283,11 @@ class AgentApplication:
                 transcription_models_directory()
             ),
         )
+
+    def _take_sequence_service(self) -> TakeSequenceService:
+        if self._take_sequence is not None:
+            return self._take_sequence
+        return TakeSequenceWorkflow(self._take_selection_service())
 
     def compose_webcam_picture_in_picture(
         self,

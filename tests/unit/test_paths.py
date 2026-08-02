@@ -26,6 +26,7 @@ from agent.paths import (
     synchronized_pairs_directory,
     take_selection_reviews_directory,
     take_selections_directory,
+    take_sequences_directory,
     transcription_models_directory,
     visual_treatments_directory,
 )
@@ -106,6 +107,9 @@ def test_runtime_paths_do_not_contain_a_hardcoded_user_name() -> None:
     )
     assert take_selection_reviews_directory(first_environment) == (
         first_runtime / "take-selection-reviews"
+    )
+    assert take_sequences_directory(first_environment) == (
+        first_runtime / "take-sequences"
     )
     assert transcription_models_directory(first_environment) == (
         first_runtime / "models" / "faster-whisper"
