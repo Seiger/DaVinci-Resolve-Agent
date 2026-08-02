@@ -1085,6 +1085,17 @@ class StubTakeSequenceMediaImportApplyWorkflow:
         return {"status": "applied", "receipt_id": receipt_id}
 
 
+class StubTakeSequenceTimelineApplyWorkflow:
+    def preview(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "preview", "plan_id": "8" * 64, "arguments": kwargs}
+
+    def apply(self, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "applied", "receipt_id": "7" * 64, "arguments": kwargs}
+
+    def get(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
+        return {"status": "applied", "receipt_id": receipt_id, "arguments": kwargs}
+
+
 class StubWorkflowAuditor:
     def __init__(self) -> None:
         self.operations: list[str] = []
@@ -1121,6 +1132,9 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         take_sequence_media_import_service=StubTakeSequenceMediaImportWorkflow(),
         take_sequence_media_import_apply_service=(
             StubTakeSequenceMediaImportApplyWorkflow()
+        ),
+        take_sequence_timeline_apply_service=(
+            StubTakeSequenceTimelineApplyWorkflow()
         ),
     )
     candidates: list[dict[str, str | float]] = [
@@ -1196,6 +1210,22 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
         timeout_seconds=14.5,
     )
     import_receipt = application.get_take_sequence_media_import("9" * 64)
+    timeline_apply_preview = application.preview_take_sequence_timeline_apply(
+        media_import_receipt_id="9" * 64,
+        target_timeline_name="Sequence Draft",
+        timeout_seconds=15.5,
+    )
+    timeline_apply = application.apply_take_sequence_timeline(
+        media_import_receipt_id="9" * 64,
+        target_timeline_name="Sequence Draft",
+        expected_plan_id="8" * 64,
+        confirm_apply=True,
+        timeout_seconds=16.5,
+    )
+    timeline_apply_receipt = application.get_take_sequence_timeline_apply(
+        "7" * 64,
+        timeout_seconds=17.5,
+    )
 
     assert analyzed["status"] == "pending_review"
     assert scripted["selection_version"] == "1.2"
@@ -1220,6 +1250,10 @@ def test_application_exposes_take_analysis_and_review_boundary() -> None:
     assert import_result["arguments"]["confirm_import"] is True
     assert import_result["arguments"]["timeout_seconds"] == 14.5
     assert import_receipt["receipt_id"] == "9" * 64
+    assert timeline_apply_preview["arguments"]["timeout_seconds"] == 15.5
+    assert timeline_apply["arguments"]["confirm_apply"] is True
+    assert timeline_apply["arguments"]["timeout_seconds"] == 16.5
+    assert timeline_apply_receipt["arguments"]["timeout_seconds"] == 17.5
 
 
 def test_application_exposes_status_and_read_only_provider_methods() -> None:

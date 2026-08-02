@@ -267,6 +267,32 @@ def test_workflow_audit_records_m55_media_import_as_editing(
 @pytest.mark.parametrize(
     "operation",
     [
+        "preview_take_sequence_timeline_apply",
+        "apply_take_sequence_timeline",
+        "get_take_sequence_timeline_apply",
+    ],
+)
+def test_workflow_audit_records_m55_timeline_apply_as_editing(
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    audit = WorkflowAuditLog(tmp_path, FixedClock())
+
+    audit.run(operation, lambda: {"receipt_id": "private"})
+    records = [
+        read_json_object(path)
+        for path in (tmp_path / "workflow").glob("*.json")
+    ]
+    completed = [record for record in records if record["status"] == "success"]
+
+    assert completed[0]["operation"] == operation
+    assert completed[0]["category"] == "editing"
+    assert "receipt_id" not in str(completed[0])
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
         "start_finalized_timeline_render",
         "get_finalized_timeline_render_status",
     ],

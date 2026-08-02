@@ -718,6 +718,30 @@ Live M55.5 apply лишається pending до справжнього людс
 canonical sequence/binding і окремого підтвердження write. Не створюй approve
 від імені користувача лише заради smoke test.
 
+### M55.6 confirmed duplicate-timeline sequence apply
+
+1. Використай applied M55.5 receipt і залиш exact source timeline порожнім.
+2. Зафіксуй source item count, timeline list і backup count; обери нову назву.
+3. Виклич `preview_take_sequence_timeline_apply`. Очікуй
+   `target_name_available=true`, порожні `blockers`, verified V1 placements і
+   A1 placements лише для sources із локальним audio stream.
+4. Переконайся, що plan не містить paths, raw clipInfo або caller-defined
+   asset/track IDs. Preview не повинен змінити timeline/backup counts.
+5. Після окремого підтвердження виклич `apply_take_sequence_timeline` з тим
+   самим M55.5 receipt, target name, exact `expected_plan_id` і
+   `confirm_apply=true`.
+6. Очікуй новий duplicate timeline, canonical V1/A1 items, sanitized operation
+   results, `source_unchanged=true` та `paths_redacted=true`. Source timeline
+   повинен лишитися порожнім.
+7. Повтори exact apply: target ID, receipt, item count і backup count не мають
+   змінитися. `get_take_sequence_timeline_apply` повинен пройти live readback.
+8. Non-empty source, existing target name, changed mapping, missing capability
+   або readback mismatch повинні блокувати apply/recovery.
+
+Live M55.6 лишається pending до справжнього M54 approve → M55.1 binding →
+M55.5 import і окремого підтвердження timeline write. Mechanics tests не
+створюють approval від імені користувача.
+
 ### M53 color discovery/preview
 
 Статус: live discovery/preview passed; confirmed apply implementation ready.

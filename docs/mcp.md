@@ -46,6 +46,14 @@ Media Pool і блокує existing-name або source-name collisions.
 mapping і Media Pool, виконує один backup-backed import batch та повертає
 path-redacted receipt. `get_take_sequence_media_import` read-only повертає цей
 receipt; exact replay не повторює write. Обидва tools не змінюють timeline.
+`preview_take_sequence_timeline_apply` приймає лише applied M55.5 receipt і
+нову target name. Він блокує non-empty source, existing target name або
+непідтверджені capabilities та повертає code-owned V1/A1 placements без paths.
+`apply_take_sequence_timeline` додатково вимагає exact plan і
+`confirm_apply=true`; caller не передає asset IDs, clipInfo або tracks. Tool
+дублює source, вставляє bounded video/audio batches і перевіряє target та
+незмінність source. `get_take_sequence_timeline_apply` read-only перевіряє
+applied receipt проти актуального Resolve readback.
 
 ## M53 color discovery tools
 

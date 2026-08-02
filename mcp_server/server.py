@@ -1094,6 +1094,50 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
             receipt_id,
         )
 
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def preview_take_sequence_timeline_apply(
+        media_import_receipt_id: str,
+        target_timeline_name: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Preview exact V1/A1 insertion into a protected duplicate timeline."""
+        return await asyncio.to_thread(
+            service.preview_take_sequence_timeline_apply,
+            media_import_receipt_id=media_import_receipt_id,
+            target_timeline_name=target_timeline_name,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
+    async def apply_take_sequence_timeline(
+        media_import_receipt_id: str,
+        target_timeline_name: str,
+        expected_plan_id: str,
+        confirm_apply: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply one reviewed sequence only to a duplicate timeline."""
+        return await asyncio.to_thread(
+            service.apply_take_sequence_timeline,
+            media_import_receipt_id=media_import_receipt_id,
+            target_timeline_name=target_timeline_name,
+            expected_plan_id=expected_plan_id,
+            confirm_apply=confirm_apply,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @server.tool(annotations=READ_ONLY_TOOL)
+    async def get_take_sequence_timeline_apply(
+        receipt_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return one M55.6 receipt with fresh source/target verification."""
+        return await asyncio.to_thread(
+            service.get_take_sequence_timeline_apply,
+            receipt_id,
+            timeout_seconds=timeout_seconds,
+        )
+
     @server.tool(annotations=WRITE_TOOL)
     async def compose_webcam_picture_in_picture(
         synchronized_pair_receipt_id: str,

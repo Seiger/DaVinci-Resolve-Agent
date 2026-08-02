@@ -931,6 +931,15 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             sequence_import_get_annotations = annotations[
                 "get_take_sequence_media_import"
             ]
+            sequence_apply_preview_annotations = annotations[
+                "preview_take_sequence_timeline_apply"
+            ]
+            sequence_apply_annotations = annotations[
+                "apply_take_sequence_timeline"
+            ]
+            sequence_apply_get_annotations = annotations[
+                "get_take_sequence_timeline_apply"
+            ]
             rough_cut_annotations = annotations["create_rough_cut"]
             approval_annotations = annotations["approve_rough_cut"]
             get_plan_annotations = annotations["get_rough_cut_plan"]
@@ -1016,6 +1025,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert import_annotations is not None
             assert sequence_import_annotations is not None
             assert sequence_import_get_annotations is not None
+            assert sequence_apply_preview_annotations is not None
+            assert sequence_apply_annotations is not None
+            assert sequence_apply_get_annotations is not None
             assert rough_cut_annotations is not None
             assert approval_annotations is not None
             assert get_plan_annotations is not None
@@ -1065,6 +1077,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             assert import_annotations.read_only_hint is False
             assert sequence_import_annotations.read_only_hint is False
             assert sequence_import_get_annotations.read_only_hint is True
+            assert sequence_apply_preview_annotations.read_only_hint is True
+            assert sequence_apply_annotations.read_only_hint is False
+            assert sequence_apply_get_annotations.read_only_hint is True
             assert rough_cut_annotations.read_only_hint is False
             assert approval_annotations.read_only_hint is False
             assert get_plan_annotations.read_only_hint is True
@@ -1585,6 +1600,9 @@ def test_mcp_exposes_fixed_m5_tool_surface() -> None:
             "preview_take_sequence_media_import",
             "apply_take_sequence_media_import",
             "get_take_sequence_media_import",
+            "preview_take_sequence_timeline_apply",
+            "apply_take_sequence_timeline",
+            "get_take_sequence_timeline_apply",
             "compose_webcam_picture_in_picture",
             "link_synchronized_screen_pair",
             "preview_synchronized_pause_compaction",

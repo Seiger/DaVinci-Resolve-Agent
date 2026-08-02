@@ -41,6 +41,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - M55.5 explicitly confirmed, backup-backed Media Pool import with exact-plan
   validation, private path resolution, canonical metadata/readback checks and
   durable path-redacted replay receipts; timelines remain unchanged.
+- M55.6 exact-plan duplicate-timeline take-sequence application with empty-source
+  and target-name guards, local audio-stream detection, bounded V1/A1 batches,
+  canonical source/target readback and durable per-step recovery.
 - M54 immutable approve/reject review records that never modify Resolve.
 - M54 live bounded analysis of the two allowlisted synchronized MKV sources,
   including deterministic replay and source-path redaction; human review remains

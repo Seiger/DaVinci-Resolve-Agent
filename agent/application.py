@@ -49,6 +49,7 @@ from agent.take_sequence_assembly import TakeSequenceAssemblyWorkflow
 from agent.take_sequence_binding import TakeSequenceBindingWorkflow
 from agent.take_sequence_media_import import TakeSequenceMediaImportWorkflow
 from agent.take_sequence_media_import_apply import TakeSequenceMediaImporter
+from agent.take_sequence_timeline_apply import TakeSequenceTimelineApplyWorkflow
 from agent.take_sequence_timeline_mapping import TakeSequenceTimelineMappingWorkflow
 from agent.visual_treatment import VisualTreatmentWorkflow
 from providers.resolve import ResolveProviderClient
@@ -970,6 +971,35 @@ class TakeSequenceMediaImportApplyService(Protocol):
     def get(self, receipt_id: str) -> dict[str, Any]: ...
 
 
+class TakeSequenceTimelineApplyService(Protocol):
+    """M55.6 duplicate-timeline sequence application boundary."""
+
+    def preview(
+        self,
+        *,
+        media_import_receipt_id: str,
+        target_timeline_name: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def apply(
+        self,
+        *,
+        media_import_receipt_id: str,
+        target_timeline_name: str,
+        expected_plan_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+    def get(
+        self,
+        receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]: ...
+
+
 class AgentApplication:
     """Coordinate core status and provider operations for external adapters."""
 
@@ -1014,6 +1044,9 @@ class AgentApplication:
         take_sequence_media_import_apply_service: (
             TakeSequenceMediaImportApplyService | None
         ) = None,
+        take_sequence_timeline_apply_service: (
+            TakeSequenceTimelineApplyService | None
+        ) = None,
         workflow_audit: WorkflowOperationAuditor | None = None,
     ) -> None:
         self._resolve = ResolveProviderClient() if resolve is None else resolve
@@ -1053,6 +1086,7 @@ class AgentApplication:
         self._take_sequence_media_import_apply = (
             take_sequence_media_import_apply_service
         )
+        self._take_sequence_timeline_apply = take_sequence_timeline_apply_service
         self._workflow_audit = workflow_audit
 
     def status(
@@ -2469,6 +2503,59 @@ class AgentApplication:
             lambda: self._take_sequence_media_import_apply_service().get(receipt_id),
         )
 
+    def preview_take_sequence_timeline_apply(
+        self,
+        *,
+        media_import_receipt_id: str,
+        target_timeline_name: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Preview exact M55.6 V1/A1 insertion into a duplicate timeline."""
+        return self._run_local_workflow(
+            "preview_take_sequence_timeline_apply",
+            lambda: self._take_sequence_timeline_apply_service().preview(
+                media_import_receipt_id=media_import_receipt_id,
+                target_timeline_name=target_timeline_name,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def apply_take_sequence_timeline(
+        self,
+        *,
+        media_import_receipt_id: str,
+        target_timeline_name: str,
+        expected_plan_id: str,
+        confirm_apply: bool,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Apply one reviewed M55.6 plan only to a duplicate timeline."""
+        return self._run_local_workflow(
+            "apply_take_sequence_timeline",
+            lambda: self._take_sequence_timeline_apply_service().apply(
+                media_import_receipt_id=media_import_receipt_id,
+                target_timeline_name=target_timeline_name,
+                expected_plan_id=expected_plan_id,
+                confirm_apply=confirm_apply,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
+    def get_take_sequence_timeline_apply(
+        self,
+        receipt_id: str,
+        *,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Return one M55.6 receipt with fresh source/target readback."""
+        return self._run_local_workflow(
+            "get_take_sequence_timeline_apply",
+            lambda: self._take_sequence_timeline_apply_service().get(
+                receipt_id,
+                timeout_seconds=self._validated_timeout(timeout_seconds),
+            ),
+        )
+
     def _take_selection_service(self) -> TakeSelectionService:
         if self._take_selection is not None:
             return self._take_selection
@@ -2538,6 +2625,24 @@ class AgentApplication:
             self._take_sequence_timeline_mapping_service(),
             self._take_sequence_binding_service(),
             self._resolve,
+        )
+
+    def _take_sequence_timeline_apply_service(
+        self,
+    ) -> TakeSequenceTimelineApplyService:
+        if self._take_sequence_timeline_apply is not None:
+            return self._take_sequence_timeline_apply
+
+        def capabilities() -> dict[str, Any]:
+            discovered = self.status()["bridge"].get("capabilities", {})
+            return discovered if isinstance(discovered, dict) else {}
+
+        return TakeSequenceTimelineApplyWorkflow(
+            imports=self._take_sequence_media_import_apply_service(),
+            mapping=self._take_sequence_timeline_mapping_service(),
+            bindings=self._take_sequence_binding_service(),
+            gateway=self._resolve,
+            capabilities=capabilities,
         )
 
     def compose_webcam_picture_in_picture(

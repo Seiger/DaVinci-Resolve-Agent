@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/take-sequence-timeline-apply-result.schema.json",
+  "title": "M55.6 duplicate-timeline application result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apply_version", "receipt_id", "status", "inputs", "plan", "target_timeline", "operations", "inserted_items", "target_readback_sha256", "source_unchanged", "paths_redacted"],
+  "properties": {
+    "apply_version": {"const": "1.0"},
+    "receipt_id": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["in_progress", "applied"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["media_import_receipt_id", "target_timeline_name", "expected_plan_id"],
+      "properties": {
+        "media_import_receipt_id": {"$ref": "#/$defs/sha256"},
+        "target_timeline_name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "expected_plan_id": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "plan": {"type": "object"},
+    "target_timeline": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["timeline_id", "name"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        {"$ref": "#/$defs/duplicateOperation"},
+        {"$ref": "#/$defs/tracksOperation"},
+        {"$ref": "#/$defs/videoOperation"},
+        {"$ref": "#/$defs/audioOperation"}
+      ]
+    },
+    "inserted_items": {"type": "array", "maxItems": 200, "items": {"$ref": "#/$defs/insertedItem"}},
+    "target_readback_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "source_unchanged": {"type": "boolean"},
+    "paths_redacted": {"const": true}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "status", "backup_created", "result"],
+      "properties": {
+        "operation": {"type": "string"},
+        "status": {"enum": ["pending", "applied", "skipped"]},
+        "backup_created": {"type": "boolean"},
+        "result": {"type": ["object", "null"]}
+      }
+    },
+    "duplicateOperation": {"allOf": [{"$ref": "#/$defs/operation"}, {"properties": {"operation": {"const": "duplicate_timeline"}}}]},
+    "tracksOperation": {"allOf": [{"$ref": "#/$defs/operation"}, {"properties": {"operation": {"const": "ensure_timeline_tracks"}}}]},
+    "videoOperation": {"allOf": [{"$ref": "#/$defs/operation"}, {"properties": {"operation": {"const": "insert_video"}}}]},
+    "audioOperation": {"allOf": [{"$ref": "#/$defs/operation"}, {"properties": {"operation": {"const": "insert_audio"}}}]},
+    "insertedItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_item_id", "name", "track_type", "track_index", "timeline_start_frame", "timeline_end_frame", "source_start_frame", "source_end_frame"],
+      "properties": {
+        "timeline_item_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "name": {"type": "string", "minLength": 1, "maxLength": 255},
+        "track_type": {"enum": ["video", "audio"]},
+        "track_index": {"const": 1},
+        "timeline_start_frame": {"type": "integer", "minimum": 0},
+        "timeline_end_frame": {"type": "integer", "minimum": 1},
+        "source_start_frame": {"type": "integer", "minimum": 0},
+        "source_end_frame": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "applied"}}},
+      "then": {
+        "properties": {
+          "target_timeline": {"type": "object"},
+          "inserted_items": {"minItems": 1},
+          "target_readback_sha256": {"$ref": "#/$defs/sha256"},
+          "source_unchanged": {"const": true}
+        }
+      }
+    }
+  ]
+}

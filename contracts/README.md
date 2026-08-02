@@ -21,6 +21,10 @@ sources, current Media Pool snapshot identity and conservative same-name
 collision review. It exposes no source path and cannot execute import.
 `take-sequence-media-import-result.schema.json` defines the M55.5 confirmed,
 backup-backed, path-redacted Media Pool import receipt and verified asset IDs.
+`take-sequence-timeline-apply-preview.schema.json` defines the M55.6 exact
+duplicate-timeline V1/A1 plan, live blockers and capability gates.
+`take-sequence-timeline-apply-result.schema.json` defines its path-redacted,
+per-step durable application receipt and canonical inserted item identities.
 
 `color-preset.schema.json` defines one immutable packaged M53 CDL preset with a
 fixed scope and apply policy. `color-treatment-preview.schema.json` binds that

@@ -97,12 +97,33 @@ orders, asset IDs і metadata; paths та backup path редагуються. Ex
 читає receipt і не виконує provider write повторно. M55.5 змінює Media Pool,
 але не створює, не дублює і не редагує timeline.
 
+## M55.6: confirmed duplicate-timeline V1/A1 assembly
+
+`preview_take_sequence_timeline_apply` приймає тільки applied M55.5 receipt і
+нову bounded назву target timeline. Він повторно перевіряє M55.3 mapping,
+canonical imported asset IDs, private binding та live source timeline. Source
+мусить бути порожнім, а target name — вільним; інакше preview повертає blocker
+без write. Наявність audio stream визначається локально через PyAV без decode і
+без додавання path до plan.
+
+`apply_take_sequence_timeline` вимагає exact `expected_plan_id` та
+`confirm_apply=true`. Він використовує лише вже перевірені документовані
+`DuplicateTimeline` і `AppendToTimeline([{clipInfo}, ...])` primitives:
+approved video ranges вставляються одним bounded batch на V1, sources з audio
+stream — окремим bounded batch на A1. Кожен provider write створює project
+backup і має deterministic idempotency key.
+
+Durable receipt зберігає sanitized step results, canonical TimelineItem IDs і
+readback SHA-256, але не source/backup paths. Interrupted apply продовжує лише
+pending step. Фінальний gate вимагає exact target items та повторно підтверджує,
+що source timeline не змінився. Caller не передає raw clipInfo, track indexes,
+asset IDs або filesystem paths.
+
 ## Подальша acceptance межа
 
 Після реального людського approve та live M54.4 compose наступні M55 slices
 мають окремо реалізувати:
 
-1. confirmed application лише до duplicate timeline;
-2. повний visual/audio/subtitle/color QC;
-3. confirmed render і output verification;
-4. повторне встановлення та acceptance на чистому Windows-комп'ютері.
+1. повний visual/audio/subtitle/color QC;
+2. confirmed render і output verification;
+3. повторне встановлення та acceptance на чистому Windows-комп'ютері.

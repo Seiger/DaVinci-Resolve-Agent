@@ -75,6 +75,15 @@ paths: exact reviewed M55.4 `plan_id` повторно обчислюється,
 duration/FPS та Media Pool readback і зберігає path-redacted durable receipt;
 exact replay не створює повторних items або backups. Timeline не змінюється.
 
+M55.6 додає `preview_take_sequence_timeline_apply` та підтверджений
+`apply_take_sequence_timeline`. Workflow приймає лише M55.5 receipt, нову
+назву timeline й exact reviewed plan. Source timeline повинен бути порожнім і
+ніколи не редагується: агент створює duplicate, вставляє approved video ranges
+на V1 та лише фактично наявні audio streams на A1, після чого перевіряє всі
+items і незмінність source. Операції мають окремі backups/idempotency keys;
+durable receipt дозволяє продовжити interrupted apply без повторення завершених
+кроків і не містить local paths.
+
 Проєкт завершив **Milestone M53: кольорокорекція та visual QC**. Перший slice
 додає immutable allowlisted CDL preset, read-only перевірку documented color
 graph API та deterministic preview, прив'язаний до exact applied M52 receipt.

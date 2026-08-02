@@ -63,7 +63,9 @@
   Media Pool import preview, дедуплікує sources і блокує ambiguous same-name
   collisions до review. M55.5 виконує лише exact confirmed source batch import,
   створює backup, перевіряє metadata/Media Pool readback і зберігає durable
-  path-redacted receipt без timeline mutation.
+  path-redacted receipt без timeline mutation. M55.6 формує exact preview і
+  confirmed V1/A1 assembly лише на duplicate порожнього source timeline,
+  перевіряє source/target readback та відновлює interrupted apply покроково.
 
 Milestone може бути розділений на discovery/preview/apply підетапи, якщо
 Resolve API або безпечне live-тестування цього потребують. Roadmap не є заявою

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://davinci-resolve-agent.local/contracts/take-sequence-timeline-apply-preview.schema.json",
+  "title": "M55.6 duplicate-timeline application preview",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["timeline_apply_plan_version", "plan_id", "status", "inputs", "import_receipt_sha256", "mapping_plan_id", "source_timeline", "target_name_available", "placements", "placement_count", "video_item_count", "audio_item_count", "required_capabilities", "unsupported_capabilities", "blockers", "warnings", "paths_redacted", "source_timeline_modified", "apply_supported"],
+  "properties": {
+    "timeline_apply_plan_version": {"const": "1.0"},
+    "plan_id": {"$ref": "#/$defs/sha256"},
+    "status": {"const": "preview"},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["media_import_receipt_id", "target_timeline_name"],
+      "properties": {
+        "media_import_receipt_id": {"$ref": "#/$defs/sha256"},
+        "target_timeline_name": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "import_receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "mapping_plan_id": {"$ref": "#/$defs/sha256"},
+    "source_timeline": {"$ref": "#/$defs/timelineSnapshot"},
+    "target_name_available": {"type": "boolean"},
+    "placements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {"$ref": "#/$defs/placement"}
+    },
+    "placement_count": {"type": "integer", "minimum": 1, "maximum": 100},
+    "video_item_count": {"type": "integer", "minimum": 1, "maximum": 100},
+    "audio_item_count": {"type": "integer", "minimum": 0, "maximum": 100},
+    "required_capabilities": {"type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 64}},
+    "unsupported_capabilities": {"type": "array", "maxItems": 6, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 64}},
+    "blockers": {"type": "array", "maxItems": 2, "uniqueItems": true, "items": {"enum": ["source_timeline_not_empty", "target_timeline_name_exists"]}},
+    "warnings": {"type": "array", "maxItems": 1, "items": {"type": "string", "minLength": 1, "maxLength": 180}},
+    "paths_redacted": {"const": true},
+    "source_timeline_modified": {"const": false},
+    "apply_supported": {"type": "boolean"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "frame": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+    "timelineSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeline_id", "name", "items", "item_count", "snapshot_sha256"],
+      "properties": {
+        "timeline_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "items": {"type": "array", "maxItems": 200, "items": {"type": "object"}},
+        "item_count": {"type": "integer", "minimum": 0, "maximum": 200},
+        "snapshot_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order", "source_key", "display_name", "source_start_frame", "source_end_frame", "position_frames", "timeline_end_position_frames", "asset_id", "has_audio"],
+      "properties": {
+        "order": {"type": "integer", "minimum": 1, "maximum": 100},
+        "source_key": {"$ref": "#/$defs/sha256"},
+        "display_name": {"type": "string", "minLength": 1, "maxLength": 255},
+        "source_start_frame": {"$ref": "#/$defs/frame"},
+        "source_end_frame": {"$ref": "#/$defs/frame"},
+        "position_frames": {"$ref": "#/$defs/frame"},
+        "timeline_end_position_frames": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+        "asset_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "has_audio": {"type": "boolean"}
+      }
+    }
+  }
+}

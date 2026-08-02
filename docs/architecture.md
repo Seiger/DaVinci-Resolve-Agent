@@ -64,6 +64,14 @@ Pool readback, then persists a path-redacted receipt. Its deterministic receipt
 and provider idempotency keys make interrupted retries safe; no timeline method
 is called.
 
+M55.6 joins that receipt with a freshly recomputed M55.3 mapping and private
+audio-stream inspection. Core requires an empty source timeline and an unused
+target name, then orchestrates only existing provider-neutral duplicate, track
+and batch-range insertion boundaries. Resolve alone maps V1/A1 placements to
+documented `DuplicateTimeline` and `AppendToTimeline` clipInfo. Sanitized
+per-step receipts allow recovery without storing source or backup paths, and
+final readback proves both the exact target items and unchanged source.
+
 ## M53 color discovery and preview
 
 ```text

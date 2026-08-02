@@ -210,6 +210,13 @@ def take_sequence_media_imports_directory(
     return runtime_directory(environment) / "take-sequence-media-imports"
 
 
+def take_sequence_timeline_applications_directory(
+    environment: Mapping[str, str] | None = None,
+) -> Path:
+    """Return durable M55.6 duplicate-timeline application receipts."""
+    return runtime_directory(environment) / "take-sequence-timeline-applications"
+
+
 def render_output_directory(
     environment: Mapping[str, str] | None = None,
 ) -> Path:
