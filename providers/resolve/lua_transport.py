@@ -210,6 +210,13 @@ class LuaSnapshotClient:
                 replay = receipt.replay()
                 if replay is not None:
                     return replay
+                if action == "start_render":
+                    assert owned_job is not None
+                    destination = Path(owned_job["output_path"])
+                    if destination.exists() or any(destination.parent.iterdir()):
+                        raise ValueError(
+                            "Render destination is no longer empty; refusing overwrite."
+                        )
                 receipt.begin(command_id)
             if action == "prepare_render":
                 (self.root / "renders" / command_id).mkdir(parents=True, exist_ok=False)
@@ -233,8 +240,17 @@ class LuaSnapshotClient:
                 + "}\n"
             )
             pending.write_text(payload, encoding="ascii")
-            pending.replace(self.root / "request.lua")
             deadline = time.monotonic() + timeout_seconds
+            while True:
+                try:
+                    pending.replace(self.root / "request.lua")
+                    break
+                except PermissionError:
+                    # Windows readers may briefly deny delete/rename sharing.
+                    # Retry publication of the SAME ID, never a new operation.
+                    if time.monotonic() >= deadline:
+                        raise
+                    time.sleep(min(0.025, max(0, deadline - time.monotonic())))
             while time.monotonic() < deadline:
                 try:
                     errors = (
@@ -272,6 +288,7 @@ class LuaSnapshotClient:
                             "EMPTY_TIMELINE",
                             "JOB_NOT_OWNED",
                             "JOB_ALREADY_STARTED",
+                            "JOB_CHANGED",
                         }:
                             receipt.reject(code)
                         raise BridgeProtocolError(

@@ -72,6 +72,40 @@ def test_completed_write_replays_after_client_restart_without_new_export(
         )
 
 
+def test_transient_windows_publication_lock_reuses_one_command(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    original = Path.replace
+    attempts: list[str] = []
+
+    def locked_replace(path: Path, target: Any) -> Path:
+        if Path(target) == root / "request.lua":
+            attempts.append(path.name)
+            if len(attempts) <= 2:
+                raise PermissionError("Windows reader holds delete sharing")
+        return original(path, target)
+
+    monkeypatch.setattr(Path, "replace", locked_replace)
+    worker = serve(root)
+    try:
+        result = LuaSnapshotClient(root).request(
+            "create_timeline",
+            3,
+            arguments={"name": "Test"},
+            expected_project_id="test-project",
+            confirm=True,
+            idempotency_key="publication",
+        )
+    finally:
+        worker.join(4)
+    assert result["status"] == "completed"
+    assert len(attempts) >= 3 and len(set(attempts)) == 1
+    assert len(list((root / "receipts").glob("*.json"))) == 1
+
+
 def test_timeout_blocks_retry_and_new_write_even_after_restart(tmp_path: Path) -> None:
     root = tmp_path / "session"
     prepare(root)

@@ -35,7 +35,7 @@ def serve(root: Path, status: str, backup: bool = True) -> threading.Thread:
                         archive.writestr(
                             "project.xml",
                             '<SM_Project DbId="test-project">'
-                            '<ProjectName>Test</ProjectName></SM_Project>',
+                            "<ProjectName>Test</ProjectName></SM_Project>",
                         )
                 return
             time.sleep(0.01)
@@ -171,6 +171,75 @@ def test_complete_status_requires_real_output(tmp_path: Path) -> None:
             )
     finally:
         worker.join(4)
+
+
+def test_existing_output_blocks_start_without_pending_receipt(tmp_path: Path) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    job = prepare_job(root)
+    output = Path(job["output_path"])
+    output.write_bytes(b"previous video")
+    before = set((root / "receipts").glob("*.json"))
+    with pytest.raises(ValueError, match="refusing overwrite"):
+        LuaSnapshotClient(root).request(
+            "start_render",
+            arguments={"job_id": job["job_id"]},
+            expected_project_id="test-project",
+            confirm=True,
+            idempotency_key="start",
+        )
+    assert output.read_bytes() == b"previous video"
+    assert set((root / "receipts").glob("*.json")) == before
+    assert (root / "request.lua").read_text().strip() == "return nil"
+
+
+def test_completed_start_replays_even_when_output_exists(tmp_path: Path) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    job = prepare_job(root)
+    kwargs: dict[str, Any] = dict(
+        arguments={"job_id": job["job_id"]},
+        expected_project_id="test-project",
+        confirm=True,
+        idempotency_key="start",
+    )
+    worker = serve(root, "ok")
+    try:
+        result = LuaSnapshotClient(root).request("start_render", 3, **kwargs)
+    finally:
+        worker.join(4)
+    Path(job["output_path"]).write_bytes(b"render output")
+    replay = LuaSnapshotClient(root).request("start_render", 3, **kwargs)
+    assert replay["replayed"] and replay["response_path"] == result["response_path"]
+
+
+def test_real_video_and_audio_are_decoded(tmp_path: Path) -> None:
+    import av
+    import numpy as np
+
+    path = tmp_path / "fixture.mov"
+    with av.open(str(path), "w") as container:
+        video = container.add_stream("mpeg4", rate=24)
+        video.width, video.height, video.pix_fmt = 64, 48, "yuv420p"
+        audio = container.add_stream("pcm_s16le", rate=48000)
+        audio.layout = "stereo"
+        frame = av.VideoFrame.from_ndarray(
+            np.zeros((48, 64, 3), dtype=np.uint8), format="rgb24"
+        )
+        for packet in video.encode(frame):
+            container.mux(packet)
+        samples = av.AudioFrame.from_ndarray(
+            np.zeros((1, 4000), dtype=np.int16), format="s16", layout="stereo"
+        )
+        samples.sample_rate = 48000
+        for packet in audio.encode(samples):
+            container.mux(packet)
+        for stream in (video, audio):
+            for packet in stream.encode(None):
+                container.mux(packet)
+    result = verify_video(path)
+    assert result["video_decode_verified"] and result["audio_decode_verified"]
+    assert result["width"] == 64 and result["audio_streams"] == 1
 
 
 def test_malformed_job_ack_is_uncertain(tmp_path: Path) -> None:

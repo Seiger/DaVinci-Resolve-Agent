@@ -67,8 +67,11 @@ These tools are advertised:
   `renders/<request>/video.mp4` destination, never overwrites an existing video.
 - `resolve_lua_start_render`: start only a job prepared by this running bridge.
   Acknowledges start, not completion. A stopped/restarted Lua loop loses job ownership.
+  Rechecks the queued job's timeline/destination and refuses a non-empty output
+  directory. A successful replay returns its receipt without starting again.
 - `resolve_lua_get_render_status`: poll that owned job. A completed status also
-  requires a non-empty output whose first video frame decodes successfully.
+  requires a non-empty output whose first video frame and first audio frame
+  (when an audio stream exists) decode successfully.
   This is not a full visual/audio quality inspection.
 - `resolve_lua_cleanup_responses`: preview eligible response files by default;
   `confirm=true` removes them only after an acknowledged stop, with no pending
@@ -154,6 +157,9 @@ returns a bounded job-ID token in the response filename; status uses a fixed
 allowlist of tokens. There is no
 heartbeat or general-purpose result channel.
 Concurrent requests are rejected instead of overwriting another request.
+On Windows, a reader can briefly block atomic mailbox replacement. Publication
+retries within the request deadline using the same request ID and payload; it
+never generates or replays a new editing operation.
 
 ## Live acceptance, 2026-09-17
 

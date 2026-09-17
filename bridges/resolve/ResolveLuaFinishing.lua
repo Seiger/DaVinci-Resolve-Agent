@@ -25,6 +25,16 @@ return function(api, root, helpers)
         if action == "start_render" then
             local owned = job(project, a)
             check(not owned.started, "JOB_ALREADY_STARTED")
+            local unchanged = false
+            for _, info in ipairs(project:GetRenderJobList() or {}) do
+                if info.JobId == a.job_id then
+                    check(type(info.TargetDir) == "string"
+                        and normalized(info.TargetDir) == normalized(owned.directory)
+                        and info.TimelineName == owned.name, "JOB_CHANGED")
+                    unchanged = true
+                end
+            end
+            check(unchanged, "JOB_CHANGED")
             return function()
                 check(project:GetCurrentTimeline():GetUniqueId() == owned.timeline, "VERIFY_FAILED")
                 owned.started = true -- Never resubmit an uncertain start.
@@ -53,8 +63,10 @@ return function(api, root, helpers)
                 for k,v in pairs(a.properties) do changes[k] = v end
                 if a.track_type == "audio" then changes.AudioVolumeEnabled = true
                 else
-                    changes.TransformEnabled = true
-                    changes.ZoomGang = false
+                    if changes.ZoomX or changes.ZoomY or changes.Pan or changes.Tilt then
+                        changes.TransformEnabled = true
+                    end
+                    if changes.ZoomX or changes.ZoomY then changes.ZoomGang = false end
                     if changes.Opacity then changes.CompositeEnabled = true end
                 end
                 check(item:SetProperties(changes) == true, "VERIFY_FAILED")
@@ -112,7 +124,8 @@ return function(api, root, helpers)
                     end
                 end
                 check(found, "VERIFY_FAILED")
-                jobs[id] = {project=project:GetUniqueId(), timeline=timeline:GetUniqueId(), started=false}
+                jobs[id] = {project=project:GetUniqueId(), timeline=timeline:GetUniqueId(),
+                    name=timeline:GetName(), directory=directory, started=false}
                 return "job_" .. id
             end
         end

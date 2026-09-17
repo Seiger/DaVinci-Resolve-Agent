@@ -122,6 +122,13 @@ def verify_video(path: Path) -> dict[str, Any]:
         frame = next(container.decode(video), None)
         if frame is None:
             raise ValueError("Rendered video cannot be decoded.")
+        audio_verified = None
+        if container.streams.audio:
+            container.seek(0)
+            audio = next(container.decode(audio=0), None)
+            if audio is None or audio.samples == 0:
+                raise ValueError("Rendered audio stream cannot be decoded.")
+            audio_verified = True
         return {
             "path": str(path),
             "bytes": path.stat().st_size,
@@ -132,4 +139,5 @@ def verify_video(path: Path) -> dict[str, Any]:
             if container.duration
             else None,
             "video_decode_verified": True,
+            "audio_decode_verified": audio_verified,
         }
