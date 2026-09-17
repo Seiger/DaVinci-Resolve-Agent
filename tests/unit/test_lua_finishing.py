@@ -21,9 +21,12 @@ from providers.resolve.lua_transport import LuaSnapshotClient, prepare
 def serve(root: Path, status: str, backup: bool = True) -> threading.Thread:
     def run() -> None:
         for _ in range(300):
-            match = re.search(
-                r',id="((?:\\[0-9]{3})+)"', (root / "request.lua").read_text()
-            )
+            try:
+                raw = (root / "request.lua").read_text()
+            except OSError:
+                time.sleep(0.01)
+                continue
+            match = re.search(r',id="((?:\\[0-9]{3})+)"', raw)
             if match:
                 identity = bytes(
                     int(n) for n in re.findall(r"\\(\d{3})", match[1])
@@ -298,3 +301,32 @@ def test_invalid_render_not_reported_as_verified(tmp_path: Path) -> None:
     path.touch()
     with pytest.raises(ValueError, match="non-empty"):
         verify_video(path)
+
+
+def test_live_summary_uses_native_counts_not_exported_timeline(tmp_path: Path) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    worker = serve(
+        root, "ok_timeline_1_1_1_86400_86472_86412_86460_24000", backup=False
+    )
+    try:
+        result = LuaSnapshotClient(root).request(
+            "get_timeline_summary",
+            3,
+            arguments={"timeline_name": "Test"},
+            expected_project_id="test-project",
+        )
+    finally:
+        worker.join(4)
+    assert result["source"] == "live_lua_api"
+    assert result["summary"]["subtitle_items"] == 1
+    assert result["summary"]["subtitle_first_frame"] == 86412
+    assert not list(root.glob("*.before.drp"))
+
+
+def test_reload_accepts_no_source_or_path(tmp_path: Path) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    for arguments in ({"path": "other.lua"}, {"source": "print(1)"}):
+        with pytest.raises(ValueError, match="no editing arguments"):
+            LuaSnapshotClient(root).request("reload_modules", arguments=arguments)

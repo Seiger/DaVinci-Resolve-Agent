@@ -35,7 +35,9 @@ def validate_finishing(
             raise ValueError("Expected one safe render job ID.")
         return dict(a)
     name = bounded_text(a.get("timeline_name"), "Timeline name")
-    if action == "prepare_render" and set(a) == {"timeline_name"}:
+    if action in {"prepare_render", "get_timeline_summary"} and set(a) == {
+        "timeline_name"
+    }:
         return {"timeline_name": name}
     if action == "set_clip_properties" and set(a) == {
         "timeline_name",

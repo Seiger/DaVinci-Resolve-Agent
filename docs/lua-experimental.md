@@ -1,12 +1,12 @@
 # Experimental Lua MCP bridge (Resolve Free 21.1)
 
-This is an opt-in **prototype**, separate from the Python bridge. Protocol 3
-adds bounded finishing and render operations to the three protocol-2 edits.
+This is an opt-in **prototype**, separate from the Python bridge. Protocol 4
+adds live timeline summaries and fixed-module reload to protocol-3 finishing.
 It does not replace the production MCP server or expose its entire surface.
-The protocol-2 edits were validated on Windows 10 build 19045, Resolve Free
-21.1.0.17, Python 3.12.10. **Protocol-3 finishing and closed-console operation
-are not yet live-verified.** Do not treat this revision as ready for unattended
-production rendering; see the acceptance section below.
+Live-tested on Windows 10 build 19045, Resolve Free 21.1.0.17 and Python
+3.12.10: import, AV assembly, gain, zoom, captions-first SRT and short MP4 render.
+**This remains experimental: closed-console operation and long-render response
+handling are not yet verified.** It is not a full production-provider replacement.
 
 After one bootstrap inside Resolve, requests use a local mailbox. No keyboard,
 mouse, window activation, screenshots, desktop automation or network connection
@@ -44,6 +44,8 @@ roots, importing/appending files is disabled. Roots are fixed in both the sessio
 manifest and the installed Lua script; use a new session to change them. Old
 protocol-1 sessions remain read-only and need a fresh preparation for editing.
 Protocol-2 sessions cannot use finishing commands; prepare a new runtime.
+Protocol-3 sessions cannot use timeline summary or module reload; those require
+a fresh protocol-4 bootstrap.
 
 These tools are advertised:
 
@@ -60,7 +62,7 @@ These tools are advertised:
   video zoom, position and opacity. Uses one-based track/item indices and
   requires the expected source path. This is not noise removal or automatic mixing.
 - `resolve_lua_add_subtitles`: import UTF-8 SRT within a media root, reject
-  overlapping cues or existing timeline subtitles, verify cue count and first/
+  overlapping cues or any existing AV/subtitle items, verify cue count and first/
   last timing. This provides captions, not arbitrary designed title templates.
 - `resolve_lua_prepare_render`: queue a 1080p H.264 MP4 using the installed
   `YouTube - 1080p` preset, with audio and burnt-in subtitles. Creates a new
@@ -76,6 +78,14 @@ These tools are advertised:
 - `resolve_lua_cleanup_responses`: preview eligible response files by default;
   `confirm=true` removes them only after an acknowledged stop, with no pending
   writes. Keeps every backup, render, receipt, script and unrelated file.
+- `resolve_lua_get_timeline_summary`: read live API counts for video, audio and
+  subtitles, timeline bounds, subtitle first/last frame and frame rate. This avoids
+  treating an exported project snapshot as a complete view of unsaved timeline state.
+- `resolve_lua_reload_modules`: reload only the fixed trusted `editing.lua` and
+  `finishing.lua` installed in this session by the operator. Accepts no source,
+  paths or arbitrary actions. Keeps job ownership, handled IDs and the original
+  deadline. Does not clear receipts or allow uncertain writes to be retried.
+  Rendering blocks reload; a failed load keeps the previous dispatcher.
 
 ## Editing safety and replay
 
@@ -91,7 +101,8 @@ saves the project, and exports `<request>.ok.drp`. Render start skips the post-s
 while rendering; preparation saves before starting the job. The client validates response
 and backup project IDs before recording success.
 
-Append selects the named timeline, adding to its end; it does not insert,
+Append selects the named timeline, adding after the last video/audio item;
+subtitle tails do not move the AV insertion point. It does not insert,
 overwrite or delete existing clips. `start_frame` and `end_frame` map to the
 Resolve API's inclusive source-frame bounds, not timeline frames. Converted
 duration depends on source/timeline frame rates. Both must be provided or both
@@ -179,19 +190,62 @@ Independent inspection of the exported timeline found one video item, source
 in-point 12, and timeline duration field 23. Frame-rate conversion was not
 independently measured.
 This verifies creation and no duplicate append; it does not independently prove
-every frame-rate conversion or the source end-frame readback. Whole-clip append,
-audio-only and mixed audio/video fixtures have not yet been live-tested in this
-Lua adapter. The loop was stopped after testing.
+every frame-rate conversion or the source end-frame readback. Audio-only fixtures were not tested in that run. Later protocol-4 acceptance
+below covers whole-clip mixed audio/video append. The loop was stopped after testing.
 
-Protocol-3 finishing is implemented and has automated validation/transport tests,
-but its live acceptance remains pending. A local synthetic three-second video
-with stereo tone and an SRT caption is prepared for the full check. Console
-access failed twice while reporting that the foreground window had no process
-ID; no finishing command was submitted to Resolve in this attempt. Required
-remaining acceptance: bootstrap, close the console, import mixed AV, append,
-change gain/framing, add captions, prepare/start/poll render, inspect the output,
-then stop and preview response cleanup. The two-hour boundary has not been
-wall-clock tested.
+Protocol-3 live acceptance progressed after a manual bootstrap. MCP ping and
+project identity succeeded, followed by import of a synthetic three-second stereo
+AV fixture, timeline creation, whole-clip append, audio gain -6 dB and video zoom
+1.2 on both axes. All five writes returned verified success and retained backups;
+no desktop input occurred between these requests.
+
+SRT import returned `VERIFY_FAILED` during immediate readback. The target sequence
+export initially showed no subtitle, but a later live API check returned
+`SUBTITLES_EXIST`. The export-based conclusion that no subtitle was added was
+therefore incorrect: exported state cannot settle a pending write outcome. The
+original reviewed partial-failure receipt and backups are retained; no duplicate
+caption append was executed. Exact cue timing remains pending live summary.
+An unrelated existing Fusion composition also changed its exported modification
+timestamp, so whole-project byte identity is not claimed.
+A subsequent render preparation returned `VERIFY_FAILED`; the next diagnostic
+revision isolated `RENDER_SETTINGS_FAILED`. Preset and MP4 format were present
+and accepted; no new job or completed video was confirmed. Both loops were stopped.
+
+Protocol 4 acceptance used a fresh runtime and the same disposable project.
+Live summary exposed why captions initially failed: Resolve placed SRT after
+existing AV despite recordFrame. The supported order is therefore **create empty
+timeline -> add SRT -> append AV -> gain/framing -> prepare -> start -> status**.
+Non-empty AV timelines reject caption import before mutation. A fresh timeline
+returned one video, one audio and one subtitle, 72 frames at 24 fps, with the
+caption at relative frames 12-60 (0.5-2.5 seconds).
+
+Render settings were isolated: ReplaceExistingFilesInPlace=false was rejected
+in single-clip mode. It is omitted; the client creates a fresh output directory
+and checks emptiness before start. The first successful render start could not
+export its acknowledgement during rendering. Its pending receipt was reviewed
+against a later owned-job complete status and decoded output, without restarting
+that job. A bounded cooperative wait now allows short jobs to finish before the
+acknowledgement export. A separately prepared validation job then completed
+prepare/start/status with all acknowledgements. Module reload preserved owned
+jobs; successful start replay did not launch again.
+
+The output is 1920x1080 H.264/AAC MP4, 72 video frames, container duration 3.008 s.
+Decoded picture inspection showed the burnt-in caption; audio RMS measured
+-6.037 dB relative to the original tone, matching the requested -6 dB. Gain and
+zoom 1.2 also passed native property readback. User source recordings were not
+used or modified. Local acceptance logs, receipts, backups and outputs are kept
+outside the repository.
+
+**Long render limitation:** Resolve may return nil for ExportProject while
+rendering. Start waits at most ten seconds (bounded by the request expiry) before
+attempting its response. A longer job can run successfully while the MCP start
+call times out and leaves a pending receipt. Do not restart it: poll the owned
+job after completion and review that receipt. Read replies during rendering may
+also time out. Reliable continuous progress and automatic pending-start
+reconciliation are not implemented.
+
+Remaining acceptance: closed-console requests, live cleanup preview and the
+two-hour wall-clock boundary. Automatic console input remains unreliable.
 
 This does not verify general editing, no-project startup, every Resolve version, or application focus
 behavior under every concurrent user activity. See the manual integration

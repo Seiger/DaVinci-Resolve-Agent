@@ -83,7 +83,7 @@ def prepare(root: Path, media_roots: list[Path] | None = None) -> Path:
         encoding="utf-8",
     )
     (root / "session.json").write_text(
-        json.dumps({"session": session, "protocol": 3, "media_roots": roots}),
+        json.dumps({"session": session, "protocol": 4, "media_roots": roots}),
         encoding="utf-8",
     )
     (root / "request.lua").write_text("return nil\n", encoding="ascii")
@@ -142,7 +142,14 @@ class LuaSnapshotClient:
             )
         if (
             action
-            not in {"ping", "get_current_project", "stop", "get_render_status"}
+            not in {
+                "ping",
+                "get_current_project",
+                "stop",
+                "get_render_status",
+                "get_timeline_summary",
+                "reload_modules",
+            }
             | WRITE_ACTIONS
             | FINISH_ACTIONS
         ):
@@ -151,12 +158,16 @@ class LuaSnapshotClient:
             raise ValueError("Timeout must be finite and between 0 and 120 seconds.")
         write = action in WRITE_ACTIONS | FINISH_ACTIONS
         status_request = action == "get_render_status"
-        if (action in FINISH_ACTIONS or status_request) and self.protocol != 3:
+        summary_request = action == "get_timeline_summary"
+        detail_request = status_request or summary_request
+        if action in {"get_timeline_summary", "reload_modules"} and self.protocol != 4:
+            raise ValueError("This operation requires a protocol-4 session.")
+        if (action in FINISH_ACTIONS or status_request) and self.protocol not in {3, 4}:
             raise ValueError("Finishing requires a new protocol-3 session.")
         normalized: dict[str, Any] = {}
         receipt = None
         if write:
-            if self.protocol not in {2, 3} or confirm is not True:
+            if self.protocol not in {2, 3, 4} or confirm is not True:
                 raise ValueError(
                     "Editing requires a protocol-2 or protocol-3 session "
                     "and explicit confirmation."
@@ -171,7 +182,7 @@ class LuaSnapshotClient:
             receipt = WriteReceipt(
                 self.root, idempotency_key, action, project_id, normalized
             )
-        elif status_request:
+        elif detail_request:
             bounded_text(expected_project_id, "Expected project ID")
             if confirm or idempotency_key:
                 raise ValueError("Status is read-only.")
@@ -234,7 +245,7 @@ class LuaSnapshotClient:
                     + lua_string(str(expected_project_id))
                     + ",arguments="
                     + lua_value(normalized)
-                    if write or status_request
+                    if write or detail_request
                     else ""
                 )
                 + "}\n"
@@ -255,7 +266,7 @@ class LuaSnapshotClient:
                 try:
                     errors = (
                         list(self.root.glob(f"{command_id}.error_*.drp"))
-                        if write or status_request
+                        if write or detail_request or action == "reload_modules"
                         else []
                     )
                     if errors:
@@ -285,6 +296,7 @@ class LuaSnapshotClient:
                             "ITEM_NOT_FOUND",
                             "SOURCE_CHANGED",
                             "SUBTITLES_EXIST",
+                            "SUBTITLE_REQUIRES_EMPTY_AV",
                             "EMPTY_TIMELINE",
                             "JOB_NOT_OWNED",
                             "JOB_ALREADY_STARTED",
@@ -296,7 +308,7 @@ class LuaSnapshotClient:
                             "inspect the receipt and backup."
                         )
                     token = None
-                    if action == "prepare_render" or status_request:
+                    if action == "prepare_render" or detail_request:
                         matches = list(self.root.glob(f"{command_id}.ok_*.drp"))
                         if not matches:
                             raise FileNotFoundError("Waiting for typed response.")
@@ -346,6 +358,32 @@ class LuaSnapshotClient:
                     assert receipt is not None
                     receipt.complete(result)
                     return result
+                if summary_request:
+                    match = re.fullmatch(
+                        r"timeline_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)",
+                        token or "",
+                    )
+                    if not match or project["id"] != expected_project_id:
+                        raise BridgeProtocolError("Invalid timeline summary.")
+                    values = [int(v) for v in match.groups()]
+                    fields = [
+                        "video_items",
+                        "audio_items",
+                        "subtitle_items",
+                        "start_frame",
+                        "end_frame",
+                        "subtitle_first_frame",
+                        "subtitle_last_frame",
+                        "fps_milli",
+                    ]
+                    return {
+                        "project": project,
+                        "timeline": normalized["timeline_name"],
+                        "summary": dict(zip(fields, values, strict=True)),
+                        "source": "live_lua_api",
+                    }
+                if action == "reload_modules":
+                    return {"status": "reloaded", "owned_render_jobs_preserved": True}
                 if status_request:
                     if project["id"] != expected_project_id or token not in {
                         "state_complete",

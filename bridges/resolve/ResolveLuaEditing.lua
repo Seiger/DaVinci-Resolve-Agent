@@ -1,5 +1,5 @@
 -- Fixed editing operations. Never evaluates caller-provided Lua code.
-return function(api, root, media_roots)
+return function(api, root, media_roots, shared)
     local function check(condition, code)
         if not condition then error(code, 0) end
     end
@@ -67,9 +67,10 @@ return function(api, root, media_roots)
         return ids
     end
     local finish = dofile(root .. "/finishing.lua")(api, root, {
-        check=check, timelines=timelines, allowed=allowed, normalized=normalized})
+        check=check, timelines=timelines, allowed=allowed, normalized=normalized}, shared)
     return function(pm, project, request)
         if request.action == "get_render_status" then return finish.status(project, request) end
+        if request.action == "get_timeline_summary" then return finish.summary(project, request) end
         check(request.confirm == true and text(request.project_id), "INVALID_ARGUMENTS")
         check(project:GetUniqueId() == request.project_id, "PROJECT_CHANGED")
         check(not project:IsRenderingInProgress(), "RENDERING")
@@ -128,10 +129,18 @@ return function(api, root, media_roots)
             check(project:SetCurrentTimeline(timeline) == true, "VERIFY_FAILED")
             check(project:GetCurrentTimeline():GetUniqueId() == timeline:GetUniqueId(), "VERIFY_FAILED")
             local clips
+            local record_frame = timeline:GetStartFrame()
+            for _,kind in ipairs({"video", "audio"}) do
+                for track=1,timeline:GetTrackCount(kind) do
+                    for _,item in ipairs(timeline:GetItemListInTrack(kind, track) or {}) do
+                        record_frame = math.max(record_frame, item:GetEnd())
+                    end
+                end
+            end
             if a.start_frame ~= nil then
-                clips = pool:AppendToTimeline({{mediaPoolItem=asset, startFrame=a.start_frame, endFrame=a.end_frame}})
+                clips = pool:AppendToTimeline({{mediaPoolItem=asset, startFrame=a.start_frame, endFrame=a.end_frame, recordFrame=record_frame}})
             else
-                clips = pool:AppendToTimeline({asset})
+                clips = pool:AppendToTimeline({{mediaPoolItem=asset, recordFrame=record_frame}})
             end
             check(type(clips) == "table" and #clips >= 1, "VERIFY_FAILED")
             local after = item_ids(timeline)

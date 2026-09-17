@@ -14,7 +14,8 @@ assert(type(bmd.wait) == "function", "Cooperative wait unavailable")
 assert(os and type(os.time) == "function", "Clock unavailable")
 local writes = {import_media=true, create_timeline=true, append_clip=true,
     set_clip_properties=true, add_subtitles=true, prepare_render=true, start_render=true}
-local edit = dofile(root .. "/editing.lua")(api, root, media_roots)
+local shared = {jobs={}}
+local edit = dofile(root .. "/editing.lua")(api, root, media_roots, shared)
 _G.ResolveAgentLuaRunning = true
 local ok, err = pcall(function()
     local deadline = os.time() + 7200
@@ -28,13 +29,23 @@ local ok, err = pcall(function()
             and type(request.expires) == "number" and request.expires >= os.time()
             and not handled[request.id]
             and (request.action == "ping" or request.action == "get_current_project"
-                 or request.action == "stop" or request.action == "get_render_status" or writes[request.action]) then
+                 or request.action == "stop" or request.action == "get_render_status"
+                 or request.action == "get_timeline_summary" or request.action == "reload_modules" or writes[request.action]) then
             handled[request.id] = true
             local pm = api:GetProjectManager()
             local project = pm:GetCurrentProject()
             if project then
                 local suffix = ""
-                if writes[request.action] or request.action == "get_render_status" then
+                if request.action == "reload_modules" then
+                    local succeeded = false
+                    if not project:IsRenderingInProgress() then
+                        local loaded_edit, replacement = pcall(function()
+                            return dofile(root .. "/editing.lua")(api, root, media_roots, shared)
+                        end)
+                        if loaded_edit and type(replacement) == "function" then edit = replacement; succeeded = true end
+                    end
+                    if not succeeded then suffix = ".error_RELOAD_FAILED" end
+                elseif writes[request.action] or request.action == "get_render_status" or request.action == "get_timeline_summary" then
                     local succeeded, code = pcall(edit, pm, project, request)
                     suffix = succeeded and ".ok" or ".error_" .. (tostring(code):match("^[A-Z_]+$") or "INTERNAL_ERROR")
                     if succeeded and type(code) == "string" and code:match("^[%w_%-]+$") then suffix = suffix .. "_" .. code end

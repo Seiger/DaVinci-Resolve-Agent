@@ -120,21 +120,47 @@ media paths, повні command arguments або diagnostics bundles без по
 
 Setup and limits: [experimental Lua bridge](lua-experimental.md).
 
-### Resolve Free 21.1 Lua finishing protocol 3 — pending
+### Resolve Free 21.1 Lua finishing protocol 3 — partial live verification
 
-- Local implementation adds clip gain/framing, SRT captions, managed MP4 jobs,
-  status polling and explicit response cleanup after an acknowledged stop.
-- Automated tests cover validation, owned-job correlation, replay, missing output,
-  malformed acknowledgements and cleanup boundaries; these are not live API proof.
-- A synthetic three-second mixed audio/video fixture and SRT are prepared locally.
-- Live bootstrap blocked: Computer Use console access twice returned
-  `foreground window did not report a process id`. No finishing mutation or render
-  was submitted; no protocol-3 live result, closed-console claim or rendered file
-  is verified yet. The protocol-2 results below remain historical evidence only.
-- Required: mixed AV import/append, gain and transform readback, caption timing,
-  owned render prepare/start/status, actual MP4 picture/audio inspection, closed
-  console requests, stop and cleanup preview. Two-hour lifetime is code-verified,
-  not a wall-clock soak test.
+- UTC date: 2026-09-17; Windows 10 build 19045, Python 3.12.10, agent 0.1.0,
+  Resolve Free 21.1.0.17; manual bootstrap in the existing disposable test project.
+- Fresh MCP ping/project identity succeeded. A synthetic three-second 24 fps
+  stereo MOV was imported and appended whole to a new isolated timeline.
+- Gain -6 dB on audio item 1 and zoom 1.2 on video item 1 both returned successful
+  SetProperties/GetProperties readback. Five writes retained before/after DRPs.
+- No desktop input between the MCP requests. Source user recordings untouched.
+- Captions initially failed immediate verification. The export did not yet show
+  subtitles, but the following live attempt returned SUBTITLES_EXIST before any
+  new mutation. The earlier inference of no timeline mutation was incorrect;
+  exported state alone cannot settle an uncertain write. No duplicate append ran.
+  Original receipts/backups and a corrected local review remain available.
+- Render setup failed; the diagnostic revision narrowed this to
+  RENDER_SETTINGS_FAILED after successful preset/format/mode calls. No new job,
+  render start, completion or output file is confirmed. MCP stop acknowledged.
+### Resolve Free 21.1 Lua protocol 4 — short finishing acceptance
+
+- UTC date: 2026-09-17; Windows 10 build 19045, Python 3.12.10, agent 0.1.0,
+  Resolve Free 21.1.0.17. Fresh manually bootstrapped protocol-4 runtime;
+  existing saved disposable project, synthetic three-second 24 fps stereo MOV.
+- Real MCP stdio client: empty timeline -> SRT -> whole AV append -> gain -6 dB
+  -> zoom 1.2 -> prepare -> start -> status. No desktop input between requests.
+- Live API summary: one video/audio/subtitle item; relative timeline 0-72 frames,
+  subtitle 12-60. Caption import into existing AV is now rejected before editing.
+- Fixed-module reload succeeded and preserved owned render jobs. No arbitrary
+  source/path accepted. Existing startup deadline remains unchanged.
+- MP4 H.264/AAC decoded: 1920x1080, 72 frames, duration 3.008 s. Decoded frame
+  visibly contains the expected burnt caption. Audio RMS delta -6.037 dB.
+- First start executed but export acknowledgement failed during rendering;
+  later owned status confirmed complete. Retained receipt records that review,
+  without resubmitting the job. A bounded wait fixed the short-job acknowledgement;
+  a separate validation render passed prepare/start/status end to end.
+- Local acceptance.jsonl, DRP backups, receipts and MP4 retained outside git;
+  no private paths or project exports published. User recordings untouched.
+- Not verified: closed-console operation, long-render acknowledgements/progress,
+  live cleanup preview, two-hour soak and other Resolve versions. Ten-second
+  start wait cannot guarantee an acknowledgement for long renders.
+- Automated tests cover validation, owned-job correlation, replay, output decoding,
+  mailbox contention and cleanup boundaries; these do not replace live API proof.
 
 ### Resolve Free 21.1 Lua editing protocol 2
 

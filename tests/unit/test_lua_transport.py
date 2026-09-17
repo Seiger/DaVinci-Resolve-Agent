@@ -114,7 +114,11 @@ def test_fresh_response_correlates_and_waits_for_complete_zip(tmp_path: Path) ->
 
     def responder() -> None:
         for _ in range(100):
-            payload = (root / "request.lua").read_text()
+            try:
+                payload = (root / "request.lua").read_text()
+            except OSError:
+                time.sleep(0.01)
+                continue
             found = re.search(r',id="((?:\\[0-9]{3})+)"', payload)
             if found:
                 identity = bytes(

@@ -121,7 +121,8 @@ def create_server(root: Path) -> MCPServer:
         """Append imported media to one uniquely named timeline after backup.
 
         Optional zero-based source start/end frames are both inclusive. Omit both
-        for the whole clip. No insert/overwrite/delete. Verifies new item IDs and
+        for the whole clip. Appends after AV items, ignoring subtitle tails.
+        No insert/overwrite/delete. Verifies new item IDs and
         source identity, then saves. Reuse the same key to avoid duplicate clips.
         """
         return await asyncio.to_thread(
@@ -183,10 +184,11 @@ def create_server(root: Path) -> MCPServer:
         confirm: bool = False,
         timeout_seconds: float = 60,
     ) -> dict[str, Any]:
-        """Import bounded UTF-8 SRT captions into a timeline without existing subtitles.
+        """Import bounded UTF-8 SRT captions into an empty AV/subtitle timeline.
 
         Backs up first, verifies cue count and first/last timing. SRT must be in
-        session media roots. Render burns captions into the picture.
+        session media roots. Add captions before AV clips, then append AV from the
+        start. Render burns captions into the picture.
         """
         return await asyncio.to_thread(
             client.request,
@@ -231,7 +233,9 @@ def create_server(root: Path) -> MCPServer:
     ) -> dict[str, Any]:
         """Start only a job prepared by this running bridge; never blindly resubmit.
 
-        Returns when started, not when the file is ready. Poll render status.
+        Waits up to ten seconds for short renders before exporting the response.
+        Longer renders may block export and time out: never restart that job.
+        Poll owned status after completion and review a pending receipt.
         """
         return await asyncio.to_thread(
             client.request,
@@ -273,6 +277,40 @@ def create_server(root: Path) -> MCPServer:
         Defaults to preview; confirm=True deletes only the eligible response files.
         """
         return await asyncio.to_thread(cleanup_responses, root, confirm=confirm)
+
+    @server.tool(annotations=read)
+    async def resolve_lua_get_timeline_summary(
+        timeline_name: str,
+        expected_project_id: str,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Read live item counts, subtitle bounds and timeline frame rate."""
+        return await asyncio.to_thread(
+            client.request,
+            "get_timeline_summary",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name},
+            expected_project_id=expected_project_id,
+        )
+
+    @server.tool(
+        annotations=ToolAnnotations(
+            read_only_hint=False,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=False,
+        )
+    )
+    async def resolve_lua_reload_modules(timeout_seconds: float = 30) -> dict[str, Any]:
+        """Reload the fixed trusted editing/finishing modules from this session.
+
+        Accepts no code or path. An operator must first update those local files.
+        Keeps owned jobs and receipts, does not restart the two-hour timer,
+        and refuses during rendering. Does not resolve uncertain write receipts.
+        """
+        return await asyncio.to_thread(
+            client.request, "reload_modules", timeout_seconds
+        )
 
     return server
 

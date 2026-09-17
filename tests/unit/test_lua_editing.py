@@ -29,7 +29,11 @@ def exported(path: Path, project: str = "test-project") -> None:
 def serve(root: Path, status: str = "ok", backup: bool = True) -> threading.Thread:
     def run() -> None:
         for _ in range(300):
-            raw = (root / "request.lua").read_text()
+            try:
+                raw = (root / "request.lua").read_text()
+            except OSError:
+                time.sleep(0.01)
+                continue
             found = re.search(r',id="((?:\\[0-9]{3})+)"', raw)
             if found:
                 identity = bytes(

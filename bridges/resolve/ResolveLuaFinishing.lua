@@ -1,8 +1,33 @@
 -- Fixed finishing operations. Preflight returns a mutation closure.
-return function(api, root, helpers)
+return function(api, root, helpers, shared)
     local check, timelines, allowed = helpers.check, helpers.timelines, helpers.allowed
     local normalized = helpers.normalized
-    local jobs = {} -- Jobs belong to this running bridge only.
+    local jobs = shared.jobs -- Reload retains this running bridge's owned jobs.
+    local function counts(timeline)
+        local result = {video=0, audio=0, subtitle=0, first=-1, last=-1}
+        for _,kind in ipairs({"video", "audio", "subtitle"}) do
+            for track=1,timeline:GetTrackCount(kind) do
+                for _,item in ipairs(timeline:GetItemListInTrack(kind, track) or {}) do
+                    result[kind] = result[kind] + 1
+                    if kind == "subtitle" then
+                        result.first = result.first == -1 and item:GetStart() or math.min(result.first,item:GetStart())
+                        result.last = math.max(result.last,item:GetEnd())
+                    end
+                end
+            end
+        end
+        return result
+    end
+    local function summary(project, request)
+        check(project:GetUniqueId() == request.project_id, "PROJECT_CHANGED")
+        local timeline = timelines(project, request.arguments.timeline_name)
+        check(timeline ~= nil, "TIMELINE_NOT_FOUND")
+        local c = counts(timeline)
+        local fps = tonumber(tostring(timeline:GetSetting("timelineFrameRate")):match("[%d.]+"))
+        check(fps ~= nil, "VERIFY_FAILED")
+        return string.format("timeline_%d_%d_%d_%d_%d_%d_%d_%d", c.video,c.audio,c.subtitle,
+            timeline:GetStartFrame(),timeline:GetEndFrame(),c.first,c.last,math.floor(fps*1000+0.5))
+    end
     local function job(project, a)
         local owned = jobs[a.job_id]
         check(owned and owned.project == project:GetUniqueId(), "JOB_NOT_OWNED")
@@ -39,6 +64,12 @@ return function(api, root, helpers)
                 check(project:GetCurrentTimeline():GetUniqueId() == owned.timeline, "VERIFY_FAILED")
                 owned.started = true -- Never resubmit an uncertain start.
                 check(project:StartRendering({a.job_id}, false) == true, "VERIFY_FAILED")
+                -- DRP export is unavailable while Resolve renders. Allow short jobs
+                -- to finish before the response export; never restart the job.
+                local until_time = math.min(request.expires-1, os.time()+10)
+                while project:IsRenderingInProgress() and os.time() < until_time do
+                    bmd.wait(0.1)
+                end
             end
         end
         local timeline = timelines(project, a.timeline_name)
@@ -77,6 +108,8 @@ return function(api, root, helpers)
             end
         elseif action == "add_subtitles" then
             check(allowed(a.subtitle_path) and a.cue_count >= 1 and a.cue_count <= 2000, "INVALID_ARGUMENTS")
+            local existing = counts(timeline)
+            check(existing.video == 0 and existing.audio == 0, "SUBTITLE_REQUIRES_EMPTY_AV")
             for track=1,timeline:GetTrackCount("subtitle") do
                 check(#(timeline:GetItemListInTrack("subtitle", track) or {}) == 0, "SUBTITLES_EXIST")
             end
@@ -84,37 +117,40 @@ return function(api, root, helpers)
                 check(project:SetCurrentTimeline(timeline) == true, "VERIFY_FAILED")
                 local pool = project:GetMediaPool()
                 local imported = pool:ImportMedia({a.subtitle_path})
-                check(type(imported) == "table" and #imported == 1, "VERIFY_FAILED")
-                local appended = pool:AppendToTimeline({imported[1]})
-                check(type(appended) == "table", "VERIFY_FAILED")
-                local count = 0
-                local first, last
-                for track=1,timeline:GetTrackCount("subtitle") do
-                    for _,item in ipairs(timeline:GetItemListInTrack("subtitle", track) or {}) do
-                        count = count + 1
-                        first = math.min(first or item:GetStart(), item:GetStart())
-                        last = math.max(last or item:GetEnd(), item:GetEnd())
-                    end
+                check(type(imported) == "table" and #imported == 1, "SUBTITLE_IMPORT_FAILED")
+                local appended = pool:AppendToTimeline({{mediaPoolItem=imported[1], recordFrame=timeline:GetStartFrame()}})
+                check(type(appended) == "table", "SUBTITLE_APPEND_FAILED")
+                local until_time = math.min(request.expires, os.time()+5)
+                local c = counts(timeline)
+                while c.subtitle < a.cue_count and os.time() < until_time do
+                    bmd.wait(0.1)
+                    c = counts(timeline)
                 end
                 local fps = tonumber(tostring(timeline:GetSetting("timelineFrameRate")):match("[%d.]+"))
-                check(fps and first and last and count == a.cue_count, "VERIFY_FAILED")
-                check(math.abs(first-timeline:GetStartFrame()-a.first_start*fps) <= 1.1, "VERIFY_FAILED")
-                check(math.abs(last-timeline:GetStartFrame()-a.last_end*fps) <= 1.1, "VERIFY_FAILED")
+                check(fps and c.subtitle == a.cue_count, "SUBTITLE_COUNT_FAILED")
+                check(math.abs(c.first-timeline:GetStartFrame()-a.first_start*fps) <= 1.1, "SUBTITLE_TIMING_FAILED")
+                check(math.abs(c.last-timeline:GetStartFrame()-a.last_end*fps) <= 1.1, "SUBTITLE_TIMING_FAILED")
             end
         elseif action == "prepare_render" then
             check(timeline:GetEndFrame() > timeline:GetStartFrame(), "EMPTY_TIMELINE")
             return function()
                 check(project:SetCurrentTimeline(timeline) == true, "VERIFY_FAILED")
-                check(project:LoadRenderPreset("YouTube - 1080p") == true, "VERIFY_FAILED")
-                check(project:SetCurrentRenderFormatAndCodec("MP4", "H264") == true, "VERIFY_FAILED")
-                check(project:SetCurrentRenderMode(1) == true, "VERIFY_FAILED")
+                local previous_page = api:GetCurrentPage()
+                check(api:OpenPage("deliver") == true, "DELIVER_PAGE_FAILED")
+                bmd.wait(0.25)
+                check(project:LoadRenderPreset("YouTube - 1080p") == true, "RENDER_PRESET_FAILED")
+                check(project:SetCurrentRenderFormatAndCodec("MP4", "H264") == true, "RENDER_FORMAT_FAILED")
+                check(project:SetCurrentRenderMode(1) == true, "RENDER_MODE_FAILED")
                 local directory = root .. "/renders/" .. request.id
                 check(project:SetRenderSettings({SelectAllFrames=true, TargetDir=directory,
                     CustomName="video", ExportVideo=true, ExportAudio=true,
-                    FormatWidth=1920, FormatHeight=1080, ExportSubtitle=true,
-                    SubtitleFormat="BurnIn", DataBurnIn="None", ReplaceExistingFilesInPlace=false}) == true, "VERIFY_FAILED")
+                    FormatWidth=1920, FormatHeight=1080}) == true, "RENDER_BASE_SETTINGS_FAILED")
+                check(project:SetRenderSettings({ExportSubtitle=true, SubtitleFormat="BurnIn"}) == true, "RENDER_SUBTITLE_SETTINGS_FAILED")
+                check(project:SetRenderSettings({DataBurnIn="None"}) == true, "RENDER_BURNIN_SETTINGS_FAILED")
+                -- Resolve Free rejects ReplaceExistingFilesInPlace in single-clip mode.
+                -- Python reserves a fresh directory and rechecks it before start.
                 local id = project:AddRenderJob()
-                check(type(id) == "string" and #id <= 64 and id:match("^[%w%-]+$"), "VERIFY_FAILED")
+                check(type(id) == "string" and #id <= 64 and id:match("^[%w%-]+$"), "RENDER_QUEUE_FAILED")
                 local found = false
                 for _,info in ipairs(project:GetRenderJobList() or {}) do
                     if info.JobId == id then
@@ -126,10 +162,11 @@ return function(api, root, helpers)
                 check(found, "VERIFY_FAILED")
                 jobs[id] = {project=project:GetUniqueId(), timeline=timeline:GetUniqueId(),
                     name=timeline:GetName(), directory=directory, started=false}
+                if previous_page then api:OpenPage(previous_page) end
                 return "job_" .. id
             end
         end
         error("INVALID_ARGUMENTS", 0)
     end
-    return {preflight=preflight, status=status}
+    return {preflight=preflight, status=status, summary=summary}
 end
