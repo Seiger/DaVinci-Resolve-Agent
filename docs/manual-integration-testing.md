@@ -906,3 +906,45 @@ Live structural/replay evidence: receipt `1f79bf7e…`, target
 Якщо documented color methods недоступні у Resolve 21 Free, збережи raw
 environment evidence та залиш apply unsupported; не використовуй Console,
 скриптові обходи або довільні LUT/DRX paths.
+
+
+### Lua synchronized assembly
+
+Use non-sensitive test media with matching source/timeline FPS. Assemble two
+linked video tracks and one master audio track with explicit source ranges.
+Verify native track, source, timeline bounds and linked counterparts; review
+playback and lip sync. Separately test whole clips with nonzero camera delay,
+chronological placement, and source-end/container padding. Check several
+speech-bearing windows to detect drift, without claiming full-stream proof.
+Preserve backups and uncertain receipts. Keep all source-specific cut maps,
+paths, project archives and reports outside the repository.
+
+### Circular PiP acceptance
+
+On a separate short review timeline, keep screen V1, camera V2 and one master
+audio track linked. Back up, apply `resolve_lua_circle_mask` only to the PiP item,
+then frame it with equal ZoomX/ZoomY. Render and check equal pixel diameter in
+both axes, transparent corners, no square background, face/hair motion within
+the circle, and unobscured screen content. Full-camera items remain rectangular.
+Verify an existing Fusion composition is refused unchanged. Inspect a failed
+write before any retry. Corrected equal dimensions passed a short native render
+after recovery from a timeline-settings hang. Unit tests alone do not certify
+visual behavior.
+To reconcile partial creation, read the unique timeline state first; only use
+`resolve_lua_set_empty_timeline_fps` if all tracks have no clips. Never recreate
+a timeline solely because a request timed out.
+
+### Derived take acceptance
+
+Use an imported processed clip with exactly the target item's frame count and
+frame rate. Replace only that item via `resolve_lua_replace_video_take`; verify
+the original take remains, the selected take points to the derived media, and
+all item/link bounds remain identical. Read back untouched clips and the master
+audio before and after. Render across the boundary to the following clip and
+check sync, foreground edges, color and duration. Refuse mismatched lengths,
+existing take selectors and existing Fusion compositions before mutation.
+
+Live acceptance confirmed an exact-length derived take, retained original take,
+unchanged linked master audio and neighboring composition, and a native render.
+A shorter replacement was rejected before mutation. Private review media and
+readback artifacts are deliberately excluded from the repository.

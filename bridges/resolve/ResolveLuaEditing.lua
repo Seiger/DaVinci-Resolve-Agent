@@ -67,7 +67,10 @@ return function(api, root, media_roots, shared)
         return ids
     end
     local finish = dofile(root .. "/finishing.lua")(api, root, {
-        check=check, timelines=timelines, allowed=allowed, normalized=normalized}, shared)
+        check=check, timelines=timelines, allowed=allowed, normalized=normalized,
+        find_asset=find_asset}, shared)
+    local sync = dofile(root .. "/sync.lua")({check=check, timelines=timelines,
+        allowed=allowed, find_asset=find_asset, normalized=normalized})
     return function(pm, project, request)
         if request.action == "get_render_status" then return finish.status(project, request) end
         if request.action == "get_timeline_summary" then return finish.summary(project, request) end
@@ -80,6 +83,7 @@ return function(api, root, media_roots, shared)
         if request.action == "create_timeline" then
             check(text(a.name), "INVALID_ARGUMENTS")
             check(timelines(project, a.name) == nil, "NAME_EXISTS")
+            check(a.frame_rate == nil, "INVALID_ARGUMENTS")
         elseif request.action == "import_media" then
             check(type(a.paths) == "table" and #a.paths >= 1 and #a.paths <= 20, "INVALID_ARGUMENTS")
             local seen = {}
@@ -89,6 +93,8 @@ return function(api, root, media_roots, shared)
                 seen[normalized(path)] = true
                 check(find_asset(pool, path) == nil, "ASSET_EXISTS")
             end
+        elseif request.action == "append_clip" and a.sync_groups then
+            finishing = sync(project, a)
         elseif request.action == "append_clip" then
             check(text(a.timeline_name) and allowed(a.media_path), "INVALID_ARGUMENTS")
             timeline = timelines(project, a.timeline_name)

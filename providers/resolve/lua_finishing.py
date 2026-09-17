@@ -35,6 +35,99 @@ def validate_finishing(
             raise ValueError("Expected one safe render job ID.")
         return dict(a)
     name = bounded_text(a.get("timeline_name"), "Timeline name")
+    if action == "set_clip_properties" and "replacement_take_path" in a:
+        if set(a) != {
+            "timeline_name",
+            "track_index",
+            "item_index",
+            "expected_media_path",
+            "replacement_take_path",
+        }:
+            raise ValueError("Invalid replacement take fields.")
+        if any(
+            type(a[k]) is not int or not 1 <= a[k] <= 1000
+            for k in ("track_index", "item_index")
+        ):
+            raise ValueError("Invalid video item selector.")
+        checked_paths = MediaPolicy(roots).validate_files(
+            [a["expected_media_path"], a["replacement_take_path"]]
+        )
+        if Path(checked_paths[0]) == Path(checked_paths[1]):
+            raise ValueError("Replacement must be a distinct media file.")
+        return dict(
+            a,
+            timeline_name=name,
+            expected_media_path=Path(checked_paths[0]).as_posix(),
+            replacement_take_path=Path(checked_paths[1]).as_posix(),
+        )
+    if action == "set_clip_properties" and set(a) == {
+        "timeline_name",
+        "empty_timeline_fps",
+    }:
+        fps = a["empty_timeline_fps"]
+        if type(fps) is not int or fps not in {24, 25, 30, 50, 60}:
+            raise ValueError("Unsupported timeline frame rate.")
+        return {"timeline_name": name, "empty_timeline_fps": fps}
+    if action == "get_timeline_summary" and a.get("inspect_circle") is True:
+        base = dict(a)
+        del base["inspect_circle"]
+        result = validate_finishing(action, base, roots)
+        if result.get("track_type") != "video":
+            raise ValueError("Circle inspection needs a video item.")
+        return dict(result, inspect_circle=True)
+    if action == "set_clip_properties" and "circle_mask" in a:
+        if set(a) != {
+            "timeline_name",
+            "track_index",
+            "item_index",
+            "expected_media_path",
+            "circle_mask",
+        }:
+            raise ValueError("Invalid circle mask fields.")
+        if any(
+            type(a[k]) is not int or not 1 <= a[k] <= 1000
+            for k in ("track_index", "item_index")
+        ):
+            raise ValueError("Invalid circle item selector.")
+        mask = a["circle_mask"]
+        if not isinstance(mask, dict) or set(mask) != {
+            "center_x",
+            "center_y",
+            "diameter",
+        }:
+            raise ValueError("Expected bounded circle geometry.")
+        for key, value in mask.items():
+            low, high = (0.05, 0.9) if key == "diameter" else (0.05, 0.95)
+            if (
+                type(value) not in (int, float)
+                or not math.isfinite(value)
+                or not low <= value <= high
+            ):
+                raise ValueError("Invalid circle geometry.")
+        circle_path = MediaPolicy(roots).validate_files([a["expected_media_path"]])[0]
+        return dict(
+            a, timeline_name=name, expected_media_path=Path(circle_path).as_posix()
+        )
+    if action == "set_clip_properties" and set(a) == {"timeline_name", "preview_start"}:
+        if a["preview_start"] is not True:
+            raise ValueError("Preview start must be true.")
+        return {"timeline_name": name, "preview_start": True}
+    if action == "get_timeline_summary" and set(a) == {
+        "timeline_name",
+        "track_type",
+        "track_index",
+        "item_index",
+        "expected_media_path",
+    }:
+        if a["track_type"] not in {"video", "audio"} or any(
+            type(a[k]) is not int or not 1 <= a[k] <= 1000
+            for k in ("track_index", "item_index")
+        ):
+            raise ValueError("Invalid timeline item selector.")
+        item_path = MediaPolicy(roots).validate_files([a["expected_media_path"]])[0]
+        return dict(
+            a, timeline_name=name, expected_media_path=Path(item_path).as_posix()
+        )
     if action in {"prepare_render", "get_timeline_summary"} and set(a) == {
         "timeline_name"
     }:

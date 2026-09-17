@@ -47,6 +47,48 @@ def validate_edit(
         return {"paths": paths(arguments["paths"])}
     if action == "create_timeline" and set(arguments) == {"name"}:
         return {"name": bounded_text(arguments["name"], "Timeline name")}
+    if action == "append_clip" and set(arguments) == {"timeline_name", "sync_groups"}:
+        groups = arguments["sync_groups"]
+        if not isinstance(groups, list) or not 1 <= len(groups) <= 25:
+            raise ValueError("Provide 1 to 25 synchronized groups.")
+        normalized_groups = []
+        for group in groups:
+            if isinstance(group, dict) and set(group) == {
+                "screen_path",
+                "camera_path",
+                "camera_delay_frames",
+            }:
+                screen, camera = paths([group["screen_path"], group["camera_path"]])
+                delay = group["camera_delay_frames"]
+                if type(delay) is not int or not 0 <= delay <= 600:
+                    raise ValueError("Full-pair camera delay must be 0 to 600 frames.")
+                normalized_groups.append(
+                    dict(group, screen_path=screen, camera_path=camera)
+                )
+                continue
+            if not isinstance(group, dict) or set(group) != {
+                "screen_path",
+                "camera_path",
+                "screen_start_frame",
+                "camera_start_frame",
+                "frame_count",
+            }:
+                raise ValueError("Invalid synchronized group fields.")
+            screen, camera = paths([group["screen_path"], group["camera_path"]])
+            for key in ("screen_start_frame", "camera_start_frame", "frame_count"):
+                if type(group[key]) is not int or not 0 <= group[key] <= 2_147_483_647:
+                    raise ValueError(
+                        "Synchronized ranges require nonnegative integer frames."
+                    )
+            if group["frame_count"] < 1:
+                raise ValueError("Synchronized duration must be positive.")
+            normalized_groups.append(
+                dict(group, screen_path=screen, camera_path=camera)
+            )
+        return {
+            "timeline_name": bounded_text(arguments["timeline_name"], "Timeline name"),
+            "sync_groups": normalized_groups,
+        }
     if action == "append_clip" and set(arguments) == {
         "timeline_name",
         "media_path",

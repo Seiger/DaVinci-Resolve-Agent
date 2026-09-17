@@ -95,7 +95,8 @@ def create_server(root: Path) -> MCPServer:
     ) -> dict[str, Any]:
         """Create an empty named timeline after backup; reject existing exact names.
 
-        Uses the project's current timeline defaults, verifies creation, and saves.
+        Uses project settings. After creation is acknowledged, configure custom
+        FPS separately with resolve_lua_set_empty_timeline_fps before adding media.
         """
         return await asyncio.to_thread(
             client.request,
@@ -105,6 +106,37 @@ def create_server(root: Path) -> MCPServer:
             expected_project_id=expected_project_id,
             confirm=confirm,
             idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=write)
+    async def resolve_lua_append_synced_pairs(
+        timeline_name: str,
+        sync_groups: list[dict[str, Any]],
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Append 1-25 linked groups: screen V1, camera V2, screen master audio A1.
+
+        Each group has screen_path, camera_path, screen_start_frame,
+        camera_start_frame, frame_count. Alternatively a full pair has screen_path,
+        camera_path, camera_delay_frames (0..600): whole sources, no edge trims.
+        Sources and timeline must have equal FPS.
+        Public ranges are inclusive (start + count - 1); native bounds are
+        checked using live-tested Resolve conventions. Both pictures and master
+        audio share duration/position for cut groups. Full pairs retain camera delay
+        and each source duration. No speed changes, deletes or overwrite.
+        Requires updated fixed editing/sync modules; validates native readback.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "append_clip",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "sync_groups": sync_groups},
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
         )
 
     @server.tool(annotations=write)
@@ -138,6 +170,120 @@ def create_server(root: Path) -> MCPServer:
             expected_project_id=expected_project_id,
             confirm=confirm,
             idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=write)
+    async def resolve_lua_preview_start(
+        timeline_name: str,
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 30,
+    ) -> dict[str, Any]:
+        """Select Edit and the timeline start without starting playback."""
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "preview_start": True},
+            expected_project_id=expected_project_id,
+            confirm=confirm,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=write)
+    async def resolve_lua_replace_video_take(
+        timeline_name: str,
+        track_index: int,
+        item_index: int,
+        expected_media_path: str,
+        replacement_take_path: str,
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 60,
+    ) -> dict[str, Any]:
+        """Select a full-length derived video take on one existing item.
+
+        Requires matching duration/FPS, no prior take selector or Fusion comp.
+        Keeps the original take, timeline bounds and linked master audio.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={
+                "timeline_name": timeline_name,
+                "track_index": track_index,
+                "item_index": item_index,
+                "expected_media_path": expected_media_path,
+                "replacement_take_path": replacement_take_path,
+            },
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
+    @server.tool(annotations=write)
+    async def resolve_lua_set_empty_timeline_fps(
+        timeline_name: str,
+        frame_rate: int,
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 60,
+    ) -> dict[str, Any]:
+        """Recover settings of an existing EMPTY timeline; refuse any clips."""
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={
+                "timeline_name": timeline_name,
+                "empty_timeline_fps": frame_rate,
+            },
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
+    @server.tool(annotations=write)
+    async def resolve_lua_circle_mask(
+        timeline_name: str,
+        track_index: int,
+        item_index: int,
+        expected_media_path: str,
+        center_x: float,
+        center_y: float,
+        diameter: float,
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 60,
+    ) -> dict[str, Any]:
+        """Add a fixed transparent circular Fusion mask to one video item.
+
+        Center is normalized, Fusion Y points upwards; diameter is a fraction
+        of image width. Rejects existing compositions instead of replacing them.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={
+                "timeline_name": timeline_name,
+                "track_index": track_index,
+                "item_index": item_index,
+                "expected_media_path": expected_media_path,
+                "circle_mask": {
+                    "center_x": center_x,
+                    "center_y": center_y,
+                    "diameter": diameter,
+                },
+            },
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
         )
 
     @server.tool(annotations=write)
@@ -245,6 +391,33 @@ def create_server(root: Path) -> MCPServer:
             expected_project_id=expected_project_id,
             idempotency_key=idempotency_key,
             confirm=confirm,
+        )
+
+    @server.tool(annotations=read)
+    async def resolve_lua_get_item(
+        timeline_name: str,
+        track_type: str,
+        track_index: int,
+        item_index: int,
+        expected_media_path: str,
+        expected_project_id: str,
+        timeout_seconds: float = 30,
+        inspect_circle: bool = False,
+    ) -> dict[str, Any]:
+        """Read native item/source bounds and link count with source identity check."""
+        return await asyncio.to_thread(
+            client.request,
+            "get_timeline_summary",
+            timeout_seconds,
+            arguments={
+                "timeline_name": timeline_name,
+                "track_type": track_type,
+                "track_index": track_index,
+                "item_index": item_index,
+                "expected_media_path": expected_media_path,
+                **({"inspect_circle": True} if inspect_circle else {}),
+            },
+            expected_project_id=expected_project_id,
         )
 
     @server.tool(annotations=read)

@@ -22,6 +22,36 @@ return function(api, root, helpers, shared)
         check(project:GetUniqueId() == request.project_id, "PROJECT_CHANGED")
         local timeline = timelines(project, request.arguments.timeline_name)
         check(timeline ~= nil, "TIMELINE_NOT_FOUND")
+        local a=request.arguments
+        if a.track_type then
+            local item=(timeline:GetItemListInTrack(a.track_type,a.track_index) or {})[a.item_index]
+            check(item and item:GetMediaPoolItem()
+                and normalized(item:GetMediaPoolItem():GetClipProperty("File Path"))==normalized(a.expected_media_path), "SOURCE_CHANGED")
+            if a.inspect_circle then
+                local ok,n=pcall(function() return item:GetFusionCompCount() end)
+                local names_ok,names=pcall(function() return item:GetFusionCompNames() end)
+                local nodes, connected, diameter=-1,0,-1
+                local probe_ok=pcall(function()
+                    local c=item:GetFusionCompByIndex(1)
+                    local ts=c:GetToolList(false)
+                    nodes=0
+                    for _ in pairs(ts) do nodes=nodes+1 end
+                    local out=c:FindTool("MediaOut1")
+                    local merge=c:FindTool("Merge1")
+                    local ellipse=c:FindTool("Ellipse1")
+                    if out and merge and ellipse then
+                        diameter=math.floor(ellipse:GetInput("Width")*1000+0.5)
+                        local link=out.Input:GetConnectedOutput()
+                        connected=link and link:GetTool():GetAttrs().TOOLS_Name==merge:GetAttrs().TOOLS_Name and 1 or 0
+                    end
+                end)
+                return string.format("fusion_%d_%d_%d_%d_%d_%d",ok and type(n)=="number" and n or -1,
+                    names_ok and type(names)=="table" and #names or -1,
+                    type(item.AddFusionComp)=="function" and 1 or 0,probe_ok and nodes or -1,connected,diameter)
+            end
+            return string.format("item_%d_%d_%d_%d_%d", item:GetStart(),item:GetEnd(),
+                item:GetSourceStartFrame(),item:GetSourceEndFrame(),#(item:GetLinkedItems() or {}))
+        end
         local c = counts(timeline)
         local fps = tonumber(tostring(timeline:GetSetting("timelineFrameRate")):match("[%d.]+"))
         check(fps ~= nil, "VERIFY_FAILED")
@@ -75,6 +105,108 @@ return function(api, root, helpers, shared)
         end
         local timeline = timelines(project, a.timeline_name)
         check(timeline ~= nil, "TIMELINE_NOT_FOUND")
+        if action=="set_clip_properties" and a.replacement_take_path then
+            local item=(timeline:GetItemListInTrack("video",a.track_index) or {})[a.item_index]
+            check(item and item:GetMediaPoolItem()
+                and normalized(item:GetMediaPoolItem():GetClipProperty("File Path"))==normalized(a.expected_media_path),"SOURCE_CHANGED")
+            check(allowed(a.replacement_take_path),"MEDIA_NOT_ALLOWED")
+            local replacement=helpers.find_asset(project:GetMediaPool(),a.replacement_take_path)
+            check(replacement~=nil,"ASSET_NOT_FOUND")
+            check(item:GetTakesCount()==0,"TAKES_EXIST")
+            check(item:GetFusionCompCount()==0,"FUSION_COMP_EXISTS")
+            local first,last=item:GetStart(),item:GetEnd()
+            local frames=tonumber(replacement:GetClipProperty("Frames"))
+            local fps=tonumber(replacement:GetClipProperty("FPS"))
+            check(frames==last-first and fps==tonumber(timeline:GetSetting("timelineFrameRate")),"TAKE_FORMAT_MISMATCH")
+            local links={}
+            for _,linked in ipairs(item:GetLinkedItems() or {}) do
+                links[linked:GetUniqueId()]={first=linked:GetStart(),last=linked:GetEnd()}
+            end
+            return function()
+                check(api:OpenPage("edit")==true,"VERIFY_FAILED")
+                check(project:SetCurrentTimeline(timeline)==true,"VERIFY_FAILED")
+                check(item:AddTake(replacement)==true,"TAKE_ADD_FAILED")
+                local index=item:GetTakesCount()
+                check(index==2,"VERIFY_FAILED")
+                local take=item:GetTakeByIndex(index)
+                check(take and take.mediaPoolItem and take.mediaPoolItem:GetUniqueId()==replacement:GetUniqueId(),"VERIFY_FAILED")
+                check(item:SelectTakeByIndex(index)==true,"TAKE_SELECT_FAILED")
+                check(item:GetSelectedTakeIndex()==index and item:GetStart()==first and item:GetEnd()==last,"VERIFY_FAILED")
+                check(item:GetMediaPoolItem():GetUniqueId()==replacement:GetUniqueId(),"VERIFY_FAILED")
+                check(item:GetSourceStartFrame()==0 and item:GetSourceEndFrame()>=frames-1
+                    and item:GetSourceEndFrame()<=frames,"VERIFY_FAILED")
+                for _,linked in ipairs(item:GetLinkedItems() or {}) do
+                    local prior=links[linked:GetUniqueId()]
+                    check(prior and prior.first==linked:GetStart() and prior.last==linked:GetEnd(),"VERIFY_FAILED")
+                    links[linked:GetUniqueId()]=nil
+                end
+                check(next(links)==nil,"VERIFY_FAILED")
+            end
+        end
+        if action=="set_clip_properties" and a.empty_timeline_fps then
+            local fps=a.empty_timeline_fps
+            check(fps==24 or fps==25 or fps==30 or fps==50 or fps==60,"INVALID_ARGUMENTS")
+            local c=counts(timeline)
+            check(c.video==0 and c.audio==0 and c.subtitle==0,"TIMELINE_NOT_EMPTY")
+            return function()
+                check(api:OpenPage("edit")==true,"VERIFY_FAILED")
+                check(project:SetCurrentTimeline(timeline)==true,"VERIFY_FAILED")
+                check(timeline:SetSettings({useCustomSettings="1",timelineFrameRate=tostring(fps)})==true,"TIMELINE_SETTINGS_FAILED")
+                check(tonumber(timeline:GetSetting("timelineFrameRate"))==fps,"VERIFY_FAILED")
+            end
+        end
+        if action == "set_clip_properties" and a.preview_start == true then
+            return function()
+                check(project:SetCurrentTimeline(timeline)==true, "VERIFY_FAILED")
+                check(api:OpenPage("edit")==true, "VERIFY_FAILED")
+                check(timeline:SetCurrentTimecode(timeline:GetStartTimecode())==true, "VERIFY_FAILED")
+                check(project:GetCurrentTimeline():GetUniqueId()==timeline:GetUniqueId()
+                    and timeline:GetCurrentTimecode()==timeline:GetStartTimecode(), "VERIFY_FAILED")
+            end
+        end
+        if action == "set_clip_properties" and a.circle_mask then
+            check(type(a.track_index)=="number" and a.track_index>=1 and a.track_index%1==0
+                and type(a.item_index)=="number" and a.item_index>=1 and a.item_index%1==0, "INVALID_ARGUMENTS")
+            local item=(timeline:GetItemListInTrack("video",a.track_index) or {})[a.item_index]
+            check(item and item:GetMediaPoolItem()
+                and normalized(item:GetMediaPoolItem():GetClipProperty("File Path"))==normalized(a.expected_media_path), "SOURCE_CHANGED")
+            local m=a.circle_mask
+            for _,key in ipairs({"center_x","center_y","diameter"}) do
+                local v=m[key]
+                check(type(v)=="number" and v==v and v>=0.05 and v<=(key=="diameter" and 0.9 or 0.95), "INVALID_ARGUMENTS")
+            end
+            check(item:GetFusionCompCount()==0, "FUSION_COMP_EXISTS")
+            return function()
+                check(project:SetCurrentTimeline(timeline)==true, "VERIFY_FAILED")
+                local comp=item:AddFusionComp()
+                check(comp~=nil, "FUSION_UNAVAILABLE")
+                local input=comp:FindTool("MediaIn1")
+                local output=comp:FindTool("MediaOut1")
+                check(input and output, "FUSION_IO_MISSING")
+                local ellipse=comp:AddTool("EllipseMask",-2,1)
+                local bg=comp:AddTool("Background",-2,-1)
+                local merge=comp:AddTool("Merge",0,0)
+                check(ellipse and bg and merge, "FUSION_NODE_FAILED")
+                ellipse:SetInput("Center",{m.center_x,m.center_y})
+                ellipse:SetInput("Width",m.diameter)
+                -- Fusion mask width/height use aspect-corrected coordinates:
+                -- equal values produce a circle on square-pixel footage.
+                ellipse:SetInput("Height",m.diameter)
+                ellipse:SetInput("SoftEdge",0.002)
+                bg:SetInput("TopLeftAlpha",0)
+                merge:ConnectInput("Background",bg)
+                merge:ConnectInput("Foreground",input)
+                merge:ConnectInput("EffectMask",ellipse)
+                output:ConnectInput("Input",merge)
+                check(math.abs(ellipse:GetInput("Width")-m.diameter)<0.0001
+                    and math.abs(ellipse:GetInput("Height")-m.diameter)<0.0001
+                    and bg:GetInput("TopLeftAlpha")==0
+                    and merge.Background:GetConnectedOutput():GetTool():GetAttrs().TOOLS_Name==bg:GetAttrs().TOOLS_Name
+                    and merge.Foreground:GetConnectedOutput():GetTool():GetAttrs().TOOLS_Name==input:GetAttrs().TOOLS_Name
+                    and merge.EffectMask:GetConnectedOutput():GetTool():GetAttrs().TOOLS_Name==ellipse:GetAttrs().TOOLS_Name
+                    and output.Input:GetConnectedOutput():GetTool():GetAttrs().TOOLS_Name==merge:GetAttrs().TOOLS_Name, "VERIFY_FAILED")
+            end
+        end
         if action == "set_clip_properties" then
             check(a.track_type == "video" or a.track_type == "audio", "INVALID_ARGUMENTS")
             local items = timeline:GetItemListInTrack(a.track_type, a.track_index) or {}

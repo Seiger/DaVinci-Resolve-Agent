@@ -87,7 +87,7 @@ These tools are advertised:
   subtitles, timeline bounds, subtitle first/last frame and frame rate. This avoids
   treating an exported project snapshot as a complete view of unsaved timeline state.
 - `resolve_lua_reload_modules`: reload only the fixed trusted `editing.lua` and
-  `finishing.lua` installed in this session by the operator. Accepts no source,
+  `finishing.lua` and `sync.lua` installed in this session by the operator. Accepts no source,
   paths or arbitrary actions. Keeps job ownership, handled IDs and the original
   deadline. Does not clear receipts or allow uncertain writes to be retried.
   Rendering blocks reload; a failed load keeps the previous dispatcher.
@@ -277,3 +277,102 @@ wall-clock boundary. Automatic console input remains unreliable.
 This does not verify general editing, no-project startup, every Resolve version, or application focus
 behavior under every concurrent user activity. See the manual integration
 matrix for the exact scope of the earlier console project-creation test.
+
+## Synchronized pair assembly (local development)
+
+The typed `resolve_lua_append_synced_pairs` tool supports batches of 1-25 groups.
+Each group creates screen V1, camera V2 and screen master audio A1, links all three
+items, then verifies native source identity, track, position, duration, source
+bounds and links. The same ordered cut-map drives all three placements. Existing
+items are not deleted or overwritten. A partial failure blocks further writes.
+
+Two group shapes are supported:
+
+- Cut group: screen_path, camera_path, screen_start_frame, camera_start_frame,
+  frame_count. The public covered range is inclusive start..start+count-1.
+- Full pair: screen_path, camera_path, camera_delay_frames (0..600). Preserves
+  whole source clips, including unmatched edges; the camera begins later by that
+  many timeline frames. Sessions follow one another at the latest AV end.
+
+All source and timeline frame rates must match. Create an empty timeline, wait
+for its acknowledgement, then call `resolve_lua_set_empty_timeline_fps` with
+`frame_rate=60` before using 60 fps sources.
+Other accepted integer rates are 24, 25, 30 and 50; no fractional conversion or
+speed adjustment is performed. Camera composition is unchanged.
+
+Resolve Free 21.1 live evidence showed different source-end conventions for
+explicit ranges and whole clips. A requested 1200-frame range required native
+endFrame=start+1200; item start/end duration and source readback were verified.
+Whole-clip native source ends were inclusive. Some MKV container/AAC durations
+extended one frame beyond the source video end; only that observed one-frame
+padding is allowed for whole clips, with exact timeline duration still checked.
+This is version-specific, not a general assertion about every Resolve build.
+
+`resolve_lua_get_item` reads native source/timeline bounds and linked-item count
+for an exact track/item selector with expected source-path and project checks.
+`resolve_lua_preview_start` selects Edit, the named timeline and its start timecode;
+it never starts playback. Both use fixed typed operations, not arbitrary code.
+
+Active protocol-4 sessions can load this addition without console input: update
+editing.lua, finishing.lua and sync.lua from the trusted checkout, then reload.
+The envelope reuses existing fixed actions; old modules reject the new argument
+shapes. New prepare copies all three modules. Do not mix updated editing.lua with
+a missing sync.lua. No new bootstrap or deadline extension occurs on reload.
+
+Live synchronized assembly was checked through native readback and playback.
+Keep source-specific offsets, cut maps, recordings and diagnostic reports outside
+version control. Retain backups and uncertain-write receipts for recovery.
+
+# Circular camera mask (experimental)
+
+`resolve_lua_circle_mask` applies one fixed Fusion graph to a video item selected
+by timeline, one-based track/item and expected source path. It uses the existing
+project guard, pre-edit export and idempotent receipt. Existing compositions are
+rejected rather than overwritten. No caller-supplied code or composition file is
+accepted. The graph merges MediaIn over an alpha-zero Background through an
+Ellipse mask, then connects MediaOut. Center coordinates are normalized (Fusion
+Y points upwards); diameter is relative to image width. Equal Ellipse Width and
+Height produce a circle on square-pixel footage. Pan/Zoom are separate commands.
+
+`resolve_lua_get_item(..., inspect_circle=true)` reads composition/node counts,
+output connection and mask diameter without modifying the clip. A failed write
+can have applied partially: inspect before resolving a pending receipt; never
+blindly replay it or delete a composition to retry.
+
+Live Free 21.1 testing confirmed composition creation, transparent compositing
+and a short native H.264 render with corrected circular dimensions. A local
+reference composite alone is never proof of native acceptance.
+
+`resolve_lua_set_empty_timeline_fps` repairs an existing empty timeline after
+backup, refusing all nonempty timelines. It opens Edit before switching and
+configuring the timeline. Read native state to reconcile an uncertain creation
+before using this recovery operation.
+
+**Runtime limitation:** combining creation and an immediate FPS change hung in
+live testing. The combined operation is deliberately rejected; creation keeps
+the project defaults and FPS configuration is a separate guarded request on an
+acknowledged empty timeline. Recovery of an existing empty timeline passed live
+testing. Do not retry uncertain creation, clear its pending receipt or restart
+repeatedly. Preserve the pre-edit export and reconcile actual native state after
+authorized recovery. Short acceptance tests do not prove every workflow/build.
+
+Subject-aware background blur is **not** an MCP feature. A separately authorized
+local RVM ONNX experiment is outside the repository/runtime dependency contract;
+model download and short previews do not imply full-video processing or quality
+approval. Source media must stay intact. Do not substitute a whole-frame blur or
+static subject mask for moving foreground isolation.
+
+## Derived video takes
+
+`resolve_lua_replace_video_take` selects an already imported derived video file
+on one existing timeline item. Both original and derived paths must be allowed.
+The replacement must match the item duration and timeline FPS. Existing take
+selectors or Fusion compositions are refused. The original take is retained;
+this does not replace the media-pool source or change other timelines. A saved
+backup precedes the operation, and native readback verifies selected source,
+item bounds and linked-item identities/bounds. Do not finalize or delete the
+original take automatically. Audio remains on the existing linked master track.
+
+This accepts finished media; it does not run matting or install/download models.
+Review derived-media contour quality, timing and color before use. A partial
+failure remains uncertain and must be inspected before another write.

@@ -18,6 +18,129 @@ from providers.resolve.lua_finishing import validate_finishing, verify_video
 from providers.resolve.lua_transport import LuaSnapshotClient, prepare
 
 
+def test_replacement_take_is_bounded_to_distinct_allowed_files(tmp_path: Path) -> None:
+    source, replacement = tmp_path / "camera.mp4", tmp_path / "processed.mp4"
+    source.touch()
+    replacement.touch()
+    args: dict[str, Any] = dict(
+        timeline_name="Review",
+        track_index=2,
+        item_index=1,
+        expected_media_path=str(source),
+        replacement_take_path=str(replacement),
+    )
+    result = validate_finishing("set_clip_properties", args, [tmp_path])
+    assert result["replacement_take_path"] == replacement.as_posix()
+    for change in (
+        {"replacement_take_path": str(source)},
+        {"track_index": True},
+        {"item_index": 0},
+        {"command": "arbitrary"},
+    ):
+        with pytest.raises(ValueError):
+            validate_finishing("set_clip_properties", dict(args, **change), [tmp_path])
+    with pytest.raises(ValueError):
+        validate_finishing(
+            "set_clip_properties",
+            dict(args, replacement_take_path=str(tmp_path / "missing.mp4")),
+            [tmp_path],
+        )
+
+
+def test_replacement_take_rejects_file_outside_media_root(tmp_path: Path) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    source = allowed / "camera.mp4"
+    source.touch()
+    outside = tmp_path / "outside.mp4"
+    outside.touch()
+    with pytest.raises(ValueError):
+        validate_finishing(
+            "set_clip_properties",
+            dict(
+                timeline_name="Review",
+                track_index=2,
+                item_index=1,
+                expected_media_path=str(source),
+                replacement_take_path=str(outside),
+            ),
+            [allowed],
+        )
+
+
+@pytest.mark.parametrize("fps", [True, 23, 60.0, "60", float("nan")])
+def test_empty_timeline_fps_rejects_invalid_rate(tmp_path: Path, fps: Any) -> None:
+    with pytest.raises(ValueError):
+        validate_finishing(
+            "set_clip_properties",
+            {"timeline_name": "Review", "empty_timeline_fps": fps},
+            [tmp_path],
+        )
+
+
+def test_empty_timeline_fps_accepts_supported_rate(tmp_path: Path) -> None:
+    assert (
+        validate_finishing(
+            "set_clip_properties",
+            {"timeline_name": "Review", "empty_timeline_fps": 60},
+            [tmp_path],
+        )["empty_timeline_fps"]
+        == 60
+    )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"center_x": True},
+        {"center_y": float("nan")},
+        {"diameter": 0},
+        {"diameter": float("inf")},
+        {"code": "anything"},
+    ],
+)
+def test_circle_rejects_unbounded_geometry(
+    tmp_path: Path, change: dict[str, Any]
+) -> None:
+    media = tmp_path / "camera.mp4"
+    media.touch()
+    args: dict[str, Any] = dict(
+        timeline_name="Review",
+        track_index=2,
+        item_index=1,
+        expected_media_path=str(media),
+        circle_mask=dict(center_x=0.5, center_y=0.5, diameter=0.4),
+    )
+    args["circle_mask"].update(change)
+    with pytest.raises(ValueError):
+        validate_finishing("set_clip_properties", args, [tmp_path])
+
+
+def test_circle_requires_exact_source_and_fields(tmp_path: Path) -> None:
+    media = tmp_path / "camera.mp4"
+    media.touch()
+    args = dict(
+        timeline_name="Review",
+        track_index=2,
+        item_index=1,
+        expected_media_path=str(media),
+        circle_mask=dict(center_x=0.5, center_y=0.5, diameter=0.4),
+    )
+    assert (
+        validate_finishing("set_clip_properties", args, [tmp_path])["circle_mask"]
+        == args["circle_mask"]
+    )
+    for change in ({"track_index": True}, {"lua": "bad"}, {"item_index": 0}):
+        with pytest.raises(ValueError):
+            validate_finishing("set_clip_properties", dict(args, **change), [tmp_path])
+    with pytest.raises(ValueError):
+        validate_finishing(
+            "set_clip_properties",
+            dict(args, expected_media_path=str(tmp_path / "missing.mp4")),
+            [tmp_path],
+        )
+
+
 def serve(root: Path, status: str, backup: bool = True) -> threading.Thread:
     def run() -> None:
         for _ in range(300):
@@ -392,3 +515,29 @@ def test_status_timeout_without_accepted_start_is_not_masked(tmp_path: Path) -> 
             arguments={"job_id": job["job_id"]},
             expected_project_id="test-project",
         )
+
+
+def test_item_readback_is_native_and_identity_bound(tmp_path: Path) -> None:
+    media = tmp_path / "screen.mkv"
+    media.touch()
+    root = tmp_path / "session"
+    prepare(root, [tmp_path])
+    worker = serve(root, "ok_item_216000_217200_3600_4800_2", backup=False)
+    try:
+        result = LuaSnapshotClient(root).request(
+            "get_timeline_summary",
+            3,
+            arguments={
+                "timeline_name": "Sync",
+                "track_type": "video",
+                "track_index": 1,
+                "item_index": 1,
+                "expected_media_path": str(media),
+            },
+            expected_project_id="test-project",
+        )
+    finally:
+        worker.join(4)
+    assert result["item"]["end_frame"] - result["item"]["start_frame"] == 1200
+    assert result["item"]["linked_items"] == 2
+    assert not list(root.glob("*.before.drp"))

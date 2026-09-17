@@ -232,3 +232,77 @@ def test_receipt_fingerprint_binds_project(tmp_path: Path) -> None:
         WriteReceipt(
             tmp_path, "key", "create_timeline", "project-two", {"name": "T"}
         ).replay()
+
+
+def test_sync_group_validation_and_receipt_replay(tmp_path: Path) -> None:
+    screen, camera = tmp_path / "screen.mkv", tmp_path / "camera.mkv"
+    screen.touch()
+    camera.touch()
+    group = {
+        "screen_path": str(screen),
+        "camera_path": str(camera),
+        "screen_start_frame": 3600,
+        "camera_start_frame": 3588,
+        "frame_count": 1200,
+    }
+    args = {"timeline_name": "Sync", "sync_groups": [group]}
+    full = {
+        "screen_path": str(screen),
+        "camera_path": str(camera),
+        "camera_delay_frames": 11,
+    }
+    assert (
+        validate_edit("append_clip", dict(args, sync_groups=[full]), [tmp_path])[
+            "sync_groups"
+        ][0]["camera_delay_frames"]
+        == 11
+    )
+    for delay in (True, -1, 601, 0.5):
+        with pytest.raises(ValueError):
+            validate_edit(
+                "append_clip",
+                dict(args, sync_groups=[dict(full, camera_delay_frames=delay)]),
+                [tmp_path],
+            )
+
+    result = validate_edit("append_clip", args, [tmp_path])
+    assert result["sync_groups"][0]["camera_start_frame"] == 3588
+    for change in (
+        {"frame_count": 0},
+        {"frame_count": True},
+        {"camera_start_frame": -1},
+        {"screen_start_frame": 1.5},
+        {"camera_path": str(screen)},
+        {"extra": "code"},
+    ):
+        with pytest.raises(ValueError):
+            validate_edit(
+                "append_clip",
+                dict(args, sync_groups=[dict(group, **change)]),
+                [tmp_path],
+            )
+    with pytest.raises(ValueError):
+        validate_edit("append_clip", dict(args, sync_groups=[group] * 26), [tmp_path])
+    root = tmp_path / "session"
+    prepare(root, [tmp_path])
+    worker = serve(root)
+    kw: dict[str, Any] = dict(
+        arguments=args,
+        expected_project_id="test-project",
+        confirm=True,
+        idempotency_key="sync-batch",
+    )
+    try:
+        first = LuaSnapshotClient(root).request("append_clip", 3, **kw)
+    finally:
+        worker.join(4)
+    replay = LuaSnapshotClient(root).request("append_clip", 1, **kw)
+    assert replay["replayed"] and first["arguments"] == replay["arguments"]
+    assert len(list(root.glob("*.before.drp"))) == 1
+
+
+def test_creation_rejects_inline_rate_change() -> None:
+    assert validate_edit("create_timeline", {"name": "Sync"}, []) == {"name": "Sync"}
+    for fps in (60, True, 59.94, 0, "60"):
+        with pytest.raises(ValueError):
+            validate_edit("create_timeline", {"name": "Sync", "frame_rate": fps}, [])

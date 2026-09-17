@@ -82,6 +82,10 @@ def prepare(root: Path, media_roots: list[Path] | None = None) -> Path:
         editing.with_name("ResolveLuaFinishing.lua").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    (root / "sync.lua").write_text(
+        editing.with_name("ResolveLuaSync.lua").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (root / "session.json").write_text(
         json.dumps({"session": session, "protocol": 4, "media_roots": roots}),
         encoding="utf-8",
@@ -299,11 +303,16 @@ class LuaSnapshotClient:
                             "TIMELINE_NOT_FOUND",
                             "ASSET_NOT_FOUND",
                             "INVALID_RANGE",
+                            "SYNC_FPS_MISMATCH",
                             "BACKUP_SAVE_FAILED",
                             "BACKUP_EXPORT_FAILED",
                             "EXPIRED",
                             "ITEM_NOT_FOUND",
                             "SOURCE_CHANGED",
+                            "FUSION_COMP_EXISTS",
+                            "TIMELINE_NOT_EMPTY",
+                            "TAKES_EXIST",
+                            "TAKE_FORMAT_MISMATCH",
                             "SUBTITLES_EXIST",
                             "SUBTITLE_REQUIRES_EMPTY_AV",
                             "EMPTY_TIMELINE",
@@ -378,6 +387,55 @@ class LuaSnapshotClient:
                     receipt.complete(result)
                     return result
                 if summary_request:
+                    if normalized.get("inspect_circle"):
+                        fusion = re.fullmatch(
+                            r"fusion_(-?\d+)_(-?\d+)_(\d+)_(-?\d+)_(\d+)_(-?\d+)",
+                            token or "",
+                        )
+                        if not fusion or project["id"] != expected_project_id:
+                            raise BridgeProtocolError("Invalid Fusion inspection.")
+                        return {
+                            "project": project,
+                            "fusion": dict(
+                                zip(
+                                    (
+                                        "composition_count",
+                                        "composition_names_count",
+                                        "add_comp_callable",
+                                        "node_count",
+                                        "output_connected",
+                                        "diameter_milli",
+                                    ),
+                                    map(int, fusion.groups()),
+                                    strict=True,
+                                )
+                            ),
+                            "source": "live_lua_api",
+                        }
+                    if "track_type" in normalized:
+                        item_match = re.fullmatch(
+                            r"item_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(\d+)", token or ""
+                        )
+                        if not item_match or project["id"] != expected_project_id:
+                            raise BridgeProtocolError("Invalid item readback.")
+                        return {
+                            "project": project,
+                            "selector": normalized,
+                            "item": dict(
+                                zip(
+                                    (
+                                        "start_frame",
+                                        "end_frame",
+                                        "source_start_frame",
+                                        "source_end_frame",
+                                        "linked_items",
+                                    ),
+                                    (int(v) for v in item_match.groups()),
+                                    strict=True,
+                                )
+                            ),
+                            "source": "live_lua_api",
+                        }
                     match = re.fullmatch(
                         r"timeline_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)",
                         token or "",
