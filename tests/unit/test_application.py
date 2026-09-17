@@ -188,6 +188,17 @@ class StubResolveReader:
         self.timeouts.append(timeout_seconds)
         return {"items": [{"asset_id": "asset-1", "name": paths[0]}]}
 
+    def create_project(
+        self,
+        name: str,
+        *,
+        confirm_create: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        assert confirm_create is True
+        return {"project": {"project_id": "project-new", "name": name}}
+
     def create_timeline(
         self,
         name: str,

@@ -221,6 +221,22 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         )
 
     @server.tool(annotations=WRITE_TOOL)
+    async def resolve_create_project(
+        name: str,
+        confirm_create: bool = False,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create and select a unique project; back up the current one if open."""
+        return await asyncio.to_thread(
+            service.resolve_create_project,
+            name,
+            confirm_create=confirm_create,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=WRITE_TOOL)
     async def resolve_create_timeline(
         name: str,
         timeout_seconds: float = 30,

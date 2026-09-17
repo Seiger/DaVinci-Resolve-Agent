@@ -12,6 +12,7 @@ from agent.contracts import validate_contract
 REPOSITORY_ROOT = Path(__file__).parents[2]
 EXAMPLES_ROOT = REPOSITORY_ROOT / "contracts" / "examples"
 WRITE_ACTIONS = {
+    "create_project",
     "import_media",
     "create_timeline",
     "ensure_timeline_tracks",

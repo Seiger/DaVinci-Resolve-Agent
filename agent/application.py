@@ -162,6 +162,16 @@ class ResolveReader(Protocol):
     ) -> dict[str, Any]:
         """Import media files."""
 
+    def create_project(
+        self,
+        name: str,
+        *,
+        confirm_create: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a unique project, preserving existing projects."""
+
     def create_timeline(
         self,
         name: str,
@@ -1379,6 +1389,32 @@ class AgentApplication:
         normalized = policy.prepare_import(paths)
         return self._resolve.import_media(
             normalized,
+            timeout_seconds=self._validated_timeout(timeout_seconds),
+            idempotency_key=idempotency_key,
+        )
+
+    def resolve_create_project(
+        self,
+        name: str,
+        *,
+        confirm_create: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a confirmed project in the current Resolve library folder."""
+        if (
+            not isinstance(name, str)
+            or not name.strip()
+            or name != name.strip()
+            or len(name) > 128
+            or any(ord(character) < 32 for character in name)
+        ):
+            raise ValueError("Project name must contain 1 to 128 clean characters.")
+        if confirm_create is not True:
+            raise ValueError("Project creation requires confirm_create=true.")
+        return self._resolve.create_project(
+            name,
+            confirm_create=True,
             timeout_seconds=self._validated_timeout(timeout_seconds),
             idempotency_key=idempotency_key,
         )

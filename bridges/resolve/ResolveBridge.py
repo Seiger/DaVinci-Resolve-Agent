@@ -74,6 +74,7 @@ COLOR_PRESETS = {
     }
 }
 ALLOWED_ACTIONS = {
+    "create_project",
     "ping",
     "stop_bridge",
     "get_bridge_info",
@@ -114,6 +115,7 @@ ALLOWED_ACTIONS = {
     "start_render_job",
 }
 WRITE_ACTIONS = {
+    "create_project",
     "import_media",
     "create_timeline",
     "ensure_timeline_tracks",
@@ -139,6 +141,7 @@ WRITE_ACTIONS = {
 }
 DESTRUCTIVE_ACTIONS = {"delete_clip"}
 CAPABILITY_BY_ACTION = {
+    "create_project": "project.create",
     "list_timeline_items": "clip.read",
     "list_media_pool_items": "media.read",
     "get_editing_metadata": "media.metadata.read",
@@ -666,6 +669,22 @@ def _validate_write_arguments(action: str, arguments: dict[str, Any]) -> None:
             raise ValueError("paths must contain between 1 and 100 items.")
         if not all(isinstance(path, str) and path for path in paths):
             raise ValueError("Every media path must be a non-empty string.")
+        return
+    if action == "create_project":
+        if set(arguments) != {"name", "confirm_create"}:
+            raise ValueError("create_project requires name and confirm_create.")
+        name = arguments["name"]
+        if (
+            not isinstance(name, str)
+            or not name.strip()
+            or name != name.strip()
+            or len(name) > 128
+            or any(ord(character) < 32 for character in name)
+            or arguments["confirm_create"] is not True
+        ):
+            raise ValueError(
+                "A bounded project name and confirm_create=true are required."
+            )
         return
     if action == "create_timeline":
         if set(arguments) != {"name"}:
@@ -3477,6 +3496,90 @@ def _apply_verified_capabilities(
             capabilities[capability] = True
 
 
+def _execute_create_project(
+    resolve: Any,
+    command: dict[str, Any],
+    directories: dict[str, Path],
+) -> tuple[dict[str, Any], list[str]]:
+    """Create a unique project, backing up the current project when present.
+
+    Creation operates in the current library folder. It never loads a name
+    collision or deletes a project after a partial failure. Successful replay
+    returns the receipt without switching the user's current project.
+    """
+    manager = resolve.GetProjectManager()
+    required = ("GetCurrentProject", "GetProjectListInCurrentFolder",
+                "CreateProject", "SaveProject")
+    if manager is None or any(
+        not callable(getattr(manager, method, None)) for method in required
+    ):
+        raise BridgeOperationError(
+            "UNSUPPORTED_CAPABILITY", "Project creation methods are unavailable."
+        )
+    name = command["arguments"]["name"]
+    names = manager.GetProjectListInCurrentFolder()
+    if not isinstance(names, list) or not all(isinstance(item, str) for item in names):
+        raise BridgeOperationError(
+            "INVALID_RESOLVE_RESPONSE", "Project folder listing is invalid."
+        )
+    if any(item.casefold() == name.casefold() for item in names):
+        raise BridgeOperationError(
+            "PROJECT_NAME_CONFLICT", "A project with this name already exists."
+        )
+    previous = manager.GetCurrentProject()
+    previous_project_id = None
+    backup_path = None
+    if previous is not None:
+        previous_project_id = str(previous.GetUniqueId())
+        if previous.IsRenderingInProgress() is True:
+            raise BridgeOperationError(
+                "RENDER_ALREADY_IN_PROGRESS",
+                "Wait for rendering before creating a project.",
+            )
+        backup_path = _create_project_backup(
+            manager, previous, directories["backups"], command["command_id"]
+        )
+    try:
+        created = manager.CreateProject(name)
+        if created is None:
+            raise BridgeOperationError(
+                "PROJECT_CREATE_FAILED", "Resolve did not create the requested project."
+            )
+        current = manager.GetCurrentProject()
+        if (
+            current is None
+            or created.GetName() != name
+            or current.GetUniqueId() != created.GetUniqueId()
+            or not created.GetUniqueId()
+            or previous_project_id == str(created.GetUniqueId())
+        ):
+            raise BridgeOperationError(
+                "PROJECT_CREATE_READBACK_FAILED",
+                "New project identity could not be verified.",
+            )
+        if manager.SaveProject() is not True:
+            raise BridgeOperationError(
+                "PROJECT_SAVE_FAILED", "The created project could not be saved."
+            )
+        result = {
+            "project": {"project_id": str(created.GetUniqueId()), "name": name},
+            "backup_path": backup_path,
+            "previous_project_id": previous_project_id,
+            "created": True,
+        }
+        _write_receipt(command, directories["state"], result)
+        return result, []
+    except BridgeOperationError as error:
+        error.details.setdefault("backup_path", backup_path)
+        raise
+    except Exception as error:
+        raise BridgeOperationError(
+            "PROJECT_CREATE_FAILED",
+            "Project creation failed; inspect Resolve before retrying.",
+            details={"backup_path": backup_path},
+        ) from error
+
+
 def _execute_write_command(
     resolve: Any,
     command: dict[str, Any],
@@ -3485,6 +3588,9 @@ def _execute_write_command(
     receipt = _read_receipt(command, directories["state"])
     if receipt is not None:
         return receipt, ["Returned the stored idempotent result."]
+
+    if command["action"] == "create_project":
+        return _execute_create_project(resolve, command, directories)
 
     project_manager, project, media_pool = _require_project(resolve)
     action = command["action"]

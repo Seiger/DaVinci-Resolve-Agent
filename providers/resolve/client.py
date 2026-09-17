@@ -300,6 +300,25 @@ class ResolveProviderClient:
         )
         return self._object_value("import_media", result)
 
+    def create_project(
+        self,
+        name: str,
+        *,
+        confirm_create: bool,
+        timeout_seconds: float = 30,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Create and save a unique project through the guarded bridge action."""
+        result = self._client.request(
+            provider="resolve",
+            action="create_project",
+            arguments={"name": name, "confirm_create": confirm_create},
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            create_backup=True,
+        )
+        return self._object_value("create_project", result)
+
     def create_timeline(
         self,
         name: str,
