@@ -9,6 +9,7 @@ from typing import Any
 
 from agent.media import MediaPolicy
 from providers.resolve.lua_editing import bounded_text
+from providers.resolve.lua_ripple import validate_ripple
 
 FINISH_ACTIONS = frozenset(
     {"set_clip_properties", "add_subtitles", "prepare_render", "start_render"}
@@ -26,6 +27,8 @@ PROPERTY_LIMITS = {
 def validate_finishing(
     action: str, a: dict[str, Any], roots: list[Path]
 ) -> dict[str, Any]:
+    if action == "set_clip_properties" and "ripple_cut" in a:
+        return validate_ripple(a, roots)
     if action in {"start_render", "get_render_status"}:
         if (
             set(a) != {"job_id"}

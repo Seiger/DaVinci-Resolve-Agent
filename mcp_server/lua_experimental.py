@@ -198,6 +198,34 @@ def create_server(root: Path) -> MCPServer:
         )
 
     @server.tool(annotations=write)
+    async def resolve_lua_ripple_cut_opening(
+        timeline_name: str,
+        ripple_cut: dict[str, Any],
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Duplicate then cut inside the first linked V1/V2/A1 group.
+
+        Requires explicit destination name, absolute exclusive cut bounds,
+        expected timeline/group bounds and screen/camera source paths/in-points.
+        Only plain first clips are recreated; downstream items retain identity,
+        properties, Fusion compositions and links. Original timeline is preserved.
+        Unsupported layouts fail closed. A failed write may leave a partial copy;
+        inspect the receipt and backup, never retry using a new key.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "ripple_cut": ripple_cut},
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
+    @server.tool(annotations=write)
     async def resolve_lua_preview_start(
         timeline_name: str,
         expected_project_id: str,

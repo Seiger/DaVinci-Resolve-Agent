@@ -86,6 +86,10 @@ def prepare(root: Path, media_roots: list[Path] | None = None) -> Path:
         editing.with_name("ResolveLuaSync.lua").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    (root / "ripple.lua").write_text(
+        editing.with_name("ResolveLuaRipple.lua").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (root / "session.json").write_text(
         json.dumps({"session": session, "protocol": 4, "media_roots": roots}),
         encoding="utf-8",

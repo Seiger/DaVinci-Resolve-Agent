@@ -405,6 +405,40 @@ model download and short previews do not imply full-video processing or quality
 approval. Source media must stay intact. Do not substitute a whole-frame blur or
 static subject mask for moving foreground isolation.
 
+## Narrow opening ripple cut
+
+`resolve_lua_ripple_cut_opening` makes a new named timeline copy and removes an
+exclusive frame interval strictly inside its first linked V1/V2/A1 group. It
+requires the source timeline to be active, exact expected timeline/group bounds,
+both selected media paths and their independent source in-points. In particular,
+a derived camera take may start at source frame zero while master audio and the
+screen recording start later; never substitute the original camera offset.
+
+This is an experimental, restricted operation, not a general split/delete tool.
+It supports contiguous synchronized groups on exactly two video tracks and one
+audio track, with no subtitle tracks or timeline markers. Locked/disabled tracks,
+first-clip Fusion compositions, clip markers and unsupported geometry are refused.
+The first group must contain plain clips; do not use it for retimed clips, grades,
+audio effects or other first-clip processing beyond the copied Inspector properties.
+Downstream Fusion compositions remain on their existing items in the copy.
+
+After a saved backup and duplication, only the first three items are replaced by
+left/middle/right segments using the selected sources and copied properties. One
+native ripple deletion removes the middle linked group. Native readback verifies
+the new duration and links, every downstream item's identity, source times,
+properties, Fusion count and exact shift, and the unchanged original timeline.
+The earlier timeline retains original take selectors; replacement segments use
+the currently selected media directly. Always review a short native AV render.
+
+The `ripple_cut` object requires `name`, `start_frame`, `end_frame`,
+`expected_timeline_start`, `expected_timeline_end`, `expected_group_end`,
+`screen_path`, `camera_path`, `screen_source_start`, and `camera_source_start`.
+All timeline positions are absolute frames; `end_frame` is exclusive. Requests
+use the usual project guard, confirmation, backup and persistent idempotency key.
+Failure may leave a partial destination copy: reconcile it rather than replaying
+under a new key. Existing sessions need updated `finishing.lua` and `ripple.lua`
+followed by `resolve_lua_reload_modules`; a freshly prepared session includes both.
+
 ## Derived video takes
 
 `resolve_lua_replace_video_take` selects an already imported derived video file
