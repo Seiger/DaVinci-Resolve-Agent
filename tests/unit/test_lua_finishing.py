@@ -280,12 +280,15 @@ def test_cleanup_requires_stop_and_preserves_backups_renders_receipts(
     backup = root / ("a" * 32 + ".before.drp")
     response.write_bytes(b"response")
     backup.write_bytes(b"backup")
+    accepted = root / ("b" * 32 + ".accepted.drp")
+    accepted.write_bytes(b"accepted")
     (root / "renders").mkdir()
     video = root / "renders" / "video.mp4"
     video.write_bytes(b"video")
     assert cleanup_responses(root)["status"] == "preview"
     assert response.exists()
-    assert cleanup_responses(root, confirm=True)["files"] == 1
+    assert cleanup_responses(root, confirm=True)["files"] == 2
+    assert not accepted.exists()
     assert not response.exists() and backup.exists() and video.exists()
     assert cleanup_responses(root, confirm=True)["files"] == 0
     with pytest.raises(ValueError, match="stopped"):
@@ -330,3 +333,62 @@ def test_reload_accepts_no_source_or_path(tmp_path: Path) -> None:
     for arguments in ({"path": "other.lua"}, {"source": "print(1)"}):
         with pytest.raises(ValueError, match="no editing arguments"):
             LuaSnapshotClient(root).request("reload_modules", arguments=arguments)
+
+
+def test_render_acceptance_is_not_completion_and_never_restarts(tmp_path: Path) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    job = prepare_job(root)
+    client = LuaSnapshotClient(root)
+    args: dict[str, Any] = dict(
+        arguments={"job_id": job["job_id"]},
+        expected_project_id="test-project",
+        confirm=True,
+        idempotency_key="start",
+    )
+    worker = serve(root, "accepted")
+    try:
+        result = client.request("start_render", 3, **args)
+    finally:
+        worker.join(4)
+    assert result["status"] == "accepted" and not result["completion_verified"]
+    Path(job["output_path"]).write_bytes(b"unfinished render")
+    replay = client.request("start_render", 1, **args)
+    assert replay["replayed"] and replay["status"] == "accepted"
+    assert len(list(root.glob("*.before.drp"))) == 2
+    # No responder: could be rendering OR a stopped bridge, never claim running.
+    state = client.request(
+        "get_render_status",
+        0.1,
+        arguments={"job_id": job["job_id"]},
+        expected_project_id="test-project",
+    )
+    assert state["status"] == "awaiting_status"
+    assert not state["completion_verified"]
+    # A subsequent native failure must supersede that acceptance.
+    worker = serve(root, "ok_state_failed", backup=False)
+    try:
+        state = client.request(
+            "get_render_status",
+            3,
+            arguments={"job_id": job["job_id"]},
+            expected_project_id="test-project",
+        )
+    finally:
+        worker.join(4)
+    assert state["status"] == "failed"
+
+
+def test_status_timeout_without_accepted_start_is_not_masked(tmp_path: Path) -> None:
+    from providers.resolve.lua_transport import LuaCommandTimeoutError
+
+    root = tmp_path / "session"
+    prepare(root)
+    job = prepare_job(root)
+    with pytest.raises(LuaCommandTimeoutError):
+        LuaSnapshotClient(root).request(
+            "get_render_status",
+            0.1,
+            arguments={"job_id": job["job_id"]},
+            expected_project_id="test-project",
+        )

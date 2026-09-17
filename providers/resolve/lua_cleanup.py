@@ -27,7 +27,7 @@ def cleanup_responses(root: Path, *, confirm: bool = False) -> dict[str, Any]:
         candidates = []
         for path in root.glob("*.drp"):
             if re.fullmatch(
-                r"[0-9a-f]{32}(?:\.ok(?:_[A-Za-z0-9_-]+)?|\.error_[A-Z_]+)?\.drp",
+                r"[0-9a-f]{32}(?:\.accepted|\.ok(?:_[A-Za-z0-9_-]+)?|\.error_[A-Z_]+)?\.drp",
                 path.name,
             ):
                 if path.is_symlink() or path.resolve().parent != root:

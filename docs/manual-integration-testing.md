@@ -156,9 +156,15 @@ Setup and limits: [experimental Lua bridge](lua-experimental.md).
   a separate validation render passed prepare/start/status end to end.
 - Local acceptance.jsonl, DRP backups, receipts and MP4 retained outside git;
   no private paths or project exports published. User recordings untouched.
-- Not verified: closed-console operation, long-render acknowledgements/progress,
-  live cleanup preview, two-hour soak and other Resolve versions. Ten-second
-  start wait cannot guarantee an acknowledgement for long renders.
+- After operator-confirmed console closure, fresh MCP ping and native timeline
+  summary both succeeded with expected counts/bounds, without desktop input.
+- Follow-up closed-console five-minute synthetic AV test: accepted start before
+  dispatch, awaiting_status while exports were unavailable, then native complete.
+  H.264/AAC MP4 1920x1080, 300.010667 s, 15,768,358 bytes. Repeated start
+  returned replayed acceptance without another dispatch. This replaces the
+  earlier ten-second wait; acceptance does not certify execution or completion.
+- Not verified: continuous render progress, live cleanup preview, two-hour soak
+  and other Resolve versions. No desktop input occurred during the long test.
 - Automated tests cover validation, owned-job correlation, replay, output decoding,
   mailbox contention and cleanup boundaries; these do not replace live API proof.
 

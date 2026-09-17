@@ -233,9 +233,9 @@ def create_server(root: Path) -> MCPServer:
     ) -> dict[str, Any]:
         """Start only a job prepared by this running bridge; never blindly resubmit.
 
-        Waits up to ten seconds for short renders before exporting the response.
-        Longer renders may block export and time out: never restart that job.
-        Poll owned status after completion and review a pending receipt.
+        Returns accepted before dispatch, not running or complete. The bridge
+        exports acceptance before rendering blocks exports. Replay returns that
+        receipt without another start. Poll owned status until complete or failed.
         """
         return await asyncio.to_thread(
             client.request,
@@ -253,7 +253,12 @@ def create_server(root: Path) -> MCPServer:
         expected_project_id: str,
         timeout_seconds: float = 30,
     ) -> dict[str, Any]:
-        """Read owned job status and verify completed video output."""
+        """Read owned job status and verify completed video output.
+
+        After accepted dispatch, a missing reply returns awaiting_status, not
+        running or failed. Rendering can block export; an unavailable bridge is
+        also possible. Poll again without resubmitting start.
+        """
         return await asyncio.to_thread(
             client.request,
             "get_render_status",

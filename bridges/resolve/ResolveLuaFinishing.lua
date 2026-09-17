@@ -35,7 +35,8 @@ return function(api, root, helpers, shared)
     end
     local function status(project, request)
         check(project:GetUniqueId() == request.project_id, "PROJECT_CHANGED")
-        job(project, request.arguments)
+        local owned = job(project, request.arguments)
+        if owned.start_failed then return "state_failed" end
         local state = project:GetRenderJobStatus(request.arguments.job_id)
         check(type(state) == "table", "VERIFY_FAILED")
         local value = tostring(state.JobStatus):lower()
@@ -62,14 +63,14 @@ return function(api, root, helpers, shared)
             check(unchanged, "JOB_CHANGED")
             return function()
                 check(project:GetCurrentTimeline():GetUniqueId() == owned.timeline, "VERIFY_FAILED")
-                owned.started = true -- Never resubmit an uncertain start.
-                check(project:StartRendering({a.job_id}, false) == true, "VERIFY_FAILED")
-                -- DRP export is unavailable while Resolve renders. Allow short jobs
-                -- to finish before the response export; never restart the job.
-                local until_time = math.min(request.expires-1, os.time()+10)
-                while project:IsRenderingInProgress() and os.time() < until_time do
-                    bmd.wait(0.1)
-                end
+                -- Acceptance is exported BEFORE rendering blocks ExportProject.
+                -- It confirms dispatch, never rendering or completion.
+                local pm = api:GetProjectManager()
+                check(pm:ExportProject(project:GetName(), root .. "/" .. request.id .. ".accepted.drp", false) == true, "ACCEPT_EXPORT_FAILED")
+                owned.started = true -- Never resubmit after acceptance, even on failure.
+                local ok, started = pcall(function() return project:StartRendering({a.job_id}, false) end)
+                owned.start_failed = not ok or started ~= true
+                check(not owned.start_failed, "RENDER_START_FAILED")
             end
         end
         local timeline = timelines(project, a.timeline_name)

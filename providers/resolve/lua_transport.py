@@ -190,6 +190,7 @@ class LuaSnapshotClient:
         elif arguments or expected_project_id or confirm or idempotency_key:
             raise ValueError("Read requests accept no editing arguments.")
         owned_job = None
+        accepted_start = False
         if action in {"start_render", "get_render_status"}:
             for path in (self.root / "receipts").glob("*.json"):
                 saved = json.loads(path.read_text(encoding="utf-8"))
@@ -201,7 +202,15 @@ class LuaSnapshotClient:
                     and saved_result.get("project", {}).get("id") == expected_project_id
                 ):
                     owned_job = saved_result
-                    break
+                if (
+                    saved.get("status") == "completed"
+                    and saved_result.get("action") == "start_render"
+                    and saved_result.get("status") == "accepted"
+                    and saved_result.get("arguments", {}).get("job_id")
+                    == normalized["job_id"]
+                    and saved_result.get("project", {}).get("id") == expected_project_id
+                ):
+                    accepted_start = True
             if owned_job is None:
                 raise ValueError("Render job is not owned by this session and project.")
         lock = self.root / "client.lock"
@@ -308,6 +317,9 @@ class LuaSnapshotClient:
                             "inspect the receipt and backup."
                         )
                     token = None
+                    accepted_response = self.root / f"{command_id}.accepted.drp"
+                    if action == "start_render" and accepted_response.exists():
+                        response = accepted_response
                     if action == "prepare_render" or detail_request:
                         matches = list(self.root.glob(f"{command_id}.ok_*.drp"))
                         if not matches:
@@ -331,7 +343,9 @@ class LuaSnapshotClient:
                     if read_project_snapshot(backup)["id"] != expected_project_id:
                         raise BridgeProtocolError("Write backup identity mismatch.")
                     result: dict[str, Any] = {
-                        "status": "completed",
+                        "status": "accepted"
+                        if response.name.endswith(".accepted.drp")
+                        else "completed",
                         "action": action,
                         "project": project,
                         "arguments": normalized,
@@ -356,6 +370,11 @@ class LuaSnapshotClient:
                             ),
                         )
                     assert receipt is not None
+                    if result["status"] == "accepted":
+                        result["completion_verified"] = False
+                        result["next_action"] = (
+                            "Poll get_render_status; never resubmit this start."
+                        )
                     receipt.complete(result)
                     return result
                 if summary_request:
@@ -410,6 +429,18 @@ class LuaSnapshotClient:
                     atomic_json(self.root / "stopped.json", {"session": self.session})
                     return {"status": "stopping"}
                 return {"project": project, "source": "exported_snapshot"}
+            if status_request and accepted_start:
+                return {
+                    "status": "awaiting_status",
+                    "job_id": normalized["job_id"],
+                    "last_confirmed_state": "accepted",
+                    "completion_verified": False,
+                    "reason": (
+                        "No fresh status reply; rendering can block exports, "
+                        "but the bridge may also be unavailable."
+                    ),
+                    "next_action": "Poll again; do not start the job again.",
+                }
             raise LuaCommandTimeoutError(command_id, timeout_seconds)
         finally:
             try:

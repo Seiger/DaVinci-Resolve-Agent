@@ -5,8 +5,8 @@ adds live timeline summaries and fixed-module reload to protocol-3 finishing.
 It does not replace the production MCP server or expose its entire surface.
 Live-tested on Windows 10 build 19045, Resolve Free 21.1.0.17 and Python
 3.12.10: import, AV assembly, gain, zoom, captions-first SRT and short MP4 render.
-**This remains experimental: closed-console operation and long-render response
-handling are not yet verified.** It is not a full production-provider replacement.
+**This remains experimental; a five-minute render and closed-console requests
+are now live-verified. Continuous render progress is unavailable.** It is not a full production-provider replacement.
 
 After one bootstrap inside Resolve, requests use a local mailbox. No keyboard,
 mouse, window activation, screenshots, desktop automation or network connection
@@ -68,11 +68,16 @@ These tools are advertised:
   `YouTube - 1080p` preset, with audio and burnt-in subtitles. Creates a new
   `renders/<request>/video.mp4` destination, never overwrites an existing video.
 - `resolve_lua_start_render`: start only a job prepared by this running bridge.
-  Acknowledges start, not completion. A stopped/restarted Lua loop loses job ownership.
+  Returns `accepted` before dispatch, not running or complete. The acceptance
+  export precedes StartRendering because rendering blocks exports.
+  A stopped/restarted Lua loop loses job ownership.
   Rechecks the queued job's timeline/destination and refuses a non-empty output
   directory. A successful replay returns its receipt without starting again.
-- `resolve_lua_get_render_status`: poll that owned job. A completed status also
-  requires a non-empty output whose first video frame and first audio frame
+- `resolve_lua_get_render_status`: poll that owned job. It
+  returns `awaiting_status` after an accepted start when no fresh response
+  arrives. This does not claim the job is running: an unavailable bridge is also
+  possible. Never resubmit start. A completed response requires a non-empty
+  output whose first video frame and first audio frame
   (when an audio stream exists) decode successfully.
   This is not a full visual/audio quality inspection.
 - `resolve_lua_cleanup_responses`: preview eligible response files by default;
@@ -236,16 +241,38 @@ zoom 1.2 also passed native property readback. User source recordings were not
 used or modified. Local acceptance logs, receipts, backups and outputs are kept
 outside the repository.
 
-**Long render limitation:** Resolve may return nil for ExportProject while
-rendering. Start waits at most ten seconds (bounded by the request expiry) before
-attempting its response. A longer job can run successfully while the MCP start
-call times out and leaves a pending receipt. Do not restart it: poll the owned
-job after completion and review that receipt. Read replies during rendering may
-also time out. Reliable continuous progress and automatic pending-start
-reconciliation are not implemented.
+**Render acceptance:** the bridge exports `<request>.accepted.drp` after the
+backup and all job checks, immediately before calling StartRendering. The client
+validates both project identities and records a durable accepted result. Receipt
+status `completed` means the dispatch request was acknowledged; its result status
+`accepted` and `completion_verified=false` explicitly do not certify execution
+or completion. Replaying that key returns acceptance without calling Resolve.
+If Resolve rejects the start, the owned job remembers failure for the next status.
 
-Remaining acceptance: closed-console requests, live cleanup preview and the
-two-hour wall-clock boundary. Automatic console input remains unreliable.
+A missing status reply after acceptance returns `awaiting_status` with the last
+confirmed state and instructions to poll, never a fabricated running/complete
+state. Rendering blocks exports, but a stopped/unavailable bridge can cause the
+same symptom. There is no continuous percentage progress; completion requires a
+fresh owned-job response and decodable output. Missing start acceptance still
+leaves an uncertain receipt and blocks writes. A crash between acceptance and
+StartRendering cannot safely be distinguished from an uncertain dispatch; do not
+restart automatically. Keep the same session and inspect if status never returns.
+Older copied finishing modules retain the old start behavior. Update the fixed
+modules and reload an active protocol-4 session, or prepare a new session.
+
+A subsequent five-minute synthetic AV test passed with the console closed:
+accepted start -> awaiting_status during render -> completed native status with
+1920x1080 H.264/AAC output (300.010667 seconds, 15,768,358 bytes). A repeated start
+returned the accepted receipt with replayed=true, with no second render.
+Full output decoding checked all 7,200 video frames and the complete audio stream.
+
+After the operator closed the console, a fresh real MCP ping returned pong and
+a live timeline summary returned the expected one video/audio/subtitle item,
+72-frame timeline and subtitle bounds 12-60. No keyboard or mouse input was used.
+This verifies read requests with the console closed, not a long render.
+
+Remaining acceptance: live cleanup preview and the two-hour
+wall-clock boundary. Automatic console input remains unreliable.
 
 This does not verify general editing, no-project startup, every Resolve version, or application focus
 behavior under every concurrent user activity. See the manual integration

@@ -29,7 +29,7 @@ after two hours, and retains local response exports for diagnostics. See
 Protocol 3 additionally implements bounded gain/framing, SRT captions, owned
 render-job preparation/start/status and explicit stopped-session response cleanup.
 Short synthetic AV/caption rendering is live-verified under protocol 4.
-Long-render acknowledgements and closed-console operation remain limited or unverified.
+Closed-console requests and five-minute render acceptance/completion are verified.
 Cleanup preserves backups,
 renders and receipts and refuses pending writes. Full production-provider parity,
 automatic bootstrap and general effects are outside this experimental surface.
@@ -41,7 +41,10 @@ bounded settle period: exported project state alone cannot resolve an uncertain
 write. Captions require an empty AV timeline and must precede AV append.
 Append ignores subtitle tails when choosing the end of AV. Render setup may
 switch Resolve's page through its API without OS input. Export acknowledgements
-can fail during long renders; never blindly retry an uncertain render start.
+can fail during rendering. Start exports acceptance before dispatch and persists
+an accepted result, not completion. Status with no reply after acceptance reports
+awaiting_status without asserting that Resolve is running. Completion requires
+a fresh owned-job response and decoded output; never retry an uncertain start.
 
 ---
 
