@@ -378,17 +378,24 @@ def create_server(root: Path) -> MCPServer:
         idempotency_key: str,
         confirm: bool = False,
         timeout_seconds: float = 60,
+        start_frame: int | None = None,
+        end_frame: int | None = None,
     ) -> dict[str, Any]:
         """Queue a backed-up 1080p H.264 MP4 with audio and burnt captions.
 
         Uses installed YouTube - 1080p preset. Output is a new managed session
         directory; no existing video is overwritten. Returns owned render job ID.
+        Optional absolute timeline bounds use an exclusive end. Supply both;
+        the queued native range is verified before a later start is permitted.
         """
+        arguments: dict[str, Any] = {"timeline_name": timeline_name}
+        if start_frame is not None or end_frame is not None:
+            arguments.update(start_frame=start_frame, end_frame=end_frame)
         return await asyncio.to_thread(
             client.request,
             "prepare_render",
             timeout_seconds,
-            arguments={"timeline_name": timeline_name},
+            arguments=arguments,
             expected_project_id=expected_project_id,
             idempotency_key=idempotency_key,
             confirm=confirm,

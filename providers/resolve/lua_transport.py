@@ -317,6 +317,7 @@ class LuaSnapshotClient:
                             "SUBTITLES_EXIST",
                             "SUBTITLE_REQUIRES_EMPTY_AV",
                             "EMPTY_TIMELINE",
+                            "RENDER_RANGE_INVALID",
                             "JOB_NOT_OWNED",
                             "JOB_ALREADY_STARTED",
                             "JOB_CHANGED",
@@ -367,14 +368,26 @@ class LuaSnapshotClient:
                         else "ResolveLuaEditing",
                     }
                     if action == "prepare_render":
-                        if not token or not re.fullmatch(
-                            r"job_[a-zA-Z0-9-]{1,64}", token
+                        ranged = "start_frame" in normalized
+                        job_match = re.fullmatch(
+                            r"job_([a-zA-Z0-9-]{1,64})_(\d+)_(\d+)"
+                            if ranged
+                            else r"job_([a-zA-Z0-9-]{1,64})",
+                            token or "",
+                        )
+                        if (
+                            not job_match
+                            or ranged
+                            and (
+                                int(job_match[2]) != normalized["start_frame"]
+                                or int(job_match[3]) != normalized["end_frame"]
+                            )
                         ):
                             raise BridgeProtocolError(
                                 "Invalid render job acknowledgement."
                             )
                         result.update(
-                            job_id=token[4:],
+                            job_id=job_match[1],
                             output_path=str(
                                 self.root / "renders" / command_id / "video.mp4"
                             ),

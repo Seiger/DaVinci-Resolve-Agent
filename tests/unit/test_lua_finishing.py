@@ -251,6 +251,61 @@ def prepare_job(root: Path) -> dict[str, Any]:
         worker.join(4)
 
 
+@pytest.mark.parametrize(
+    "bounds",
+    [
+        (True, 20),
+        (0, False),
+        (1.5, 20),
+        (-1, 20),
+        (20, 20),
+        (21, 20),
+        (None, 20),
+        (0, None),
+        (0, 2_147_483_648),
+    ],
+)
+def test_render_range_rejects_invalid_bounds(bounds: tuple[Any, Any]) -> None:
+    with pytest.raises(ValueError):
+        validate_finishing(
+            "prepare_render",
+            {
+                "timeline_name": "Review",
+                "start_frame": bounds[0],
+                "end_frame": bounds[1],
+            },
+            [],
+        )
+
+
+def test_render_range_is_bound_to_receipt_and_preserves_full_default(
+    tmp_path: Path,
+) -> None:
+    assert validate_finishing("prepare_render", {"timeline_name": "Review"}, []) == {
+        "timeline_name": "Review"
+    }
+    root = tmp_path / "session"
+    prepare(root)
+    args = {"timeline_name": "Review", "start_frame": 216600, "end_frame": 217560}
+    kwargs: dict[str, Any] = dict(
+        arguments=args,
+        expected_project_id="test-project",
+        confirm=True,
+        idempotency_key="local-range",
+    )
+    worker = serve(root, "ok_job_range-job_216600_217560")
+    try:
+        result = LuaSnapshotClient(root).request("prepare_render", 3, **kwargs)
+    finally:
+        worker.join(4)
+    assert result["arguments"] == args
+    assert LuaSnapshotClient(root).request("prepare_render", 1, **kwargs)["replayed"]
+    with pytest.raises(ValueError, match="different arguments"):
+        LuaSnapshotClient(root).request(
+            "prepare_render", 1, **dict(kwargs, arguments=dict(args, end_frame=217561))
+        )
+
+
 def test_render_requires_owned_job_and_replays_preparation(tmp_path: Path) -> None:
     root = tmp_path / "session"
     prepare(root)
@@ -279,6 +334,44 @@ def test_render_requires_owned_job_and_replays_preparation(tmp_path: Path) -> No
             "get_render_status",
             arguments={"job_id": first["job_id"]},
             expected_project_id="other-project",
+        )
+
+
+@pytest.mark.parametrize(
+    "token", ["ok_job_legacy-job", "ok_job_wrong-range_216600_217561"]
+)
+def test_range_render_requires_matching_native_range_ack(
+    tmp_path: Path, token: str
+) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    client = LuaSnapshotClient(root)
+    worker = serve(root, token)
+    try:
+        with pytest.raises(BridgeProtocolError, match="acknowledgement"):
+            client.request(
+                "prepare_render",
+                3,
+                arguments={
+                    "timeline_name": "Review",
+                    "start_frame": 216600,
+                    "end_frame": 217560,
+                },
+                expected_project_id="test-project",
+                confirm=True,
+                idempotency_key="ranged",
+            )
+    finally:
+        worker.join(4)
+    # A legacy server may have queued a whole timeline, but no ownership receipt
+    # authorizes starting it. Inspection is required; never retry preparation.
+    with pytest.raises(ValueError, match="not owned"):
+        client.request(
+            "start_render",
+            arguments={"job_id": "legacy-job"},
+            expected_project_id="test-project",
+            confirm=True,
+            idempotency_key="start",
         )
 
 

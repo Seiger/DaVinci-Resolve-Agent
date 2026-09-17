@@ -90,6 +90,10 @@ return function(api, root, helpers, shared)
                     check(type(info.TargetDir) == "string"
                         and normalized(info.TargetDir) == normalized(owned.directory)
                         and info.TimelineName == owned.name, "JOB_CHANGED")
+                    if owned.mark_in then
+                        check(tonumber(info.MarkIn)==owned.mark_in
+                            and tonumber(info.MarkOut)==owned.mark_out,"JOB_CHANGED")
+                    end
                     unchanged = true
                 end
             end
@@ -269,6 +273,14 @@ return function(api, root, helpers, shared)
             end
         elseif action == "prepare_render" then
             check(timeline:GetEndFrame() > timeline:GetStartFrame(), "EMPTY_TIMELINE")
+            local ranged=a.start_frame~=nil or a.end_frame~=nil
+            if ranged then
+                check(type(a.start_frame)=="number" and a.start_frame%1==0
+                    and type(a.end_frame)=="number" and a.end_frame%1==0
+                    and a.start_frame>=timeline:GetStartFrame()
+                    and a.end_frame<=timeline:GetEndFrame()
+                    and a.start_frame<a.end_frame,"RENDER_RANGE_INVALID")
+            end
             return function()
                 check(project:SetCurrentTimeline(timeline) == true, "VERIFY_FAILED")
                 local previous_page = api:GetCurrentPage()
@@ -278,9 +290,11 @@ return function(api, root, helpers, shared)
                 check(project:SetCurrentRenderFormatAndCodec("MP4", "H264") == true, "RENDER_FORMAT_FAILED")
                 check(project:SetCurrentRenderMode(1) == true, "RENDER_MODE_FAILED")
                 local directory = root .. "/renders/" .. request.id
-                check(project:SetRenderSettings({SelectAllFrames=true, TargetDir=directory,
+                local settings={SelectAllFrames=not ranged, TargetDir=directory,
                     CustomName="video", ExportVideo=true, ExportAudio=true,
-                    FormatWidth=1920, FormatHeight=1080}) == true, "RENDER_BASE_SETTINGS_FAILED")
+                    FormatWidth=1920, FormatHeight=1080}
+                if ranged then settings.MarkIn=a.start_frame;settings.MarkOut=a.end_frame-1 end
+                check(project:SetRenderSettings(settings) == true, "RENDER_BASE_SETTINGS_FAILED")
                 check(project:SetRenderSettings({ExportSubtitle=true, SubtitleFormat="BurnIn"}) == true, "RENDER_SUBTITLE_SETTINGS_FAILED")
                 check(project:SetRenderSettings({DataBurnIn="None"}) == true, "RENDER_BURNIN_SETTINGS_FAILED")
                 -- Resolve Free rejects ReplaceExistingFilesInPlace in single-clip mode.
@@ -292,13 +306,22 @@ return function(api, root, helpers, shared)
                     if info.JobId == id then
                         check(normalized(info.TargetDir) == normalized(directory), "VERIFY_FAILED")
                         check(info.TimelineName == timeline:GetName(), "VERIFY_FAILED")
+                        if ranged then
+                            check(tonumber(info.MarkIn)==a.start_frame
+                                and tonumber(info.MarkOut)==a.end_frame-1,"VERIFY_FAILED")
+                        end
                         found = true
                     end
                 end
                 check(found, "VERIFY_FAILED")
                 jobs[id] = {project=project:GetUniqueId(), timeline=timeline:GetUniqueId(),
-                    name=timeline:GetName(), directory=directory, started=false}
+                    name=timeline:GetName(), directory=directory, started=false,
+                    mark_in=ranged and a.start_frame or nil,
+                    mark_out=ranged and a.end_frame-1 or nil}
                 if previous_page then api:OpenPage(previous_page) end
+                if ranged then
+                    return string.format("job_%s_%d_%d",id,a.start_frame,a.end_frame)
+                end
                 return "job_" .. id
             end
         end

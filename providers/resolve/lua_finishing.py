@@ -128,6 +128,19 @@ def validate_finishing(
         return dict(
             a, timeline_name=name, expected_media_path=Path(item_path).as_posix()
         )
+    if action == "prepare_render" and set(a) == {
+        "timeline_name",
+        "start_frame",
+        "end_frame",
+    }:
+        start, end = a["start_frame"], a["end_frame"]
+        if (
+            type(start) is not int
+            or type(end) is not int
+            or not 0 <= start < end <= 2_147_483_647
+        ):
+            raise ValueError("Render range requires integer start and exclusive end.")
+        return {"timeline_name": name, "start_frame": start, "end_frame": end}
     if action in {"prepare_render", "get_timeline_summary"} and set(a) == {
         "timeline_name"
     }:

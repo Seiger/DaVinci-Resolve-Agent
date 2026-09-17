@@ -325,6 +325,21 @@ Live synchronized assembly was checked through native readback and playback.
 Keep source-specific offsets, cut maps, recordings and diagnostic reports outside
 version control. Retain backups and uncertain-write receipts for recovery.
 
+# Short review renders
+
+`resolve_lua_prepare_render` accepts optional `start_frame` and `end_frame`.
+Both are absolute timeline frame positions, with an exclusive end. Without
+them the existing whole-timeline behavior is unchanged. Bounds must lie inside
+the named nonempty timeline. The bridge converts the exclusive end to Resolve's
+inclusive MarkOut, verifies queued MarkIn/MarkOut and checks them again before
+dispatch. A range mismatch never authorizes starting a whole-timeline render.
+Use this to review a local edit without rendering a multi-hour timeline.
+The acknowledgement also carries the verified bounds. A legacy whole-timeline
+acknowledgement cannot establish ownership of a requested range job, so the
+client refuses to start it. Inspect any resulting uncertain queued job before
+continuing. Reload the updated trusted finishing module before using ranges in
+a running protocol-4 session.
+
 # Circular camera mask (experimental)
 
 `resolve_lua_circle_mask` applies one fixed Fusion graph to a video item selected
