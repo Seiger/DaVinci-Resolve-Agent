@@ -15,6 +15,23 @@ The first provider targets DaVinci Resolve 21 Free by running a bridge script in
 
 The system must be reproducible on another computer through a documented installation process and must not depend on machine-specific absolute paths.
 
+Resolve Free 21.1 compatibility experiment: a separate, opt-in Lua MCP server
+exposes ping, exported project identity, stop, and guarded import/create-timeline/
+append operations. It uses a
+trusted generated local Lua mailbox and DRP snapshots, without desktop input
+after one in-Resolve bootstrap. This does not replace the production protocol
+or expose the full editing surface. Writes require project identity, confirmation,
+pre-edit saved backups and session-scoped durable receipts. Uncertain writes block
+resubmission. The prototype requires an open saved project, expires
+after two hours, and retains local response exports for diagnostics. See
+[Lua prototype limits and setup](docs/lua-experimental.md).
+
+Protocol 3 additionally implements bounded gain/framing, SRT captions, owned
+render-job preparation/start/status and explicit stopped-session response cleanup.
+These finishing operations are not yet live-verified. Cleanup preserves backups,
+renders and receipts and refuses pending writes. Full production-provider parity,
+automatic bootstrap and general effects are outside this experimental surface.
+
 ---
 
 ## 2. Goals
@@ -821,7 +838,11 @@ A documented test matrix:
 
 The first successful end-to-end test is:
 
-1. Resolve 21 Free is running with a project open.
+1. Resolve 21 Free is running with a project open. The confirmed
+   `create_project` action is an exception to the open-project prerequisite:
+   it creates and saves a unique project in the current library folder,
+   backing up the current project only when one exists. It requires a running
+   bridge; starting the bridge from Project Manager remains live-test pending.
 2. User launches `ResolveBridge` through `Workspace → Scripts → Edit`.
 3. Bridge writes a heartbeat and capability file.
 4. From PowerShell, the user runs:

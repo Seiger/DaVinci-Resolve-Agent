@@ -91,6 +91,71 @@ media paths, повні command arguments або diagnostics bundles без по
 - Windows 11 live Resolve: `pending`;
 - Resolve 21 Studio: `pending`;
 - live project absent і timeline absent: `pending`.
+- Resolve 21.1.0.17 Free, Windows: production Python bridge `blocked` by
+  unavailable Python script launch; experimental Lua console/API and read-only
+  background MCP snapshot transport `verified` only within the scope below.
+
+### Resolve Free 21.1 Lua prototype evidence
+
+- UTC: 2026-09-17, console project creation around 07:50, background MCP around
+  08:00; Windows 10 build 19045, Python 3.12.10, agent 0.1.0;
+- Resolve 21.1.0.17, Free edition operator-confirmed; experimental Lua bridge,
+  isolated prototype protocol (not production command protocol 1.0);
+- initial state: open saved test project; console API read its name/version;
+- console write: SaveProject + successful baseline ExportProject (333762 bytes),
+  case-insensitive name collision guard, CreateProject, current-name readback,
+  SaveProject; created empty project visible in window title; no media imported;
+- project creation: `verified` through GUI console, **not through MCP**;
+  idempotent replay of the console command was not run;
+- background prototype: MCP stdio initialized, listed three tools, then
+  `resolve_lua_ping`, `resolve_lua_get_project`, `resolve_lua_ping` all returned
+  `is_error=false`; readback matched the newly created project's name/ID;
+- no GUI input between those MCP calls; no project mutation/save by prototype;
+- MCP stop returned `stopping`; subsequent one-second ping timed out as expected;
+- partial DRP writes are awaited; identity is read from a bounded XML header;
+- startup Fusion warnings are not established as the cause of missing Python
+  menu items. Lua availability does not imply Python bridge compatibility;
+- production Lua editing transport, automatic bootstrap, no-project responses,
+  and long-running unattended sessions remain `pending`.
+
+Setup and limits: [experimental Lua bridge](lua-experimental.md).
+
+### Resolve Free 21.1 Lua finishing protocol 3 — pending
+
+- Local implementation adds clip gain/framing, SRT captions, managed MP4 jobs,
+  status polling and explicit response cleanup after an acknowledged stop.
+- Automated tests cover validation, owned-job correlation, replay, missing output,
+  malformed acknowledgements and cleanup boundaries; these are not live API proof.
+- A synthetic three-second mixed audio/video fixture and SRT are prepared locally.
+- Live bootstrap blocked: Computer Use console access twice returned
+  `foreground window did not report a process id`. No finishing mutation or render
+  was submitted; no protocol-3 live result, closed-console claim or rendered file
+  is verified yet. The protocol-2 results below remain historical evidence only.
+- Required: mixed AV import/append, gain and transform readback, caption timing,
+  owned render prepare/start/status, actual MP4 picture/audio inspection, closed
+  console requests, stop and cleanup preview. Two-hour lifetime is code-verified,
+  not a wall-clock soak test.
+
+### Resolve Free 21.1 Lua editing protocol 2
+
+- UTC: 2026-09-17 approximately 08:37; same Windows 10 / Python 3.12.10 /
+  operator-confirmed Free 21.1.0.17 environment above; agent 0.1.0;
+- isolated Lua session, protocol 2; saved disposable test project with existing
+  timelines; fixture: generated 48-frame 24 fps video, no user recordings;
+- MCP import, create empty timeline, append source frames 12–35: `is_error=false`;
+  each required explicit confirmation and the exact project ID;
+- all three operations produced pre-edit DRP backups and successful post-edit
+  exports; Lua checked the API result, new item IDs and imported source identity;
+- repeat of each identical idempotency key returned `replayed=true`; only three
+  backups; independent DRP inspection found exactly one appended video item,
+  source in-point 12, timeline duration field 23 (different source/timeline FPS);
+- wrong-project create request returned `PROJECT_CHANGED` before a backup/edit;
+- no desktop input between MCP edits; bridge stopped after the test;
+- `verified` only for this bounded video fixture, current project defaults and
+  completed-request replay. Source end-frame conversion, whole-clip, audio and
+  mixed AV live coverage remain `pending`; no rendering or source edits occurred.
+- unit coverage additionally checks uncertain-outcome blocking across client
+  restarts, mismatch rejection, media roots, input bounds and missing backups.
 
 Новий рядок можна перевести у `verified` лише після фактичного live-запуску з
 evidence за цим контрактом.

@@ -50,6 +50,7 @@ include-package-data = true
 version = {attr = "agent.__version__"}
 
 [tool.setuptools.package-data]
+"bridges.resolve" = ["*.lua"]
 config = [
   "*.toml",
   "recipes/*.json",

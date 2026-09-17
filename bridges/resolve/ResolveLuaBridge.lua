@@ -1,0 +1,55 @@
+-- Experimental background bridge for Resolve Free 21.1.
+-- Start once inside Resolve. No UI input is used while serving requests.
+-- request.lua is generated exclusively by the local typed Python client;
+-- this is a trusted local mailbox, NOT an arbitrary-Lua MCP endpoint.
+local root = "__RUNTIME_ROOT__"
+local session = "__SESSION__"
+local media_roots = __MEDIA_ROOTS__
+if _G.ResolveAgentLuaRunning then
+    print("Resolve Agent Lua bridge already running")
+    return
+end
+local api = assert(resolve, "Run inside Resolve with injected resolve")
+assert(type(bmd.wait) == "function", "Cooperative wait unavailable")
+assert(os and type(os.time) == "function", "Clock unavailable")
+local writes = {import_media=true, create_timeline=true, append_clip=true,
+    set_clip_properties=true, add_subtitles=true, prepare_render=true, start_render=true}
+local edit = dofile(root .. "/editing.lua")(api, root, media_roots)
+_G.ResolveAgentLuaRunning = true
+local ok, err = pcall(function()
+    local deadline = os.time() + 7200
+    local handled = {}
+    while os.time() < deadline do
+        local loaded, request = pcall(dofile, root .. "/request.lua")
+        if loaded and type(request) == "table"
+            and request.session == session
+            and type(request.id) == "string" and #request.id == 32
+            and request.id:match("^[0-9a-f]+$")
+            and type(request.expires) == "number" and request.expires >= os.time()
+            and not handled[request.id]
+            and (request.action == "ping" or request.action == "get_current_project"
+                 or request.action == "stop" or request.action == "get_render_status" or writes[request.action]) then
+            handled[request.id] = true
+            local pm = api:GetProjectManager()
+            local project = pm:GetCurrentProject()
+            if project then
+                local suffix = ""
+                if writes[request.action] or request.action == "get_render_status" then
+                    local succeeded, code = pcall(edit, pm, project, request)
+                    suffix = succeeded and ".ok" or ".error_" .. (tostring(code):match("^[A-Z_]+$") or "INTERNAL_ERROR")
+                    if succeeded and type(code) == "string" and code:match("^[%w_%-]+$") then suffix = suffix .. "_" .. code end
+                end
+                local current = pm:GetCurrentProject()
+                local exported = current and pm:ExportProject(current:GetName(), root .. "/" .. request.id .. suffix .. ".drp", false)
+                print("Resolve Agent Lua response=" .. tostring(exported) .. suffix)
+                if exported and request.action == "stop" then break end
+            else
+                print("Resolve Agent Lua requires an open project")
+            end
+        end
+        bmd.wait(0.25)
+    end
+end)
+_G.ResolveAgentLuaRunning = nil
+print("Resolve Agent Lua stopped; ok=" .. tostring(ok))
+if not ok then print(tostring(err)) end

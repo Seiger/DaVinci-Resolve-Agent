@@ -31,8 +31,25 @@ Resolve scans menu scripts at startup. Confirm installation:
 Test-Path "$env:APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\ResolveBridge.py"
 ```
 
-Then fully restart Resolve and check
-`Workspace → Scripts → Edit → ResolveBridge`.
+If the menu says **No Scripts**, first select the **Edit page** in the bottom
+navigation. Opening the top-level Edit menu or Scripts → Edit submenu does not
+switch from Deliver, Color, or another page. Confirm that the file is installed
+for the same Windows user running Resolve, and that its extension is `.py`,
+not `.py.txt`. Use the installer to restore a missing file and its configuration.
+
+Then fully restart Resolve and check `Workspace → Scripts → ResolveBridge`
+on the Edit page. From other pages the script can appear under an `Edit`
+submenu; on the Edit page that submenu is absent.
+
+If the file exists but **No Scripts** remains, inspect the current startup in
+`%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\logs\ResolveDebug.txt`.
+Resolve Free 21.1.0.17 did not list the installed Python script. Restarting
+did not restore it. Startup Fusion warnings were also present, but are not
+established as its cause. Lua console API access and a limited background
+transport worked in the same installation. See [the experimental Lua
+prototype](lua-experimental.md); it is not a replacement for production editing
+tools. Do not repeatedly reinstall/move the Python script to fix this edition
+restriction.
 
 ## M52 animation template відсутній у Titles
 

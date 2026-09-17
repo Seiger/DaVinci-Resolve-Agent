@@ -28,6 +28,18 @@ The installer copies the internal script to the current user's documented
 Resolve script tree. If a different file already occupies the target path, the
 installer preserves it as `ResolveBridge.py.davinci-agent-backup`.
 
+The source file is `bridges/resolve/ResolveBridge.py`. Its installed location is:
+
+```text
+%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Edit\ResolveBridge.py
+```
+
+Use `installer/install.ps1` to install the bridge together with its local
+configuration and runtime. Copying the Python file alone is not a complete
+installation. The `Edit` folder scopes the script to the Edit page; select that
+page in the bottom navigation before opening the Scripts menu. The top-level
+Edit menu and the Scripts → Edit submenu do not switch editor pages.
+
 Інсталятор також перевіряє SHA-256 пакетованого M52 Fusion Title і копіює його
 до `%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Templates\Edit\Titles`.
 Якщо цільовий template належить користувачу, він зберігається як
@@ -55,8 +67,10 @@ not accept or create a heartbeat and does not report Resolve connectivity.
 Resolve scans menu scripts at startup:
 
 1. Restart DaVinci Resolve after installation.
-2. Open a project.
-3. Select `Workspace → Scripts → Edit → ResolveBridge`.
+2. Open a project and select the **Edit** page in the bottom navigation.
+3. On the Edit page, open `Workspace → Scripts` and select `ResolveBridge`.
+   On other pages, Resolve may group it under an `Edit` submenu. The absence
+   of an Edit submenu on the Edit page is normal.
 4. Return to PowerShell and run:
 
 ```powershell
