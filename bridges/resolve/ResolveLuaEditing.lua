@@ -66,6 +66,28 @@ return function(api, root, media_roots, shared)
         end
         return ids
     end
+    -- Separate identity from layout: a duplicate must preserve the layout
+    -- while owning different editable timeline items. No source is cleared.
+    local function layout(timeline)
+        local parts, ids, count = {tostring(timeline:GetSetting("timelineFrameRate")),
+            tostring(timeline:GetStartFrame()),tostring(timeline:GetEndFrame())}, {}, 0
+        for _,kind in ipairs({"video","audio","subtitle"}) do
+            parts[#parts+1]=kind .. ":" .. timeline:GetTrackCount(kind)
+            for track=1,timeline:GetTrackCount(kind) do
+                for _,item in ipairs(timeline:GetItemListInTrack(kind,track) or {}) do
+                    count=count+1
+                    check(count<=1000,"TIMELINE_TOO_LARGE")
+                    ids[item:GetUniqueId()]=true
+                    local media=item:GetMediaPoolItem()
+                    parts[#parts+1]=table.concat({kind,track,item:GetStart(),item:GetEnd(),
+                        item:GetSourceStartFrame(),item:GetSourceEndFrame(),
+                        media and media:GetUniqueId() or "no-media",
+                        #(item:GetLinkedItems() or {}),item:GetFusionCompCount()},":")
+                end
+            end
+        end
+        return table.concat(parts,"|"),ids
+    end
     local finish = dofile(root .. "/finishing.lua")(api, root, {
         check=check, timelines=timelines, allowed=allowed, normalized=normalized,
         find_asset=find_asset}, shared)
@@ -79,11 +101,20 @@ return function(api, root, media_roots, shared)
         check(not project:IsRenderingInProgress(), "RENDERING")
         local a, pool = request.arguments, project:GetMediaPool()
         check(type(a) == "table", "INVALID_ARGUMENTS")
-        local timeline, asset, before, finishing
-        if request.action == "create_timeline" then
+        local timeline, asset, before, finishing, duplicate_source, source_layout, source_ids
+        if request.action == "create_timeline" or request.action == "duplicate_timeline" then
             check(text(a.name), "INVALID_ARGUMENTS")
             check(timelines(project, a.name) == nil, "NAME_EXISTS")
             check(a.frame_rate == nil, "INVALID_ARGUMENTS")
+            if request.action == "duplicate_timeline" then
+                check(text(a.source_timeline_name) and a.source_timeline_name~=a.name,"INVALID_ARGUMENTS")
+                duplicate_source=timelines(project,a.source_timeline_name)
+                check(duplicate_source~=nil,"TIMELINE_NOT_FOUND")
+                check(type(duplicate_source.DuplicateTimeline)=="function","DUPLICATE_UNAVAILABLE")
+                source_layout,source_ids=layout(duplicate_source)
+            else
+                check(a.source_timeline_name==nil,"INVALID_ARGUMENTS")
+            end
         elseif request.action == "import_media" then
             check(type(a.paths) == "table" and #a.paths >= 1 and #a.paths <= 20, "INVALID_ARGUMENTS")
             local seen = {}
@@ -121,12 +152,25 @@ return function(api, root, media_roots, shared)
         local token
         if finishing then
             token = finishing()
-        elseif request.action == "create_timeline" then
+        elseif request.action == "create_timeline" or request.action == "duplicate_timeline" then
             local count = project:GetTimelineCount()
-            timeline = pool:CreateEmptyTimeline(a.name)
+            if duplicate_source then
+                timeline=duplicate_source:DuplicateTimeline(a.name)
+            else
+                timeline=pool:CreateEmptyTimeline(a.name)
+            end
             check(timeline ~= nil and timeline:GetName() == a.name, "VERIFY_FAILED")
             check(project:GetTimelineCount() == count+1, "VERIFY_FAILED")
             check(timelines(project, a.name):GetUniqueId() == timeline:GetUniqueId(), "VERIFY_FAILED")
+            if duplicate_source then
+                check(timeline:GetUniqueId()~=duplicate_source:GetUniqueId(),"VERIFY_FAILED")
+                local copied,copied_ids=layout(timeline)
+                local original,original_ids=layout(duplicate_source)
+                check(copied==source_layout and original==source_layout,"VERIFY_FAILED")
+                for id in pairs(copied_ids) do check(not source_ids[id],"VERIFY_FAILED") end
+                for id in pairs(source_ids) do check(original_ids[id],"VERIFY_FAILED") end
+                for id in pairs(original_ids) do check(source_ids[id],"VERIFY_FAILED") end
+            end
         elseif request.action == "import_media" then
             local imported = pool:ImportMedia(a.paths)
             check(type(imported) == "table" and #imported == #a.paths, "VERIFY_FAILED")

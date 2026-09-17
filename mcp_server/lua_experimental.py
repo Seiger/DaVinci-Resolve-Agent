@@ -109,6 +109,31 @@ def create_server(root: Path) -> MCPServer:
         )
 
     @server.tool(annotations=write)
+    async def resolve_lua_duplicate_timeline(
+        source_timeline_name: str,
+        name: str,
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 60,
+    ) -> dict[str, Any]:
+        """Copy an existing timeline, retaining clips and FPS without changing settings.
+
+        Backs up first, refuses existing destination names, verifies separate
+        timeline/item identities, copied AV bounds and unchanged source layout.
+        The copy includes existing clips; this does not create an empty template.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "duplicate_timeline",
+            timeout_seconds,
+            arguments={"name": name, "source_timeline_name": source_timeline_name},
+            expected_project_id=expected_project_id,
+            confirm=confirm,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=write)
     async def resolve_lua_append_synced_pairs(
         timeline_name: str,
         sync_groups: list[dict[str, Any]],

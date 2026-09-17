@@ -301,6 +301,7 @@ class LuaSnapshotClient:
                             "POOL_TOO_LARGE",
                             "TIMELINE_TOO_LARGE",
                             "TIMELINE_NOT_FOUND",
+                            "DUPLICATE_UNAVAILABLE",
                             "ASSET_NOT_FOUND",
                             "INVALID_RANGE",
                             "SYNC_FPS_MISMATCH",
@@ -414,7 +415,8 @@ class LuaSnapshotClient:
                         }
                     if "track_type" in normalized:
                         item_match = re.fullmatch(
-                            r"item_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(\d+)", token or ""
+                            r"item_(-?\d+)_(-?\d+)_(-?\d+)_(-?\d+)_(\d+)(?:_(-?\d+)_(-?\d+)_(-?\d+))?",
+                            token or "",
                         )
                         if not item_match or project["id"] != expected_project_id:
                             raise BridgeProtocolError("Invalid item readback.")
@@ -430,9 +432,24 @@ class LuaSnapshotClient:
                                         "source_end_frame",
                                         "linked_items",
                                     ),
-                                    (int(v) for v in item_match.groups()),
+                                    (int(v) for v in item_match.groups()[:5]),
                                     strict=True,
                                 )
+                            )
+                            | (
+                                dict(
+                                    zip(
+                                        (
+                                            "source_start_time_microseconds",
+                                            "source_end_time_microseconds",
+                                            "left_offset_microframes",
+                                        ),
+                                        map(int, item_match.groups()[5:]),
+                                        strict=True,
+                                    )
+                                )
+                                if item_match[6] is not None
+                                else {}
                             ),
                             "source": "live_lua_api",
                         }

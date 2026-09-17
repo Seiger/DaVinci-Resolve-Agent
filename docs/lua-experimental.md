@@ -56,6 +56,8 @@ These tools are advertised:
   Media Pool folder, rejecting files already present in the pool.
 - `resolve_lua_create_timeline`: create an empty timeline with a unique exact
   name and the project's current defaults.
+- `resolve_lua_duplicate_timeline`: copy an existing timeline with its clips and
+  frame rate to a new exact name, verifying the original layout is unchanged.
 - `resolve_lua_append_clip`: append already imported media to one uniquely
   named timeline, either whole or with both source frame bounds supplied.
 - `resolve_lua_set_clip_properties`: set and read back clip audio gain, or
@@ -355,6 +357,32 @@ acknowledged empty timeline. Recovery of an existing empty timeline passed live
 testing. Do not retry uncertain creation, clear its pending receipt or restart
 repeatedly. Preserve the pre-edit export and reconcile actual native state after
 authorized recovery. Short acceptance tests do not prove every workflow/build.
+
+A subsequent live run also hung during a **separate** FPS-setting request on a
+new empty timeline. Separation alone is therefore not a reliable workaround.
+Do not repeatedly try rate changes or restart Resolve automatically.
+
+`resolve_lua_duplicate_timeline` offers a different, experimental assembly path:
+copy an existing timeline with the desired FPS, then append to the copy. It
+retains all existing clips, including an approved opening; it never clears the
+source or creates an empty template. Exact destination names must be new. A
+saved backup precedes duplication, and readback checks separate timeline/item
+identities, equal FPS/AV layout/source bounds/link counts/Fusion counts, and
+unchanged source identity/layout. This structural check does not replace visual
+review of copied effects. A timeout or verification failure remains uncertain;
+inspect before any retry. Live Free 21.1 duplication preserved a 60fps approved
+opening, its selected derived video source and circular Fusion composition.
+This new action requires a freshly prepared bridge session; reloading only the
+editing modules cannot update an older bridge's action allowlist.
+
+Native source-frame getters can truncate a 60fps MKV in-point by one frame even
+when the actual cut is correct. Synchronized assembly accepts that specific
+reporting discrepancy only if source start/end times and the subframe left
+offset independently match the requested frames within 0.0001 frame. It does
+not shift the cut or tolerate a real one-frame timing error. Item readback also
+returns source times in microseconds and left offset in millionths of a frame;
+the original integer getters remain visible. Older module responses still parse.
+Failed partial assemblies stay uncertain until inspected; never replay them.
 
 Subject-aware background blur is **not** an MCP feature. A separately authorized
 local RVM ONNX experiment is outside the repository/runtime dependency contract;

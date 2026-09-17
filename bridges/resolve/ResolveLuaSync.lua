@@ -73,7 +73,19 @@ return function(h)
                     -- Whole MKV duration may include one frame of AAC/container
                     -- padding beyond the native video out-point. No source trim
                     -- was requested; allow only this observed one-frame padding.
-                    check(item:GetSourceStartFrame()==s.source and
+                    local actual_start=item:GetSourceStartFrame()
+                    local precise=false
+                    -- Some 60fps MKV in-points are truncated by the integer
+                    -- getter (e.g. 32276 becomes 32275). Accept that one-frame
+                    -- reporting discrepancy only when independent native time
+                    -- and subframe offset getters prove the exact requested cut.
+                    if not g.full and (actual_start==s.source or actual_start==s.source-1)
+                        and (actual_end==expected_end or actual_end==expected_end-1) then
+                        precise=math.abs(item:GetSourceStartTime()*fps-s.source)<0.0001
+                            and math.abs(item:GetSourceEndTime()*fps-expected_end)<0.0001
+                            and math.abs(item:GetLeftOffset(true)-s.source)<0.0001
+                    end
+                    check(precise or actual_start==s.source and
                         (actual_end==expected_end or g.full and actual_end==expected_end-1), "SYNC_RANGE_READBACK_FAILED")
                     linked[#linked+1]=item
                 end

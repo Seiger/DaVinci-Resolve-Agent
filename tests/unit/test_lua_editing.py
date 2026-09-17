@@ -306,3 +306,58 @@ def test_creation_rejects_inline_rate_change() -> None:
     for fps in (60, True, 59.94, 0, "60"):
         with pytest.raises(ValueError):
             validate_edit("create_timeline", {"name": "Sync", "frame_rate": fps}, [])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"source_timeline_name": "Copy"},
+        {"source_timeline_name": ""},
+        {"source_timeline_name": " Source"},
+        {"source_timeline_name": "Source\n"},
+        {"source_timeline_name": "x" * 129},
+        {"source_timeline_name": True},
+        {"clear_source": True},
+        {"frame_rate": 60},
+    ],
+)
+def test_duplicate_rejects_unsafe_or_unexpected_arguments(
+    change: dict[str, Any],
+) -> None:
+    with pytest.raises(ValueError):
+        validate_edit(
+            "duplicate_timeline",
+            dict({"name": "Copy", "source_timeline_name": "Source"}, **change),
+            [],
+        )
+
+
+def test_duplicate_receipt_binds_source_and_replays_without_second_copy(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    args = {"name": "Copy", "source_timeline_name": "Source"}
+    assert validate_edit("duplicate_timeline", args, []) == args
+    with pytest.raises(ValueError):
+        validate_edit("create_timeline", args, [])
+    kwargs: dict[str, Any] = dict(
+        arguments=args,
+        expected_project_id="test-project",
+        confirm=True,
+        idempotency_key="copy-timeline",
+    )
+    worker = serve(root)
+    try:
+        result = LuaSnapshotClient(root).request("duplicate_timeline", 3, **kwargs)
+    finally:
+        worker.join(4)
+    replay = LuaSnapshotClient(root).request("duplicate_timeline", 1, **kwargs)
+    assert replay["replayed"] and replay["backup_path"] == result["backup_path"]
+    assert len(list(root.glob("*.before.drp"))) == 1
+    with pytest.raises(ValueError, match="different arguments"):
+        LuaSnapshotClient(root).request(
+            "duplicate_timeline",
+            1,
+            **dict(kwargs, arguments=dict(args, source_timeline_name="Different")),
+        )

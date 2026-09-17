@@ -49,8 +49,11 @@ return function(api, root, helpers, shared)
                     names_ok and type(names)=="table" and #names or -1,
                     type(item.AddFusionComp)=="function" and 1 or 0,probe_ok and nodes or -1,connected,diameter)
             end
-            return string.format("item_%d_%d_%d_%d_%d", item:GetStart(),item:GetEnd(),
-                item:GetSourceStartFrame(),item:GetSourceEndFrame(),#(item:GetLinkedItems() or {}))
+            return string.format("item_%d_%d_%d_%d_%d_%d_%d_%d", item:GetStart(),item:GetEnd(),
+                item:GetSourceStartFrame(),item:GetSourceEndFrame(),#(item:GetLinkedItems() or {}),
+                math.floor(item:GetSourceStartTime()*1000000+0.5),
+                math.floor(item:GetSourceEndTime()*1000000+0.5),
+                math.floor(item:GetLeftOffset(true)*1000000+0.5))
         end
         local c = counts(timeline)
         local fps = tonumber(tostring(timeline:GetSetting("timelineFrameRate")):match("[%d.]+"))

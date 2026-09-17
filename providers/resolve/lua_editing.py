@@ -11,7 +11,9 @@ from typing import Any
 
 from agent.media import MediaPolicy
 
-WRITE_ACTIONS = frozenset({"import_media", "create_timeline", "append_clip"})
+WRITE_ACTIONS = frozenset(
+    {"import_media", "create_timeline", "duplicate_timeline", "append_clip"}
+)
 
 
 def bounded_text(value: Any, label: str, limit: int = 128) -> str:
@@ -47,6 +49,15 @@ def validate_edit(
         return {"paths": paths(arguments["paths"])}
     if action == "create_timeline" and set(arguments) == {"name"}:
         return {"name": bounded_text(arguments["name"], "Timeline name")}
+    if action == "duplicate_timeline" and set(arguments) == {
+        "name",
+        "source_timeline_name",
+    }:
+        name = bounded_text(arguments["name"], "Timeline name")
+        source = bounded_text(arguments["source_timeline_name"], "Source timeline name")
+        if name == source:
+            raise ValueError("Duplicate destination must differ from its source.")
+        return {"name": name, "source_timeline_name": source}
     if action == "append_clip" and set(arguments) == {"timeline_name", "sync_groups"}:
         groups = arguments["sync_groups"]
         if not isinstance(groups, list) or not 1 <= len(groups) <= 25:

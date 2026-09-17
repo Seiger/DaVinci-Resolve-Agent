@@ -517,12 +517,19 @@ def test_status_timeout_without_accepted_start_is_not_masked(tmp_path: Path) -> 
         )
 
 
-def test_item_readback_is_native_and_identity_bound(tmp_path: Path) -> None:
+@pytest.mark.parametrize("precise", [False, True])
+def test_item_readback_is_native_and_identity_bound(
+    tmp_path: Path, precise: bool
+) -> None:
     media = tmp_path / "screen.mkv"
     media.touch()
     root = tmp_path / "session"
     prepare(root, [tmp_path])
-    worker = serve(root, "ok_item_216000_217200_3600_4800_2", backup=False)
+    suffix = "_60000000_80000000_3600000000" if precise else ""
+    raw_start = 3599 if precise else 3600
+    worker = serve(
+        root, f"ok_item_216000_217200_{raw_start}_4800_2" + suffix, backup=False
+    )
     try:
         result = LuaSnapshotClient(root).request(
             "get_timeline_summary",
@@ -540,4 +547,11 @@ def test_item_readback_is_native_and_identity_bound(tmp_path: Path) -> None:
         worker.join(4)
     assert result["item"]["end_frame"] - result["item"]["start_frame"] == 1200
     assert result["item"]["linked_items"] == 2
+    assert result["item"]["source_start_frame"] == raw_start
+    if precise:
+        assert result["item"]["source_start_time_microseconds"] == 60_000_000
+        assert result["item"]["source_end_time_microseconds"] == 80_000_000
+        assert result["item"]["left_offset_microframes"] == 3_600_000_000
+    else:
+        assert "source_start_time_microseconds" not in result["item"]
     assert not list(root.glob("*.before.drp"))
