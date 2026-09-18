@@ -1,9 +1,19 @@
 # Experimental Windows startup launcher
 
-Status: implemented and tested offline with Lua 5.1 API doubles. **Not yet
-verified by a cold start of Resolve 21.1 Free on Windows.** Existing editing
-acceptance does not prove startup compatibility. Do not interrupt a review or
-restart Resolve solely to install this feature.
+Status: implemented and tested offline with Lua 5.1 API doubles, but the
+**2026-09-18 cold-start acceptance on Resolve 21.1 Free / Windows failed**.
+The launcher started Resolve and installed the configured hook. More than 180
+seconds after the application main loop started, it remained in Project Manager;
+there was no consumed-session export and two MCP pings timed out. No manual
+project opening or Lua bootstrap was substituted. Project, timeline and page
+readback therefore remain unverified.
+
+The installed folder matches the scripting documentation and local path map.
+Fusion initialization warnings appeared, but do not prove why the hook or worker
+did not complete. Available logs did not expose a specific startup-script error.
+This is an experimental candidate, **not a working automatic-start guarantee**.
+Existing editing acceptance does not prove startup compatibility. Do not interrupt
+a review or restart Resolve solely to install this feature.
 
 ## Evidence and choice
 
