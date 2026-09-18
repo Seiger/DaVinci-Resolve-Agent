@@ -63,6 +63,28 @@ def create_server(root: Path) -> MCPServer:
     )
 
     @server.tool(annotations=write)
+    async def resolve_lua_quit(
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 60,
+    ) -> dict[str, Any]:
+        """Save, back up, and request Resolve exit on explicit user instruction.
+
+        Refuses during rendering or if project identity changed. An accepted
+        response does not prove process exit. Never retry with a new key.
+        Requires a newly prepared bridge containing quit support.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "quit_resolve",
+            timeout_seconds,
+            expected_project_id=expected_project_id,
+            confirm=confirm,
+            idempotency_key=idempotency_key,
+        )
+
+    @server.tool(annotations=write)
     async def resolve_lua_import_media(
         paths: list[str],
         expected_project_id: str,

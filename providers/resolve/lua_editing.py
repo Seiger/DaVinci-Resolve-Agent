@@ -12,7 +12,13 @@ from typing import Any
 from agent.media import MediaPolicy
 
 WRITE_ACTIONS = frozenset(
-    {"import_media", "create_timeline", "duplicate_timeline", "append_clip"}
+    {
+        "import_media",
+        "create_timeline",
+        "duplicate_timeline",
+        "append_clip",
+        "quit_resolve",
+    }
 )
 
 
@@ -31,6 +37,9 @@ def bounded_text(value: Any, label: str, limit: int = 128) -> str:
 def validate_edit(
     action: str, arguments: dict[str, Any], roots: list[Path]
 ) -> dict[str, Any]:
+    if action == "quit_resolve" and not arguments:
+        return {}
+
     def paths(values: Any) -> list[str]:
         if not isinstance(values, list) or not 1 <= len(values) <= 20:
             raise ValueError("Import requires 1 to 20 paths.")

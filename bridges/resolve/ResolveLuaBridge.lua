@@ -12,7 +12,7 @@ end
 local api = assert(resolve, "Run inside Resolve with injected resolve")
 assert(type(bmd.wait) == "function", "Cooperative wait unavailable")
 assert(os and type(os.time) == "function", "Clock unavailable")
-local writes = {import_media=true, create_timeline=true, duplicate_timeline=true, append_clip=true,
+local writes = {quit_resolve=true, import_media=true, create_timeline=true, duplicate_timeline=true, append_clip=true,
     set_clip_properties=true, add_subtitles=true, prepare_render=true, start_render=true}
 local shared = {jobs={}}
 local edit = dofile(root .. "/editing.lua")(api, root, media_roots, shared)
@@ -39,7 +39,20 @@ local ok, err = pcall(function()
             local project = pm:GetCurrentProject()
             if project then
                 local suffix = ""
-                if request.action == "reload_modules" then
+                if request.action == "quit_resolve" then
+                    local succeeded, code = pcall(function()
+                        local function check(value, reason) if not value then error(reason, 0) end end
+                        check(request.confirm == true, "INVALID_ARGUMENTS")
+                        check(project:GetUniqueId() == request.project_id, "PROJECT_CHANGED")
+                        check(not project:IsRenderingInProgress(), "RENDERING")
+                        check(pm:SaveProject(), "BACKUP_SAVE_FAILED")
+                        check(pm:ExportProject(project:GetName(), root .. "/" .. request.id .. ".before.drp", false), "BACKUP_EXPORT_FAILED")
+                        check(request.expires >= os.time(), "EXPIRED")
+                        check(pm:GetCurrentProject():GetUniqueId() == request.project_id, "PROJECT_CHANGED")
+                        check(not project:IsRenderingInProgress(), "RENDERING")
+                    end)
+                    suffix = succeeded and ".accepted" or ".error_" .. (tostring(code):match("^[A-Z_]+$") or "INTERNAL_ERROR")
+                elseif request.action == "reload_modules" then
                     local succeeded = false
                     if not project:IsRenderingInProgress() then
                         local loaded_edit, replacement = pcall(function()
@@ -56,6 +69,12 @@ local ok, err = pcall(function()
                 local current = pm:GetCurrentProject()
                 local exported = current and pm:ExportProject(current:GetName(), root .. "/" .. request.id .. suffix .. ".drp", false)
                 print("Resolve Agent Lua response=" .. tostring(exported) .. suffix)
+                if exported and request.action == "quit_resolve" and suffix == ".accepted" then
+                    -- Acknowledgement precedes Quit: it proves acceptance, not process exit.
+                    stop_reason = "quit_requested"
+                    api:Quit()
+                    break
+                end
                 if exported and request.action == "stop" then
                     stop_reason = "acknowledged_stop"
                     break

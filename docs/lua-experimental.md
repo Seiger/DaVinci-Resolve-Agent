@@ -540,3 +540,18 @@ original take automatically. Audio remains on the existing linked master track.
 This accepts finished media; it does not run matting or install/download models.
 Review derived-media contour quality, timing and color before use. A partial
 failure remains uncertain and must be inspected before another write.
+
+### Close Resolve on explicit request
+
+`resolve_lua_quit(expected_project_id, idempotency_key, confirm=true)` saves the
+current project, exports a backup, acknowledges acceptance, then calls the native
+Lua `Resolve:Quit()` API. It refuses a different project or an active render.
+This is distinct from `resolve_lua_stop`, which only stops the bridge.
+
+Use a fresh runtime prepared with quit support; module reload cannot update an
+already running bridge loop. Reuse the same idempotency key after uncertainty;
+never automatically submit a new quit request. `status=accepted` and
+`completion_verified=false` mean the request was acknowledged before Quit, not
+that the process has exited. Verify process exit independently. No force kill,
+keyboard input, or mouse control is used. Native live shutdown remains to be
+validated on the next explicitly requested application close.

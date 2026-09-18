@@ -128,3 +128,42 @@ def run_loop(tmp_path: Path, scenario: str) -> None:
 )
 def test_bridge_lifecycle(tmp_path: Path, scenario: str) -> None:
     run_loop(tmp_path, scenario)
+
+
+@pytest.mark.parametrize(
+    "failure", ["", "render", "identity", "save", "backup", "ack", "confirm"]
+)
+def test_quit_requires_saved_backup_and_ack(tmp_path: Path, failure: str) -> None:
+    run_loop(
+        tmp_path,
+        """
+        failure = 'FAILURE'
+        quits, saves = 0, 0
+        project.GetUniqueId=function()
+          return failure=='identity' and 'other' or 'expected'
+        end
+        project.IsRenderingInProgress=function() return failure=='render' end
+        pm.SaveProject=function() saves=saves+1; return failure~='save' end
+        pm.ExportProject=function(_, name, path)
+          table.insert(exports,path)
+          if failure=='backup' and path:match('before.drp$') then return false end
+          if failure=='ack' and path:match('accepted.drp$') then return false end
+          return true
+        end
+        resolve.Quit=function()
+          assert(saves==1 and #exports==2)
+          assert(exports[1]:match('before.drp$') and exports[2]:match('accepted.drp$'))
+          quits=quits+1
+        end
+        function next_request()
+          if tick==1 then
+            local r=req('a','quit_resolve'); r.confirm=failure~='confirm'
+            r.project_id='expected'; return r
+          end
+          return req('b','stop')
+        end
+        -- CHECKS
+        assert(quits == (failure=='' and 1 or 0))
+        assert(ResolveAgentLuaRunning == nil)
+    """.replace("FAILURE", failure),
+    )

@@ -96,7 +96,14 @@ def prepare(root: Path, media_roots: list[Path] | None = None) -> Path:
         encoding="utf-8",
     )
     (root / "session.json").write_text(
-        json.dumps({"session": session, "protocol": 4, "media_roots": roots}),
+        json.dumps(
+            {
+                "session": session,
+                "protocol": 4,
+                "media_roots": roots,
+                "capabilities": ["quit_resolve"],
+            }
+        ),
         encoding="utf-8",
     )
     (root / "request.lua").write_text("return nil\n", encoding="ascii")
@@ -135,6 +142,7 @@ class LuaSnapshotClient:
         metadata = json.loads((self.root / "session.json").read_text(encoding="utf-8"))
         self.session = metadata["session"]
         self.protocol = metadata.get("protocol", 1)
+        self.capabilities = metadata.get("capabilities", [])
         self.media_roots = [Path(p) for p in metadata.get("media_roots", [])]
         if not isinstance(self.session, str) or len(self.session) != 32:
             raise ValueError("Invalid Lua session.")
@@ -170,6 +178,10 @@ class LuaSnapshotClient:
         if not math.isfinite(timeout_seconds) or not 0 < timeout_seconds <= 120:
             raise ValueError("Timeout must be finite and between 0 and 120 seconds.")
         write = action in WRITE_ACTIONS | FINISH_ACTIONS
+        if action == "quit_resolve" and "quit_resolve" not in self.capabilities:
+            raise ValueError(
+                "Quit requires a freshly prepared bridge with quit support."
+            )
         status_request = action == "get_render_status"
         summary_request = action == "get_timeline_summary"
         detail_request = status_request or summary_request
@@ -338,7 +350,10 @@ class LuaSnapshotClient:
                         )
                     token = None
                     accepted_response = self.root / f"{command_id}.accepted.drp"
-                    if action == "start_render" and accepted_response.exists():
+                    if (
+                        action in {"start_render", "quit_resolve"}
+                        and accepted_response.exists()
+                    ):
                         response = accepted_response
                     if action == "prepare_render" or detail_request:
                         matches = list(self.root.glob(f"{command_id}.ok_*.drp"))
@@ -402,10 +417,14 @@ class LuaSnapshotClient:
                             ),
                         )
                     assert receipt is not None
+                    if action == "quit_resolve":
+                        result["readback_verified_by"] = "ResolveLuaBridge"
                     if result["status"] == "accepted":
                         result["completion_verified"] = False
                         result["next_action"] = (
-                            "Poll get_render_status; never resubmit this start."
+                            "Verify process exit independently; do not resubmit."
+                            if action == "quit_resolve"
+                            else "Poll get_render_status; never resubmit this start."
                         )
                     receipt.complete(result)
                     return result

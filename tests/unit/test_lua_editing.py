@@ -361,3 +361,36 @@ def test_duplicate_receipt_binds_source_and_replays_without_second_copy(
             1,
             **dict(kwargs, arguments=dict(args, source_timeline_name="Different")),
         )
+
+
+def test_quit_acceptance_replays_without_claiming_exit(tmp_path: Path) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    worker = serve(root, "accepted")
+    kwargs: dict[str, Any] = dict(
+        expected_project_id="test-project",
+        confirm=True,
+        idempotency_key="quit-on-request",
+    )
+    try:
+        result = LuaSnapshotClient(root).request("quit_resolve", 3, **kwargs)
+    finally:
+        worker.join(4)
+    assert result["status"] == "accepted"
+    assert result["completion_verified"] is False
+    assert LuaSnapshotClient(root).request("quit_resolve", 3, **kwargs)["replayed"]
+
+
+def test_quit_rejects_old_session_and_missing_confirmation(tmp_path: Path) -> None:
+    root = tmp_path / "session"
+    prepare(root)
+    with pytest.raises(ValueError, match="confirmation"):
+        LuaSnapshotClient(root).request(
+            "quit_resolve", expected_project_id="test-project"
+        )
+    metadata = json.loads((root / "session.json").read_text())
+    metadata.pop("capabilities")
+    (root / "session.json").write_text(json.dumps(metadata))
+    with pytest.raises(ValueError, match="freshly prepared"):
+        LuaSnapshotClient(root).request("quit_resolve")
+    assert (root / "request.lua").read_text().strip() == "return nil"
