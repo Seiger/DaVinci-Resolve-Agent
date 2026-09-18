@@ -52,6 +52,27 @@ local function startup_placeholder(api, pm, project)
     local media_root = read("media_root", function() return pool:GetRootFolder() end)
     local clips = read("clips", function() return media_root:GetClipList() end)
     local folders = read("subfolders", function() return media_root:GetSubFolderList() end)
+    local function shape(label, value)
+        if type(value) ~= "table" then return end
+        local entries, count = {}, 0
+        for key, item in pairs(value) do
+            count = count + 1
+            if count > 8 then entries[#entries + 1] = "truncated=true"; break end
+            local key_type, item_type = type(key), type(item)
+            local key_text = key_type == "string" or key_type == "number"
+                or key_type == "boolean"
+            key_text = key_text and tostring(key) or "object"
+            local scalar = item_type == "string" or item_type == "number"
+                or item_type == "boolean"
+            local item_text = scalar and tostring(item) or "object"
+            entries[#entries + 1] = "key=" .. string.format("%q", key_text:gsub("[%c]", " "):sub(1, 100))
+                .. ",key_type=" .. key_type .. ",value_type=" .. item_type
+                .. ",value=" .. string.format("%q", item_text:gsub("[%c]", " "):sub(1, 100))
+        end
+        fields[#fields + 1] = label .. "_shape=[" .. table.concat(entries, ";") .. "]"
+    end
+    shape("clips", clips)
+    shape("subfolders", folders)
     check("CONTEXT_MISSING", context == true)
     check("TARGET_NOT_CONFIGURED", configured == true)
     check("PAGE_NOT_NIL", page == nil)

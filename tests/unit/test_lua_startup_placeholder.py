@@ -32,6 +32,8 @@ from providers.resolve.lua_transport import prepare
         "literal-nil-page",
         "nil-clips",
         "clips-error",
+        "shape-metadata",
+        "shape-bounded",
     ],
 )
 def test_placeholder_is_not_a_general_untitled_bypass(
@@ -54,12 +56,19 @@ def test_placeholder_is_not_a_general_untitled_bypass(
       bmd={wait=function() end, fileexists=function() return exports>0 end}
       root={
         GetClipList=function()
+          if mode=='shape-metadata' then return {__flags=42} end
+          if mode=='shape-bounded' then
+            local list={}; for i=1,12 do list[i]=string.rep('x',200) end; return list
+          end
           if mode=='nil-clips' then return nil end
           if mode=='clips-error' then error('fixture clip API error') end
           if mode=='media' or (mode=='race-media' and reads>1) then return {'clip'} end
           return {}
         end,
-        GetSubFolderList=function() return mode=='folders' and {'folder'} or {} end
+        GetSubFolderList=function()
+          if mode=='shape-metadata' then return {__flags=42} end
+          return mode=='folders' and {'folder'} or {}
+        end
       }
       placeholder={
         GetName=function()
@@ -123,6 +132,8 @@ def test_placeholder_is_not_a_general_untitled_bypass(
         "literal-nil-page": "PAGE_NOT_NIL",
         "nil-clips": "CLIPS_NOT_EMPTY_TABLE",
         "clips-error": "READ_ERROR_clips",
+        "shape-metadata": "CLIPS_NOT_EMPTY_TABLE",
+        "shape-bounded": "CLIPS_NOT_EMPTY_TABLE",
     }
     if mode in reasons:
         output = "\n".join(lua.globals().messages.values())
@@ -132,3 +143,11 @@ def test_placeholder_is_not_a_general_untitled_bypass(
             assert 'page="nil"(string,true)' in output
         if mode.startswith("race-"):
             assert "phase=before_load" in output
+        if mode == "shape-metadata":
+            entry = 'key="__flags",key_type=string,value_type=number,value="42"'
+            assert f"clips_shape=[{entry}]" in output
+            assert f"subfolders_shape=[{entry}]" in output
+        if mode == "shape-bounded":
+            assert "truncated=true" in output
+            assert "x" * 101 not in output
+            assert output.count("key_type=number") == 8

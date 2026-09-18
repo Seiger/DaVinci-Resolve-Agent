@@ -156,6 +156,18 @@ is intentionally the string produced by `tostring({})`; seeing `type=string`
 with a `table: ...` value is not evidence of a preference conversion defect.
 Neither observation recovers the earlier placeholder's media or page types.
 
+A subsequent native preference snapshot narrowed the actual refusal to the
+clip/subfolder tables: both were successfully returned as tables with one entry,
+while context, page type, project identity and the other predicates passed.
+The worker now additionally captures `clips_shape` and `subfolders_shape` at that
+same decision: up to eight entries with key, key type, value type and a scalar
+value capped at 100 characters. Objects are not traversed, control characters
+are flattened, and truncation is explicit. This evidence is saved through the
+same explicit-path preferences export that worked in the live test. No unknown
+metadata key is ignored by the guard; a one-entry table still refuses loading
+until its actual representation is understood. This avoids requiring F6 inside
+Project Manager or losing the placeholder by manually opening another project.
+
 To disable future startup, remove only the managed `ResolveAgentStartup.scriptlib`
 file. This does not stop an already running bridge; use the normal acknowledged
 stop with a saved project open. Retain runtime directories until receipts and
