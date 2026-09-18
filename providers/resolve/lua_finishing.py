@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from agent.media import MediaPolicy
+from providers.resolve.lua_camera_visibility import validate_camera_visibility
 from providers.resolve.lua_editing import bounded_text
 from providers.resolve.lua_privacy import validate_privacy, validate_privacy_batch
 from providers.resolve.lua_ripple import validate_ripple, validate_span
@@ -28,6 +29,8 @@ PROPERTY_LIMITS = {
 def validate_finishing(
     action: str, a: dict[str, Any], roots: list[Path]
 ) -> dict[str, Any]:
+    if action == "set_clip_properties" and "camera_visibility" in a:
+        return validate_camera_visibility(a, roots)
     if action == "get_timeline_summary" and "ripple_span" in a:
         return validate_span(a, roots)
     if action == "set_clip_properties" and "ripple_span" in a:
@@ -47,6 +50,15 @@ def validate_finishing(
             raise ValueError("Expected one safe render job ID.")
         return dict(a)
     name = bounded_text(a.get("timeline_name"), "Timeline name")
+    if action == "get_timeline_summary" and a.get("inspect_camera_visibility") is True:
+        base = dict(a)
+        del base["inspect_camera_visibility"]
+        if "inspect_circle" in base or "inspect_privacy" in base:
+            raise ValueError("Choose one inspection type.")
+        result = validate_finishing(action, base, roots)
+        if result.get("track_type") != "video" or result.get("track_index") != 2:
+            raise ValueError("Visibility inspection requires camera V2.")
+        return dict(result, inspect_camera_visibility=True)
     if action == "get_timeline_summary" and a.get("inspect_privacy") is True:
         base = dict(a)
         del base["inspect_privacy"]

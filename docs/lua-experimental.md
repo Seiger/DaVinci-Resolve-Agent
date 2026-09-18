@@ -578,3 +578,23 @@ any new mutation. Keep a private cut map for subsequent privacy review; this
 operation does not complete that review. Integration was verified on a native
 60fps two-group cut with screen privacy masks and camera circles; broader layouts
 are covered by deterministic tests, not claimed as live-verified.
+
+### Temporarily hide the camera when it obscures screen content
+
+`resolve_lua_camera_visibility` duplicates a timeline and applies explicit hide
+intervals to canonical V2 circle compositions. The caller supplies destination
+name, expected timeline/clip bounds, camera media paths and absolute exclusive
+intervals (up to 128 clips, 64 intervals each). The tool does not detect console
+content: the caller must review and prepare that plan separately.
+
+The operation requires an unanimated, fully visible camera blend and a transparent
+background. It changes only `Merge1.Blend`, keeps the circle geometry, and checks
+visibility immediately before/inside/after each interval. A native layout snapshot
+checks source ranges, clip properties, links, enabled state, track/item counts and
+timeline duration before/after; the original timeline is preserved. Saves and a
+project backup precede changes. Unsupported graphs fail closed. Failed writes
+must be reconciled rather than blindly retried.
+
+Use `resolve_lua_get_item(..., inspect_camera_visibility=true)` on V2 for a fresh
+canonical-expression, interval-checksum and boundary-value readback. Camera hiding
+does not replace screen privacy masks or complete a privacy audit.

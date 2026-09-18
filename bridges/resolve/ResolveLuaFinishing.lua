@@ -31,6 +31,9 @@ return function(api, root, helpers, shared)
             local item=(timeline:GetItemListInTrack(a.track_type,a.track_index) or {})[a.item_index]
             check(item and item:GetMediaPoolItem()
                 and normalized(item:GetMediaPoolItem():GetClipProperty("File Path"))==normalized(a.expected_media_path), "SOURCE_CHANGED")
+            if a.inspect_camera_visibility then
+                return dofile(root.."/camera_visibility.lua")(helpers).inspect(item)
+            end
             if a.inspect_privacy then
                 return dofile(root .. "/privacy.lua")(helpers).inspect(item)
             end
@@ -93,6 +96,9 @@ return function(api, root, helpers, shared)
         end
         if action == "set_clip_properties" and a.privacy_blur then
             return dofile(root .. "/privacy.lua")(helpers).preflight(project,a)
+        end
+        if action == "set_clip_properties" and a.camera_visibility then
+            return dofile(root.."/camera_visibility.lua")(helpers).preflight(project,a)
         end
         if action == "set_clip_properties" and a.ripple_span then
             return dofile(root .. "/ripple_span.lua")(helpers,root,request.id)(project,a)

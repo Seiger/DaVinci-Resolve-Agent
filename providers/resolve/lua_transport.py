@@ -91,6 +91,10 @@ def prepare(root: Path, media_roots: list[Path] | None = None) -> Path:
         editing.with_name("ResolveLuaRipple.lua").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    (root / "camera_visibility.lua").write_text(
+        editing.with_name("ResolveLuaCameraVisibility.lua").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (root / "ripple_span.lua").write_text(
         editing.with_name("ResolveLuaRippleSpan.lua").read_text(encoding="utf-8"),
         encoding="utf-8",
@@ -433,6 +437,30 @@ class LuaSnapshotClient:
                     receipt.complete(result)
                     return result
                 if summary_request:
+                    if normalized.get("inspect_camera_visibility"):
+                        match = re.fullmatch(
+                            r"visibility_(\d+)_(\d+)_(\d+)_(\d+)", token or ""
+                        )
+                        if not match or project["id"] != expected_project_id:
+                            raise BridgeProtocolError(
+                                "Invalid camera visibility response."
+                            )
+                        return {
+                            "project": project,
+                            "visibility": dict(
+                                zip(
+                                    [
+                                        "interval_count",
+                                        "interval_checksum",
+                                        "local_first",
+                                        "local_last",
+                                    ],
+                                    map(int, match.groups()),
+                                    strict=True,
+                                )
+                            ),
+                            "source": "live_lua_api",
+                        }
                     if normalized.get("ripple_span"):
                         if (
                             token != "span_ready"

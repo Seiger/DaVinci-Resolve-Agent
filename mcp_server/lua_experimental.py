@@ -292,6 +292,33 @@ def create_server(root: Path) -> MCPServer:
         )
 
     @server.tool(annotations=write)
+    async def resolve_lua_camera_visibility(
+        timeline_name: str,
+        camera_visibility: dict[str, Any],
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Duplicate a timeline and hide canonical V2 circles at explicit intervals.
+
+        Leaves V1, audio, links, timings and camera framing untouched. Saves and
+        backs up before duplicating. Existing animated camera blend is refused.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={
+                "timeline_name": timeline_name,
+                "camera_visibility": camera_visibility,
+            },
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
+    @server.tool(annotations=write)
     async def resolve_lua_ripple_cut_span(
         timeline_name: str,
         ripple_span: dict[str, Any],
@@ -616,6 +643,7 @@ def create_server(root: Path) -> MCPServer:
         timeout_seconds: float = 30,
         inspect_circle: bool = False,
         inspect_privacy: bool = False,
+        inspect_camera_visibility: bool = False,
     ) -> dict[str, Any]:
         """Read native item/source bounds and link count with source identity check."""
         return await asyncio.to_thread(
@@ -630,6 +658,11 @@ def create_server(root: Path) -> MCPServer:
                 "expected_media_path": expected_media_path,
                 **({"inspect_circle": True} if inspect_circle else {}),
                 **({"inspect_privacy": True} if inspect_privacy else {}),
+                **(
+                    {"inspect_camera_visibility": True}
+                    if inspect_camera_visibility
+                    else {}
+                ),
             },
             expected_project_id=expected_project_id,
         )
