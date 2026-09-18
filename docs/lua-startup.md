@@ -22,8 +22,9 @@ describes the Resolve 21.1 Free Lua sandbox. These support trying this route,
 but local live acceptance remains necessary.
 
 Our hook dispatches only a locally generated worker. It never runs the resident
-loop synchronously during startup. The worker waits for the configured project
-UUID without opening projects, changing pages, seeking or starting playback.
+loop synchronously during startup. By default it waits for the configured project
+UUID without opening projects. Explicit `--project-name` enables loading the
+existing named project. Neither mode changes pages, seeks or starts playback.
 No arbitrary script argument, network listener, scheduled task, service or
 keyboard/mouse automation is introduced.
 
@@ -41,6 +42,29 @@ That explicit option installs **one** file,
 `%APPDATA%/Blackmagic Design/DaVinci Resolve/Support/Fusion/Scripts/ResolveAgentStartup.scriptlib`,
 and opens the installed Resolve.exe. A custom `--executable` must name Resolve.exe.
 Existing unmanaged files at that hook path are never overwritten.
+
+To open an existing project automatically, supply both `--project-name` with its
+exact name and `--project-id` with its known UUID. `LoadProject(name)` is documented
+in the installed 21.1 `DaVinciResolveScript.pyi`. The worker requires exactly one
+matching name in the **current Project Manager folder**; it never searches or
+switches databases/folders, creates, imports or deletes projects. If any other
+project is already open, it refuses to switch even if that project is saved.
+It rechecks immediately before loading and verifies both the returned and current
+project UUID afterward. On mismatch it stops before exporting/starting the bridge;
+the incorrectly matched project may already be open, because this API cannot
+query an unopened project's UUID. It never saves or edits that project.
+
+Readiness polling is bounded by `--ready-timeout-seconds` (default 180, range
+1–600). This timeout is for startup only, not the persistent bridge lifetime.
+Missing/ambiguous names, load failure and identity mismatch fail closed without
+retries. Whether this Free build exposes the Project Manager to an asynchronous
+startup hook before a project is open remains a **live acceptance requirement**.
+Adding `LoadProject` does not solve a missing/non-executing hook by itself.
+
+The Python CLI works without PowerShell script execution. If `.ps1` launchers are
+blocked by Windows ExecutionPolicy, invoke the Python command directly or use a
+local `.cmd` wrapper invoking Python with a saved argument file. Do not change
+machine/user policy or silently introduce console keystrokes as a fallback.
 
 **Use this launcher for subsequent starts.** It generates a fresh random session
 token and directory each time. Read `<base>/active.json` for the runtime to pass
@@ -77,7 +101,8 @@ backups are no longer needed. No automatic deletion is performed.
 ## Live acceptance still required
 
 With review finished: launch once through the helper, open the expected project,
-verify ping and identity, close the console and repeat ping. Confirm no change
+verify ping and identity, close the console and repeat ping. With explicit project
+selection, first verify that the existing project opens automatically. Confirm no change
 to the timeline/playhead. Then test an acknowledged stop and a subsequent fresh
 application start. Check that a consumed runtime cannot restart and that an
 uncertain write blocks migration. Offline tests cover these guard decisions and

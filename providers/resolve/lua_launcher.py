@@ -33,10 +33,26 @@ def validate_previous(root: Path) -> None:
         raise ValueError("Previous runtime still has a client lock.")
 
 
-def stage(root: Path, media_roots: list[Path], project_id: str, previous: Path) -> Path:
+def stage(
+    root: Path,
+    media_roots: list[Path],
+    project_id: str,
+    previous: Path,
+    *,
+    project_name: str = "",
+    ready_timeout_seconds: int = 180,
+) -> Path:
     """Prepare one fresh, project-bound runtime and a non-installed startup hook."""
     if not project_id or len(project_id) > 128:
         raise ValueError("An expected project ID is required.")
+    if (
+        not isinstance(project_name, str)
+        or len(project_name) > 512
+        or "\0" in project_name
+    ):
+        raise ValueError("Invalid project name.")
+    if type(ready_timeout_seconds) is not int or not 1 <= ready_timeout_seconds <= 600:
+        raise ValueError("Startup readiness timeout must be 1..600 seconds.")
     validate_previous(previous)
     prepare(root, media_roots)
     root = root.resolve()
@@ -49,8 +65,10 @@ def stage(root: Path, media_roots: list[Path], project_id: str, previous: Path) 
         "__RUNTIME_ROOT__": root.as_posix(),
         "__SESSION__": metadata["session"],
         "__EXPECTED_PROJECT__": project_id,
+        "__PROJECT_NAME__": project_name,
     }.items():
         worker = worker.replace(f'"{key}"', lua_string(value))
+    worker = worker.replace("__READY_TIMEOUT__", str(ready_timeout_seconds))
     (root / "startup.lua").write_text(worker, encoding="utf-8")
     command = "dofile(" + lua_string((root / "startup.lua").as_posix()) + ")"
     hook = HOOK_HEADER + (
@@ -70,6 +88,8 @@ def stage(root: Path, media_roots: list[Path], project_id: str, previous: Path) 
         {
             "previous_runtime": str(previous.resolve()),
             "expected_project_id": project_id,
+            "project_name": project_name,
+            "ready_timeout_seconds": ready_timeout_seconds,
             "validation": "staged_not_live_verified",
         },
     )
@@ -115,6 +135,9 @@ def launch(
     project_id: str,
     executable: Path,
     scripts: Path,
+    *,
+    project_name: str = "",
+    ready_timeout_seconds: int = 180,
 ) -> Path:
     """Rotate sessions only with Resolve closed, install the hook, then launch.
 
@@ -136,7 +159,14 @@ def launch(
         if active.exists():
             previous = Path(json.loads(active.read_text(encoding="utf-8"))["runtime"])
         runtime = base / ("session-" + uuid4().hex)
-        hook = stage(runtime, media_roots, project_id, previous)
+        hook = stage(
+            runtime,
+            media_roots,
+            project_id,
+            previous,
+            project_name=project_name,
+            ready_timeout_seconds=ready_timeout_seconds,
+        )
         install_hook(hook, scripts)
         atomic_json(active, {"runtime": str(runtime.resolve()), "status": "prepared"})
         # No shell or keyboard automation; the app itself loads the scriptlib.
@@ -153,6 +183,8 @@ def main() -> None:
     parser.add_argument("--previous-runtime", type=Path, required=True)
     parser.add_argument("--media-root", type=Path, action="append", default=[])
     parser.add_argument("--project-id", required=True)
+    parser.add_argument("--project-name", default="")
+    parser.add_argument("--ready-timeout-seconds", type=int, default=180)
     parser.add_argument("--launch", action="store_true")
     parser.add_argument(
         "--executable",
@@ -171,6 +203,8 @@ def main() -> None:
             args.project_id,
             args.executable,
             scripts,
+            project_name=args.project_name,
+            ready_timeout_seconds=args.ready_timeout_seconds,
         )
         print(f"Launched; verify MCP ping before use. Runtime: {runtime}")
     else:
@@ -179,6 +213,8 @@ def main() -> None:
             args.media_root,
             args.project_id,
             args.previous_runtime,
+            project_name=args.project_name,
+            ready_timeout_seconds=args.ready_timeout_seconds,
         )
         print(f"Staged only; hook NOT installed: {path}")
 

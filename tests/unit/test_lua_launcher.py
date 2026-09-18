@@ -102,10 +102,10 @@ def test_startup_waits_and_runs_once(tmp_path: Path, mode: str) -> None:
       }
       project={
         GetName=function() return 'test' end,
-        GetUniqueId=function() return waits>2 and 'expected' or 'wrong' end
+        GetUniqueId=function() return 'expected' end
       }
       pm={
-        GetCurrentProject=function() if waits>1 then return project end end,
+        GetCurrentProject=function() if waits>2 then return project end end,
         ExportProject=function()
           exports=exports+1
           marker=mode~='export-failure'
@@ -142,3 +142,78 @@ def test_scriptlib_dispatches_without_waiting(tmp_path: Path) -> None:
     lua.execute(hook.read_text())
     lua.execute(hook.read_text())
     assert lua.globals().calls == 1
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "load",
+        "already-open",
+        "other-open",
+        "missing",
+        "ambiguous",
+        "uuid-mismatch",
+        "load-fails",
+        "api-unavailable",
+        "opened-during-check",
+    ],
+)
+def test_project_selection(tmp_path: Path, mode: str) -> None:
+    old = tmp_path / "old"
+    prepare(old)
+    hook = launcher.stage(
+        tmp_path / "new",
+        [],
+        "expected",
+        old,
+        project_name="Target",
+        ready_timeout_seconds=3,
+    )
+    lua = import_module("lupa.lua51").LuaRuntime()
+    lua.globals().mode = mode
+    lua.execute("""
+      clock, loads, runs, exports, reads = 0, 0, 0, 0, 0
+      messages = {}
+      print=function(s) table.insert(messages,s) end
+      os.time=function() return clock end
+      bmd={wait=function() clock=clock+1 end,
+           fileexists=function() return exports>0 end}
+      project={GetUniqueId=function() return 'expected' end,
+               GetName=function() return 'Target' end}
+      other={GetUniqueId=function() return 'other' end}
+      if mode=='already-open' then current=project end
+      if mode=='other-open' then current=other end
+      pm={
+        GetCurrentProject=function()
+          reads=reads+1
+          if mode=='opened-during-check' and reads>1 then return other end
+          return current
+        end,
+        GetProjectListInCurrentFolder=function()
+          if mode=='missing' then return {} end
+          if mode=='ambiguous' then return {'Target','Target'} end
+          return {'Target'}
+        end,
+        LoadProject=function(_,name)
+          assert(name=='Target'); loads=loads+1
+          if mode=='load-fails' then return nil end
+          current=mode=='uuid-mismatch' and other or project
+          return current
+        end,
+        ExportProject=function() exports=exports+1; return true end
+      }
+      resolve={GetProjectManager=function()
+        if mode=='api-unavailable' then return nil end
+        return pm
+      end}
+      fusion={GetPrefs=function() return nil end,SetPrefs=function(_,k,v)
+        fusion.GetPrefs=function() return v end end}
+      dofile=function() runs=runs+1 end
+    """)
+    lua.execute((hook.parent / "startup.lua").read_text())
+    succeeds = mode in {"load", "already-open"}
+    assert lua.globals().runs == int(succeeds)
+    assert lua.globals().exports == int(succeeds)
+    assert lua.globals().loads == int(mode in {"load", "uuid-mismatch", "load-fails"})
+    if mode == "api-unavailable":
+        assert "readiness timed out" in lua.globals().messages[2]
