@@ -34,6 +34,12 @@ from providers.resolve.lua_transport import prepare
         "clips-error",
         "shape-metadata",
         "shape-bounded",
+        "native-empty-metadata",
+        "native-metadata-real-clip",
+        "native-metadata-real-folder",
+        "native-metadata-unknown-key",
+        "native-metadata-string-flag",
+        "native-metadata-sparse-item",
     ],
 )
 def test_placeholder_is_not_a_general_untitled_bypass(
@@ -56,6 +62,13 @@ def test_placeholder_is_not_a_general_untitled_bypass(
       bmd={wait=function() end, fileexists=function() return exports>0 end}
       root={
         GetClipList=function()
+          if mode=='native-empty-metadata' then return {__flags=4194304} end
+          if mode=='native-metadata-real-clip' then return {__flags=4194304,[1]={}} end
+          if mode=='native-metadata-sparse-item' then
+            return {__flags=4194304,[9]={}} end
+          if mode=='native-metadata-unknown-key' then
+            return {__flags=4194304,extra=0} end
+          if mode=='native-metadata-string-flag' then return {__flags='4194304'} end
           if mode=='shape-metadata' then return {__flags=42} end
           if mode=='shape-bounded' then
             local list={}; for i=1,12 do list[i]=string.rep('x',200) end; return list
@@ -66,6 +79,9 @@ def test_placeholder_is_not_a_general_untitled_bypass(
           return {}
         end,
         GetSubFolderList=function()
+          if mode=='native-empty-metadata' then return {__flags=4194304} end
+          if mode=='native-metadata-real-folder' then
+            return {__flags=4194304,[1]={}} end
           if mode=='shape-metadata' then return {__flags=42} end
           return mode=='folders' and {'folder'} or {}
         end
@@ -110,9 +126,10 @@ def test_placeholder_is_not_a_general_untitled_bypass(
       dofile=function() runs=runs+1 end
     """)
     lua.execute((hook.parent / "startup.lua").read_text())
-    assert lua.globals().loads == int(mode in {"observed", "uuid-mismatch"})
-    assert lua.globals().runs == int(mode == "observed")
-    assert lua.globals().exports == int(mode == "observed")
+    success = mode in {"observed", "native-empty-metadata"}
+    assert lua.globals().loads == int(success or mode == "uuid-mismatch")
+    assert lua.globals().runs == int(success)
+    assert lua.globals().exports == int(success)
     assert lua.globals().ResolveAgentStartupContext is None
     reasons = {
         "manual": "CONTEXT_MISSING",
@@ -134,6 +151,11 @@ def test_placeholder_is_not_a_general_untitled_bypass(
         "clips-error": "READ_ERROR_clips",
         "shape-metadata": "CLIPS_NOT_EMPTY_TABLE",
         "shape-bounded": "CLIPS_NOT_EMPTY_TABLE",
+        "native-metadata-real-clip": "CLIPS_NOT_EMPTY_TABLE",
+        "native-metadata-real-folder": "SUBFOLDERS_NOT_EMPTY_TABLE",
+        "native-metadata-unknown-key": "CLIPS_NOT_EMPTY_TABLE",
+        "native-metadata-string-flag": "CLIPS_NOT_EMPTY_TABLE",
+        "native-metadata-sparse-item": "CLIPS_NOT_EMPTY_TABLE",
     }
     if mode in reasons:
         output = "\n".join(lua.globals().messages.values())

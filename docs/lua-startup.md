@@ -163,9 +163,14 @@ The worker now additionally captures `clips_shape` and `subfolders_shape` at tha
 same decision: up to eight entries with key, key type, value type and a scalar
 value capped at 100 characters. Objects are not traversed, control characters
 are flattened, and truncation is explicit. This evidence is saved through the
-same explicit-path preferences export that worked in the live test. No unknown
-metadata key is ignored by the guard; a one-entry table still refuses loading
-until its actual representation is understood. This avoids requiring F6 inside
+same explicit-path preferences export that worked in the live test. The next
+native snapshot proved that each otherwise empty list contained only the string
+key `__flags` with numeric value `4194304`. The guard now excludes **only that
+exact typed metadata entry** from emptiness checks. Empty tables remain valid;
+real array items (including sparse indices), unknown keys, different flag values
+and string-valued flags still refuse loading. Both initial and pre-load checks
+use this rule. Offline tests cover the observed representation and those negative
+cases; successful native autoload after this fix remains pending. This avoids requiring F6 inside
 Project Manager or losing the placeholder by manually opening another project.
 
 To disable future startup, remove only the managed `ResolveAgentStartup.scriptlib`

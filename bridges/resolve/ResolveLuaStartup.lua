@@ -8,6 +8,18 @@ local ready_timeout = __READY_TIMEOUT__
 local startup_context = _G.ResolveAgentStartupContext == session
 _G.ResolveAgentStartupContext = nil
 local last_guard_snapshot = nil
+local function empty_media_list(value)
+    if type(value) ~= "table" then return false end
+    for key, item in pairs(value) do
+        -- Observed in both empty native lists on Resolve Free 21.1/Windows.
+        -- Ignore only this exact typed metadata entry, not arbitrary keys or
+        -- array slots (including sparse/zero-indexed real items).
+        if key ~= "__flags" or type(item) ~= "number" or item ~= 4194304 then
+            return false
+        end
+    end
+    return true
+end
 local function startup_placeholder(api, pm, project)
     -- Read every operand, even when an earlier predicate fails. Keep the exact
     -- values used for the decision rather than re-querying after refusal.
@@ -85,8 +97,8 @@ local function startup_placeholder(api, pm, project)
     check("TARGET_NOT_UNIQUE", target_matches == 1)
     check("MEDIA_POOL_UNAVAILABLE", pool ~= nil)
     check("MEDIA_ROOT_UNAVAILABLE", media_root ~= nil)
-    check("CLIPS_NOT_EMPTY_TABLE", type(clips) == "table" and next(clips) == nil)
-    check("SUBFOLDERS_NOT_EMPTY_TABLE", type(folders) == "table" and next(folders) == nil)
+    check("CLIPS_NOT_EMPTY_TABLE", empty_media_list(clips))
+    check("SUBFOLDERS_NOT_EMPTY_TABLE", empty_media_list(folders))
     last_guard_snapshot = "STARTUP_PROJECT_CONFLICT reasons=" .. table.concat(failed, ",")
         .. " time=" .. tostring(os.time()) .. " " .. table.concat(fields, " ")
         .. " uuid_type=" .. type(id)
