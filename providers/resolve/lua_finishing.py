@@ -9,6 +9,7 @@ from typing import Any
 
 from agent.media import MediaPolicy
 from providers.resolve.lua_editing import bounded_text
+from providers.resolve.lua_privacy import validate_privacy, validate_privacy_batch
 from providers.resolve.lua_ripple import validate_ripple
 
 FINISH_ACTIONS = frozenset(
@@ -27,6 +28,10 @@ PROPERTY_LIMITS = {
 def validate_finishing(
     action: str, a: dict[str, Any], roots: list[Path]
 ) -> dict[str, Any]:
+    if action == "set_clip_properties" and "privacy_batch" in a:
+        return validate_privacy_batch(a, roots)
+    if action == "set_clip_properties" and "privacy_blur" in a:
+        return validate_privacy(a, roots)
     if action == "set_clip_properties" and "ripple_cut" in a:
         return validate_ripple(a, roots)
     if action in {"start_render", "get_render_status"}:
@@ -38,6 +43,15 @@ def validate_finishing(
             raise ValueError("Expected one safe render job ID.")
         return dict(a)
     name = bounded_text(a.get("timeline_name"), "Timeline name")
+    if action == "get_timeline_summary" and a.get("inspect_privacy") is True:
+        base = dict(a)
+        del base["inspect_privacy"]
+        if "inspect_circle" in base:
+            raise ValueError("Choose one inspection type.")
+        result = validate_finishing(action, base, roots)
+        if result.get("track_type") != "video" or result.get("track_index") != 1:
+            raise ValueError("Privacy inspection requires screen V1.")
+        return dict(result, inspect_privacy=True)
     if action == "set_clip_properties" and "replacement_take_path" in a:
         if set(a) != {
             "timeline_name",

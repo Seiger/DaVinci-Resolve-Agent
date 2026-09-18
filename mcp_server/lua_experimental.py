@@ -254,6 +254,67 @@ def create_server(root: Path) -> MCPServer:
         )
 
     @server.tool(annotations=write)
+    async def resolve_lua_privacy_blur_batch(
+        timeline_name: str,
+        privacy_batch: list[dict[str, Any]],
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Apply privacy masks to 1-100 distinct V1 items on a timeline copy.
+
+        Each entry has item_index, expected_media_path and privacy_blur with the
+        same fields as the single-item tool. All targets are preflighted before
+        one saved backup. Existing compositions are refused. A partial failure
+        can leave some masks installed: reconcile before any new-key retry.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "privacy_batch": privacy_batch},
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
+    @server.tool(annotations=write)
+    async def resolve_lua_privacy_blur(
+        timeline_name: str,
+        item_index: int,
+        expected_media_path: str,
+        privacy_blur: dict[str, Any],
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Add a time-bounded rectangle blur to one screen V1 clip.
+
+        Use a verified timeline copy first. Requires exact clip bounds and an
+        exclusive absolute start/end interval, normalized Fusion rectangle
+        geometry and bounded strength. Refuses existing Fusion compositions.
+        Optional additional_intervals preserves clear gaps between episodes.
+        Keeps clip/source bounds, audio and camera tracks unchanged. Readback
+        verifies graph/timing; native render inspection must establish privacy.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={
+                "timeline_name": timeline_name,
+                "item_index": item_index,
+                "expected_media_path": expected_media_path,
+                "privacy_blur": privacy_blur,
+            },
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
+    @server.tool(annotations=write)
     async def resolve_lua_preview_start(
         timeline_name: str,
         expected_project_id: str,
@@ -491,6 +552,7 @@ def create_server(root: Path) -> MCPServer:
         expected_project_id: str,
         timeout_seconds: float = 30,
         inspect_circle: bool = False,
+        inspect_privacy: bool = False,
     ) -> dict[str, Any]:
         """Read native item/source bounds and link count with source identity check."""
         return await asyncio.to_thread(
@@ -504,6 +566,7 @@ def create_server(root: Path) -> MCPServer:
                 "item_index": item_index,
                 "expected_media_path": expected_media_path,
                 **({"inspect_circle": True} if inspect_circle else {}),
+                **({"inspect_privacy": True} if inspect_privacy else {}),
             },
             expected_project_id=expected_project_id,
         )

@@ -63,6 +63,11 @@ These tools are advertised:
 - `resolve_lua_set_clip_properties`: set and read back clip audio gain, or
   video zoom, position and opacity. Uses one-based track/item indices and
   requires the expected source path. This is not noise removal or automatic mixing.
+- `resolve_lua_privacy_blur`: add a bounded native blur to screen V1 for one or
+  more separate frame intervals; preserves higher camera tracks and AV timing.
+  Requires exact clip/source guards and a fresh composition on a timeline copy.
+- `resolve_lua_privacy_blur_batch`: preflight 1–100 distinct screen targets, then
+  apply their masks with one backup and one whole-timeline consistency check.
 - `resolve_lua_add_subtitles`: import UTF-8 SRT within a media root, reject
   overlapping cues or any existing AV/subtitle items, verify cue count and first/
   last timing. This provides captions, not arbitrary designed title templates.
@@ -455,6 +460,49 @@ do not replace a native render review: inspect the splice and its camera overlay
 Do not use this restricted operation for animated masks or other processing
 beyond the supported circle and copied Inspector properties. The original
 timeline and exported composition remain available after any partial failure.
+
+## Local privacy blur
+
+`resolve_lua_privacy_blur` adds a native Fusion rectangle and strong blur to one
+existing V1 screen item. Work on a verified timeline copy: the operation requires
+the active timeline, exact source path and clip bounds, and refuses an existing
+Fusion composition. Separate camera tracks remain above the screen effect.
+
+The `privacy_blur` object contains `expected_clip_start`, `expected_clip_end`,
+`start_frame`, `end_frame`, `center_x`, `center_y`, `width`, `height`, and `strength`.
+Frame positions are absolute timeline frames with exclusive ends. Rectangle
+coordinates are normalized to the image and must stay inside it. Strength is
+the native Fusion blur control (20–100), not a promised pixel radius.
+Optional `additional_intervals` accepts up to 63 further `{start_frame, end_frame}`
+ranges, strictly ordered and separated within that same item. The effect is off
+in the gaps. The caller cannot submit arbitrary expressions or script text.
+
+The usual project guard, confirmation, saved backup and persistent idempotency
+key apply. Native readback verifies the graph, geometry and effect activation at
+every interval boundary, and unchanged timeline/source bounds, links, Inspector
+properties and untouched compositions. `resolve_lua_get_item` with
+`inspect_privacy=true` returns native geometry, local first/last bounds, interval
+count and an ordered interval checksum. The checksum starts at zero and folds
+each local start/end with `(checksum * 65599 + frame) % 2147483647`. It is a
+compact consistency check, not a cryptographic proof. Keeping the response token
+bounded avoids Windows filename limits even for 64 intervals.
+A partial failure must be reconciled before any retry under a different key.
+
+Readback proves configuration, not privacy. Inspect a native render at its full
+output resolution, including opening/closing animations, scrolling and tooltips.
+Use adequate temporal padding and verify camera clarity; do not claim a whole
+video was audited from sparse screenshots. Source analysis and private previews
+belong outside Git. Fresh sessions include `privacy.lua`; existing protocol-4
+sessions can copy the updated `finishing.lua` and `privacy.lua`, then reload
+modules without taking over the keyboard or mouse.
+
+For multiple screen items, `resolve_lua_privacy_blur_batch` accepts `privacy_batch`
+entries with `item_index`, `expected_media_path` and the same `privacy_blur`
+object. Every target is preflighted before the saved backup and first mutation;
+duplicate selectors are refused. A single whole-timeline comparison avoids
+repeatedly reading every untouched item for each mask. This is not transactional:
+a native failure may leave some targets changed. Keep the backup and receipt,
+inspect each target, and never blindly repeat the batch under a new key.
 
 ## Derived video takes
 

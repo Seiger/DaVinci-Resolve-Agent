@@ -551,6 +551,49 @@ def test_reload_accepts_no_source_or_path(tmp_path: Path) -> None:
             LuaSnapshotClient(root).request("reload_modules", arguments=arguments)
 
 
+@pytest.mark.parametrize("valid", [True, False])
+def test_privacy_readback_uses_bounded_native_token(
+    tmp_path: Path, valid: bool
+) -> None:
+    root = tmp_path / "session"
+    prepare(root, [tmp_path])
+    source = tmp_path / "screen.mkv"
+    source.touch()
+    assert (root / "privacy.lua").is_file()
+    token = "ok_privacy2_4_1_500_3000_60000_150_500_300_1000_0_1_1_0_64_12345"
+    worker = serve(root, token if valid else token + "_unexpected", backup=False)
+    try:
+        client = LuaSnapshotClient(root)
+        arguments = dict(
+            timeline_name="Test",
+            track_type="video",
+            track_index=1,
+            item_index=1,
+            expected_media_path=str(source),
+            inspect_privacy=True,
+        )
+        if not valid:
+            with pytest.raises(BridgeProtocolError, match="privacy"):
+                client.request(
+                    "get_timeline_summary",
+                    3,
+                    arguments=arguments,
+                    expected_project_id="test-project",
+                )
+        else:
+            result = client.request(
+                "get_timeline_summary",
+                3,
+                arguments=arguments,
+                expected_project_id="test-project",
+            )
+            assert result["privacy"]["interval_count"] == 64
+            assert result["privacy"]["interval_checksum"] == 12345
+            assert result["privacy"]["local_end_frame"] == 3000
+    finally:
+        worker.join(4)
+
+
 def test_render_acceptance_is_not_completion_and_never_restarts(tmp_path: Path) -> None:
     root = tmp_path / "session"
     prepare(root)

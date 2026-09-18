@@ -27,6 +27,9 @@ return function(api, root, helpers, shared)
             local item=(timeline:GetItemListInTrack(a.track_type,a.track_index) or {})[a.item_index]
             check(item and item:GetMediaPoolItem()
                 and normalized(item:GetMediaPoolItem():GetClipProperty("File Path"))==normalized(a.expected_media_path), "SOURCE_CHANGED")
+            if a.inspect_privacy then
+                return dofile(root .. "/privacy.lua")(helpers).inspect(item)
+            end
             if a.inspect_circle then
                 local ok,n=pcall(function() return item:GetFusionCompCount() end)
                 local names_ok,names=pcall(function() return item:GetFusionCompNames() end)
@@ -81,6 +84,12 @@ return function(api, root, helpers, shared)
     end
     local function preflight(project, request)
         local a, action = request.arguments, request.action
+        if action == "set_clip_properties" and a.privacy_batch then
+            return dofile(root.."/privacy.lua")(helpers).preflight_batch(project,a)
+        end
+        if action == "set_clip_properties" and a.privacy_blur then
+            return dofile(root .. "/privacy.lua")(helpers).preflight(project,a)
+        end
         if action == "set_clip_properties" and a.ripple_cut then
             return dofile(root .. "/ripple.lua")(helpers,root,request.id)(project, a)
         end

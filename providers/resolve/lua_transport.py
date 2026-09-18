@@ -90,6 +90,10 @@ def prepare(root: Path, media_roots: list[Path] | None = None) -> Path:
         editing.with_name("ResolveLuaRipple.lua").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    (root / "privacy.lua").write_text(
+        editing.with_name("ResolveLuaPrivacy.lua").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (root / "session.json").write_text(
         json.dumps({"session": session, "protocol": 4, "media_roots": roots}),
         encoding="utf-8",
@@ -405,6 +409,40 @@ class LuaSnapshotClient:
                     receipt.complete(result)
                     return result
                 if summary_request:
+                    if normalized.get("inspect_privacy"):
+                        match = re.fullmatch(
+                            r"privacy2_" + "_".join([r"(\d+)"] * 15),
+                            token or "",
+                        )
+                        if not match or project["id"] != expected_project_id:
+                            raise BridgeProtocolError("Invalid privacy inspection.")
+                        return {
+                            "project": project,
+                            "privacy": dict(
+                                zip(
+                                    (
+                                        "node_count",
+                                        "output_connected",
+                                        "local_start_frame",
+                                        "local_end_frame",
+                                        "strength_milli",
+                                        "center_x_milli",
+                                        "center_y_milli",
+                                        "width_milli",
+                                        "height_milli",
+                                        "active_before",
+                                        "active_first",
+                                        "active_last",
+                                        "active_after",
+                                        "interval_count",
+                                        "interval_checksum",
+                                    ),
+                                    map(int, match.groups()),
+                                    strict=True,
+                                )
+                            ),
+                            "source": "live_lua_api",
+                        }
                     if normalized.get("inspect_circle"):
                         fusion = re.fullmatch(
                             r"fusion_(-?\d+)_(-?\d+)_(\d+)_(-?\d+)_(\d+)_(-?\d+)",
