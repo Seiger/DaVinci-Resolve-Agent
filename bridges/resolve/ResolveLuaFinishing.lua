@@ -23,6 +23,10 @@ return function(api, root, helpers, shared)
         local timeline = timelines(project, request.arguments.timeline_name)
         check(timeline ~= nil, "TIMELINE_NOT_FOUND")
         local a=request.arguments
+        if a.ripple_span then
+            dofile(root.."/ripple_span.lua")(helpers,root,request.id)(project,a)
+            return "span_ready"
+        end
         if a.track_type then
             local item=(timeline:GetItemListInTrack(a.track_type,a.track_index) or {})[a.item_index]
             check(item and item:GetMediaPoolItem()
@@ -89,6 +93,9 @@ return function(api, root, helpers, shared)
         end
         if action == "set_clip_properties" and a.privacy_blur then
             return dofile(root .. "/privacy.lua")(helpers).preflight(project,a)
+        end
+        if action == "set_clip_properties" and a.ripple_span then
+            return dofile(root .. "/ripple_span.lua")(helpers,root,request.id)(project,a)
         end
         if action == "set_clip_properties" and a.ripple_cut then
             return dofile(root .. "/ripple.lua")(helpers,root,request.id)(project, a)

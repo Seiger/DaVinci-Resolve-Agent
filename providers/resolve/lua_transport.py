@@ -91,6 +91,10 @@ def prepare(root: Path, media_roots: list[Path] | None = None) -> Path:
         editing.with_name("ResolveLuaRipple.lua").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    (root / "ripple_span.lua").write_text(
+        editing.with_name("ResolveLuaRippleSpan.lua").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (root / "privacy.lua").write_text(
         editing.with_name("ResolveLuaPrivacy.lua").read_text(encoding="utf-8"),
         encoding="utf-8",
@@ -429,6 +433,19 @@ class LuaSnapshotClient:
                     receipt.complete(result)
                     return result
                 if summary_request:
+                    if normalized.get("ripple_span"):
+                        if (
+                            token != "span_ready"
+                            or project["id"] != expected_project_id
+                        ):
+                            raise BridgeProtocolError(
+                                "Invalid span preflight response."
+                            )
+                        return {
+                            "status": "ready",
+                            "project": project,
+                            "read_only": True,
+                        }
                     if normalized.get("inspect_privacy"):
                         match = re.fullmatch(
                             r"privacy2_" + "_".join([r"(\d+)"] * 15),

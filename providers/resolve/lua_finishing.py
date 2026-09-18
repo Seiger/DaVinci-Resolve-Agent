@@ -10,7 +10,7 @@ from typing import Any
 from agent.media import MediaPolicy
 from providers.resolve.lua_editing import bounded_text
 from providers.resolve.lua_privacy import validate_privacy, validate_privacy_batch
-from providers.resolve.lua_ripple import validate_ripple
+from providers.resolve.lua_ripple import validate_ripple, validate_span
 
 FINISH_ACTIONS = frozenset(
     {"set_clip_properties", "add_subtitles", "prepare_render", "start_render"}
@@ -28,6 +28,10 @@ PROPERTY_LIMITS = {
 def validate_finishing(
     action: str, a: dict[str, Any], roots: list[Path]
 ) -> dict[str, Any]:
+    if action == "get_timeline_summary" and "ripple_span" in a:
+        return validate_span(a, roots)
+    if action == "set_clip_properties" and "ripple_span" in a:
+        return validate_span(a, roots)
     if action == "set_clip_properties" and "privacy_batch" in a:
         return validate_privacy_batch(a, roots)
     if action == "set_clip_properties" and "privacy_blur" in a:

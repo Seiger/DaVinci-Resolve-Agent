@@ -275,6 +275,47 @@ def create_server(root: Path) -> MCPServer:
             confirm=confirm,
         )
 
+    @server.tool(annotations=read)
+    async def resolve_lua_preflight_ripple_span(
+        timeline_name: str,
+        ripple_span: dict[str, Any],
+        expected_project_id: str,
+        timeout_seconds: float = 60,
+    ) -> dict[str, Any]:
+        """Check span geometry and supported graphs without saving or editing."""
+        return await asyncio.to_thread(
+            client.request,
+            "get_timeline_summary",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "ripple_span": ripple_span},
+            expected_project_id=expected_project_id,
+        )
+
+    @server.tool(annotations=write)
+    async def resolve_lua_ripple_cut_span(
+        timeline_name: str,
+        ripple_span: dict[str, Any],
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Cut across 2–20 linked groups on a new copy, preserving source privacy.
+
+        Requires explicit boundary-group source geometry. Only canonical static
+        camera circles and canonical privacy masks are transferred on rebuilt
+        boundaries. Other affected Fusion graphs fail closed. Never blindly retry.
+        """
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "ripple_span": ripple_span},
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
     @server.tool(annotations=write)
     async def resolve_lua_privacy_blur_batch(
         timeline_name: str,

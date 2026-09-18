@@ -555,3 +555,26 @@ never automatically submit a new quit request. `status=accepted` and
 that the process has exited. Verify process exit independently. No force kill,
 keyboard input, or mouse control is used. Native live shutdown remains to be
 validated on the next explicitly requested application close.
+
+### Ripple across consecutive synchronized groups
+
+`resolve_lua_preflight_ripple_span` checks a proposed cut without saving or editing.
+`resolve_lua_ripple_cut_span` performs the same checks, saves/backs up the project,
+then works on a new named timeline copy. Provide 2–20 contiguous groups with
+explicit indices, timeline bounds, source paths and source in-points. The cut
+must begin inside the first group and end inside the last group.
+
+The supported layout is linked, contiguous V1 screen / V2 camera / A1 audio.
+Only affected groups are rebuilt. Boundary camera circles are transferred using
+native Fusion export/import. Canonical screen privacy intervals are intersected
+with each retained source range and rebased to the new clip's local time; empty
+intersections need no mask. Untouched downstream items keep their identities,
+properties, source ranges, links and local privacy intervals after the ripple.
+Unsupported affected graphs/layouts are refused. Audio items do not expose the
+video take-count API and are checked through their media/source geometry.
+
+A failed write can leave a partial copy: inspect the receipt and backup before
+any new mutation. Keep a private cut map for subsequent privacy review; this
+operation does not complete that review. Integration was verified on a native
+60fps two-group cut with screen privacy masks and camera circles; broader layouts
+are covered by deterministic tests, not claimed as live-verified.

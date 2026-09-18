@@ -59,3 +59,85 @@ def validate_ripple(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
             camera_path=Path(paths[1]).as_posix(),
         ),
     }
+
+
+def validate_span(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
+    """Bound a cross-group cut by explicit contiguous source geometry."""
+    if set(a) != {"timeline_name", "ripple_span"}:
+        raise ValueError("Invalid span fields.")
+    name = bounded_text(a["timeline_name"], "Timeline name")
+    c = a["ripple_span"]
+    if not isinstance(c, dict) or set(c) != {
+        "name",
+        "start_frame",
+        "end_frame",
+        "expected_timeline_start",
+        "expected_timeline_end",
+        "groups",
+    }:
+        raise ValueError("Invalid span fields.")
+    destination = bounded_text(c["name"], "Destination timeline")
+    if destination == name:
+        raise ValueError("Span requires a new timeline.")
+    for key in (
+        "start_frame",
+        "end_frame",
+        "expected_timeline_start",
+        "expected_timeline_end",
+    ):
+        if type(c[key]) is not int or not 0 <= c[key] <= 2147483647:
+            raise ValueError("Expected nonnegative integer geometry.")
+    groups = c["groups"]
+    if not isinstance(groups, list) or not 2 <= len(groups) <= 20:
+        raise ValueError("Span requires 2 to 20 groups.")
+    normalized: list[dict[str, Any]] = []
+    for g in groups:
+        if not isinstance(g, dict) or set(g) != {
+            "index",
+            "start",
+            "end",
+            "screen_source_start",
+            "camera_source_start",
+            "screen_path",
+            "camera_path",
+        }:
+            raise ValueError("Invalid group geometry.")
+        for k in (
+            "index",
+            "start",
+            "end",
+            "screen_source_start",
+            "camera_source_start",
+        ):
+            if type(g[k]) is not int or not 0 <= g[k] <= 2147483647:
+                raise ValueError("Invalid group geometry.")
+        if not 1 <= g["index"] <= 1000 or g["start"] >= g["end"]:
+            raise ValueError("Invalid group range.")
+        if normalized and (
+            g["index"] != normalized[-1]["index"] + 1
+            or g["start"] != normalized[-1]["end"]
+        ):
+            raise ValueError("Groups must be contiguous.")
+        paths = MediaPolicy(roots).validate_files([g["screen_path"], g["camera_path"]])
+        normalized.append(
+            dict(
+                g,
+                screen_path=Path(paths[0]).as_posix(),
+                camera_path=Path(paths[1]).as_posix(),
+            )
+        )
+    if not (
+        c["expected_timeline_start"]
+        <= groups[0]["start"]
+        < c["start_frame"]
+        < groups[0]["end"]
+        <= groups[-1]["start"]
+        < c["end_frame"]
+        < groups[-1]["end"]
+        <= c["expected_timeline_end"]
+    ):
+        raise ValueError("Span must start and end inside its boundary groups.")
+    return {
+        "timeline_name": name,
+        "ripple_span": dict(c, name=destination, groups=normalized),
+    }
