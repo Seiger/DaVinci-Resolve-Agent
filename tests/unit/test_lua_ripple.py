@@ -72,3 +72,24 @@ def test_opening_cut_cannot_reference_media_outside_roots(tmp_path: Path) -> Non
     a["ripple_cut"]["camera_path"] = str(outside)
     with pytest.raises(ValueError):
         validate_finishing("set_clip_properties", a, [root])
+
+
+def test_selected_group_requires_explicit_matching_geometry(tmp_path: Path) -> None:
+    a = arguments(tmp_path)
+    a["ripple_cut"].update(group_index=5, expected_group_start=216500)
+    checked = validate_finishing("set_clip_properties", a, [tmp_path])
+    assert checked["ripple_cut"]["group_index"] == 5
+    assert checked["ripple_cut"]["expected_group_start"] == 216500
+    for change in (
+        {"group_index": 0},
+        {"group_index": True},
+        {"group_index": 1001},
+        {"expected_group_start": 216800},
+        {"expected_group_start": 215999},
+    ):
+        bad = dict(a, ripple_cut=dict(a["ripple_cut"], **change))
+        with pytest.raises(ValueError):
+            validate_finishing("set_clip_properties", bad, [tmp_path])
+    del a["ripple_cut"]["expected_group_start"]
+    with pytest.raises(ValueError):
+        validate_finishing("set_clip_properties", a, [tmp_path])

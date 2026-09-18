@@ -1,4 +1,4 @@
-"""Strict inputs for a copied-timeline cut inside the first synced group."""
+"""Strict inputs for a copied-timeline cut inside one synced group."""
 
 from pathlib import Path
 from typing import Any
@@ -25,7 +25,11 @@ def validate_ripple(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
         "screen_source_start",
         "camera_source_start",
     }
-    if not isinstance(cut, dict) or set(cut) != fields:
+    if not isinstance(cut, dict):
+        raise ValueError("Invalid ripple cut fields.")
+    if "group_index" in cut or "expected_group_start" in cut:
+        fields |= {"group_index", "expected_group_start"}
+    if set(cut) != fields:
         raise ValueError("Invalid ripple cut fields.")
     destination = bounded_text(cut["name"], "Destination timeline")
     if destination == name:
@@ -33,14 +37,18 @@ def validate_ripple(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
     for key in fields - {"name", "screen_path", "camera_path"}:
         if type(cut[key]) is not int or not 0 <= cut[key] <= 2_147_483_647:
             raise ValueError("Ripple geometry requires nonnegative integer frames.")
+    group_start = cut.get("expected_group_start", cut["expected_timeline_start"])
+    if not 1 <= cut.get("group_index", 1) <= 1000:
+        raise ValueError("Invalid group index.")
     if not (
         cut["expected_timeline_start"]
+        <= group_start
         < cut["start_frame"]
         < cut["end_frame"]
         < cut["expected_group_end"]
         < cut["expected_timeline_end"]
     ):
-        raise ValueError("Cut must lie strictly inside the first group.")
+        raise ValueError("Cut must lie strictly inside the selected group.")
     paths = MediaPolicy(roots).validate_files([cut["screen_path"], cut["camera_path"]])
     return {
         "timeline_name": name,

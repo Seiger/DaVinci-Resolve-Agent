@@ -439,6 +439,23 @@ Failure may leave a partial destination copy: reconcile it rather than replaying
 under a new key. Existing sessions need updated `finishing.lua` and `ripple.lua`
 followed by `resolve_lua_reload_modules`; a freshly prepared session includes both.
 
+`resolve_lua_ripple_cut_group` extends the same guarded operation to a selected
+interior synchronized group. Add `group_index` (one-based, equal on V1/V2/A1)
+and `expected_group_start` to the cut object. The cut must be strictly inside
+that group. Earlier items remain at their exact positions; later items retain
+their identities and source bounds while shifting by the removed duration.
+This preserves already edited openings without rebuilding the timeline.
+
+The selected camera clip may contain the bridge's five-node circle composition.
+Its native Fusion export is saved beside the request backup, then imported onto
+the two retained camera segments. Node topology and circle geometry are checked
+before and after; other selected-clip Fusion graphs are refused. Untouched
+compositions remain on their copied timeline items. Source-frame and AV checks
+do not replace a native render review: inspect the splice and its camera overlay.
+Do not use this restricted operation for animated masks or other processing
+beyond the supported circle and copied Inspector properties. The original
+timeline and exported composition remain available after any partial failure.
+
 ## Derived video takes
 
 `resolve_lua_replace_video_take` selects an already imported derived video file

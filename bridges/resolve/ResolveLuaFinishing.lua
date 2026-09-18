@@ -82,7 +82,7 @@ return function(api, root, helpers, shared)
     local function preflight(project, request)
         local a, action = request.arguments, request.action
         if action == "set_clip_properties" and a.ripple_cut then
-            return dofile(root .. "/ripple.lua")(helpers)(project, a)
+            return dofile(root .. "/ripple.lua")(helpers,root,request.id)(project, a)
         end
         if action == "start_render" then
             local owned = job(project, a)

@@ -226,6 +226,34 @@ def create_server(root: Path) -> MCPServer:
         )
 
     @server.tool(annotations=write)
+    async def resolve_lua_ripple_cut_group(
+        timeline_name: str,
+        ripple_cut: dict[str, Any],
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Cut inside one linked V1/V2/A1 group on a new timeline copy.
+
+        Uses opening-cut fields plus group_index and expected_group_start.
+        Retains untouched item identities and shifts only downstream groups.
+        A camera circle composition is exported/imported with native APIs;
+        other compositions are refused. Same backup and no-blind-retry rules.
+        """
+        if not {"group_index", "expected_group_start"} <= ripple_cut.keys():
+            raise ValueError("Expected an explicit group index and group start.")
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "ripple_cut": ripple_cut},
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
+    @server.tool(annotations=write)
     async def resolve_lua_preview_start(
         timeline_name: str,
         expected_project_id: str,
