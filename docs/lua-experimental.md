@@ -162,6 +162,10 @@ a separate acceptance check.
 
 ## Protocol and limits
 
+An opt-in [experimental Windows startup launcher](lua-startup.md) is available
+for a future cold-start test. Its `.scriptlib` route is not yet live-verified on
+the current Free installation; manual bootstrap remains the verified path.
+
 The Python client publishes one atomically replaced `request.lua`, with a
 random request ID, session token, fixed action and expiry. All string values
 are byte-escaped literals. Tools accept no Lua source or arbitrary action.

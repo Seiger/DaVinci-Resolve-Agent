@@ -16,7 +16,7 @@ def run_loop(tmp_path: Path, scenario: str) -> None:
     """Run a prepared bridge against deterministic Lua-owned API doubles."""
     root = tmp_path / "session"
     script = prepare(root).read_text(encoding="utf-8")
-    lua = import_module("lupa").LuaRuntime()
+    lua = import_module("lupa.lua51").LuaRuntime()
     lua.execute(
         """
         now, tick, exports, edits, messages = 1000, 1, {}, 0, {}
