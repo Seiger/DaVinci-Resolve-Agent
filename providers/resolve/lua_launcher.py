@@ -70,7 +70,10 @@ def stage(
         worker = worker.replace(f'"{key}"', lua_string(value))
     worker = worker.replace("__READY_TIMEOUT__", str(ready_timeout_seconds))
     (root / "startup.lua").write_text(worker, encoding="utf-8")
-    command = "dofile(" + lua_string((root / "startup.lua").as_posix()) + ")"
+    command = (
+        "_G.ResolveAgentStartupContext=" + lua_string(metadata["session"]) + "; "
+        "dofile(" + lua_string((root / "startup.lua").as_posix()) + ")"
+    )
     hook = HOOK_HEADER + (
         "local ok, err = pcall(function()\n"
         "  if _G.ResolveAgentStartupQueued then return end\n"

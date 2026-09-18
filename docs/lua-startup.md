@@ -12,8 +12,11 @@ The installed folder matches the scripting documentation and local path map.
 A subsequently supplied Lua console screenshot **confirmed the hook and worker
 executed** and stopped at `Another project is open; automatic switching refused`.
 A diagnostic after manual opening read the expected UUID, Edit page and expected
-timeline. That later state does not identify the project seen at startup.
-Fusion initialization warnings do not explain this refusal.
+timeline. A further instrumented cold start captured the actual conflict:
+`Untitled Project`, string UUID, nil current page, root project folder, zero
+timelines, no saved-name match, and exactly one target-name match. The narrow
+placeholder handling below is implemented and tested offline; its next
+cold-start acceptance remains pending.
 This is an experimental candidate, **not a working automatic-start guarantee**.
 Existing editing acceptance does not prove startup compatibility. Do not interrupt
 a review or restart Resolve solely to install this feature.
@@ -61,11 +64,23 @@ exact name and `--project-id` with its known UUID. `LoadProject(name)` is docume
 in the installed 21.1 `DaVinciResolveScript.pyi`. The worker requires exactly one
 matching name in the **current Project Manager folder**; it never searches or
 switches databases/folders, creates, imports or deletes projects. If any other
-project is already open, it refuses to switch even if that project is saved.
+project is already open, it refuses to switch even if that project is saved,
+apart from the strictly checked startup placeholder described below.
 It rechecks immediately before loading and verifies both the returned and current
 project UUID afterward. On mismatch it stops before exporting/starting the bridge;
 the incorrectly matched project may already be open, because this API cannot
 query an unopened project's UUID. It never saves or edits that project.
+
+The only placeholder exception requires all these conditions: dispatch by our
+startup hook for this session, an actual nil current page, the exact name
+`Untitled Project`, a nonempty string UUID, root project folder, zero timelines,
+no saved-project name match, and exactly one configured target-name match. The
+media pool must expose an empty root clip list **and** empty subfolder list;
+unavailable or failing media APIs refuse the exception. Immediately before
+`LoadProject`, the worker re-reads the current UUID and every condition. Any
+change cancels loading. No `CloseProject`, save, delete, import or database reset
+is performed. Direct `LoadProject` is attempted once, then both returned and
+current UUIDs must match the expected target. Live success is not yet confirmed.
 
 Readiness polling is bounded by `--ready-timeout-seconds` (default 180, range
 1–600). This timeout is for startup only, not the persistent bridge lifetime.
@@ -111,8 +126,9 @@ Ordinary starts with the old installed hook cannot reuse a consumed session.
   private runtime only when `io.open` is available; restricted Lua contexts print
   `STARTUP_CONFLICT_FILE_SAVED=false` and require copying the console output.
   No project is exported, saved, closed or switched for this diagnostic. Even an
-  empty project named `Untitled Project` remains protected: that name alone is
-  not proof it is a disposable startup placeholder. Keep diagnostics private.
+  empty project named `Untitled Project` remains protected unless the entire
+  startup signature above passes twice; its name alone is never sufficient.
+  Keep diagnostics private.
 
 To disable future startup, remove only the managed `ResolveAgentStartup.scriptlib`
 file. This does not stop an already running bridge; use the normal acknowledged

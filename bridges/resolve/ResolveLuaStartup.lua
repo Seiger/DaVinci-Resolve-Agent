@@ -5,6 +5,27 @@ local session = "__SESSION__"
 local expected_project = "__EXPECTED_PROJECT__"
 local project_name = "__PROJECT_NAME__"
 local ready_timeout = __READY_TIMEOUT__
+local startup_context = _G.ResolveAgentStartupContext == session
+_G.ResolveAgentStartupContext = nil
+local function startup_placeholder(api, pm, project)
+    local ok, safe = pcall(function()
+        if not startup_context or project_name == "" or api:GetCurrentPage() ~= nil
+            or project:GetName() ~= "Untitled Project" or project:GetTimelineCount() ~= 0
+            or type(project:GetUniqueId()) ~= "string" or project:GetUniqueId() == ""
+            or pm:GetCurrentFolder() ~= "" then return false end
+        local target_matches = 0
+        for _, name in pairs(pm:GetProjectListInCurrentFolder()) do
+            if name == project:GetName() then return false end
+            if name == project_name then target_matches = target_matches + 1 end
+        end
+        if target_matches ~= 1 then return false end
+        local folder = project:GetMediaPool():GetRootFolder()
+        local clips, folders = folder:GetClipList(), folder:GetSubFolderList()
+        return type(clips) == "table" and next(clips) == nil
+            and type(folders) == "table" and next(folders) == nil
+    end)
+    return ok and safe == true
+end
 local function describe_conflict(api, pm, project)
     -- Capture the state at refusal, not the state after a later manual load.
     -- Diagnostic failures must never weaken the no-switch guard.
@@ -69,13 +90,16 @@ local ok, err = pcall(function()
             return r, manager, manager and manager:GetCurrentProject()
         end)
         if not available then api, pm, project = nil, nil, nil end
-        if project then
-            if project:GetUniqueId() ~= expected_project then
+        local placeholder_id = nil
+        if project and project:GetUniqueId() ~= expected_project then
+            if startup_placeholder(api, pm, project) then
+                placeholder_id = project:GetUniqueId()
+            else
                 pcall(describe_conflict, api, pm, project)
+                error("Another project is open; automatic switching refused")
             end
-            assert(project:GetUniqueId() == expected_project,
-                   "Another project is open; automatic switching refused")
-        elseif pm and project_name ~= "" then
+        end
+        if pm and project_name ~= "" and (not project or placeholder_id) then
             local names = assert(pm:GetProjectListInCurrentFolder(),
                                  "Cannot enumerate the current project folder")
             local matches = 0
@@ -83,8 +107,16 @@ local ok, err = pcall(function()
                 if name == project_name then matches = matches + 1 end
             end
             assert(matches == 1, "Target project name missing or ambiguous in current folder")
-            -- Recheck immediately before loading: never replace an open project.
-            assert(not pm:GetCurrentProject(), "A project opened during startup")
+            -- Recheck identity and the full empty startup signature immediately
+            -- before LoadProject. Never close/save/delete the placeholder.
+            local before_load = pm:GetCurrentProject()
+            if placeholder_id then
+                assert(before_load and before_load:GetUniqueId() == placeholder_id
+                       and startup_placeholder(api, pm, before_load),
+                       "Startup placeholder changed; automatic switching refused")
+            else
+                assert(not before_load, "A project opened during startup")
+            end
             project = assert(pm:LoadProject(project_name), "LoadProject failed")
             local current = assert(pm:GetCurrentProject(), "Loaded project not current")
             assert(project:GetUniqueId() == expected_project
