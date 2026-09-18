@@ -163,7 +163,7 @@ Setup and limits: [experimental Lua bridge](lua-experimental.md).
   H.264/AAC MP4 1920x1080, 300.010667 s, 15,768,358 bytes. Repeated start
   returned replayed acceptance without another dispatch. This replaces the
   earlier ten-second wait; acceptance does not certify execution or completion.
-- Not verified: continuous render progress, live cleanup preview, two-hour soak
+- Not verified: continuous render progress, live cleanup preview, persistent-loop soak
   and other Resolve versions. No desktop input occurred during the long test.
 - Automated tests cover validation, owned-job correlation, replay, output decoding,
   mailbox contention and cleanup boundaries; these do not replace live API proof.

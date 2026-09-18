@@ -20,7 +20,7 @@ def create_server(root: Path) -> MCPServer:
         name="davinci-resolve-lua-experimental",
         instructions=(
             "Experimental Lua snapshot bridge. Requires a saved open "
-            "project and a manually bootstrapped bridge (two-hour lifetime). "
+            "project and a manually bootstrapped bridge (no session expiry). "
             "Requests run without mouse or keyboard input. Each request exports "
             "the project locally; not suitable for large projects. Writes require "
             "expected project ID, confirmation, and a stable idempotency key. "
@@ -634,8 +634,8 @@ def create_server(root: Path) -> MCPServer:
         """Reload the fixed trusted editing/finishing modules from this session.
 
         Accepts no code or path. An operator must first update those local files.
-        Keeps owned jobs and receipts, does not restart the two-hour timer,
-        and refuses during rendering. Does not resolve uncertain write receipts.
+        Keeps owned jobs and receipts and refuses during rendering. Does not
+        replace the running bridge loop or resolve uncertain write receipts.
         """
         return await asyncio.to_thread(
             client.request, "reload_modules", timeout_seconds

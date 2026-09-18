@@ -42,7 +42,8 @@ class LuaCommandTimeoutError(CommandTimeoutError):
         self.args = (
             "No experimental Lua response within the timeout. Open a saved "
             "project and start this session's bridge.lua in the Lua console; "
-            "the loop stops after two hours. Export failures also time out.",
+            "check the Lua console for a stopped loop or export failure. "
+            "A timeout alone does not identify the cause; do not replay writes.",
         )
 
 

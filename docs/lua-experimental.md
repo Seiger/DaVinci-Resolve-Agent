@@ -131,16 +131,34 @@ tools and stop remain usable. Do not create a new key/session to bypass this:
 inspect the project and retained backup first. Known preflight failures are
 recorded as `rejected`. There is no automatic rollback or uncertain-write replay.
 
-The loop automatically stops after approximately two hours (an in-progress
-Resolve API call can extend this). After an acknowledged stop, prepare a new
-session directory before restarting; the client refuses reuse of stopped sessions.
-Stop the old loop before switching runtime directories. No auto-start
-or unattended restart is implemented.
+Newly prepared loops have **no session expiry**. They run cooperatively until
+an acknowledged stop, a Lua/API error, or Resolve exits. The two-hour cutoff in
+older copied scripts was a bridge policy, not a Resolve restriction. Updating
+the package or reloading editing modules does not replace an already running
+loop. Prepare a fresh runtime and bootstrap it once to activate this change;
+stop any old running loop first. Do not bypass pending write receipts when
+migrating: reconcile uncertain edits against the project and backups first.
 
-This lifetime is a bridge limit, not a Resolve restriction. It starts when the
-Lua script starts, rather than resetting after each request. The stop command
-can end it earlier. Previously prepared runtime directories retain their copied
-script: prepare a new runtime to use the two-hour limit.
+An MCP client may disconnect and reconnect to the same **running** session:
+the Lua request-ID replay set, owned render jobs and durable client receipts
+remain intact. Individual requests still expire. No network listener, wider
+media roots, automatic write retry, auto-start or unattended restart is added.
+The local mailbox must remain writable only by trusted local users/programs.
+
+For an acknowledged stop, keep a saved project open: the protocol confirms
+shutdown by exporting its response. An export failure does not acknowledge or
+stop the loop. After stop, error or Resolve restart, reconcile pending writes
+and prepare a fresh session; never restart an old loop and assume its in-memory
+replay/job state survived. The client refuses reuse of acknowledged stopped
+sessions. No idle pings or project exports are needed to keep a session alive.
+
+The Lua console prints start mode and an explicit stop reason
+(`acknowledged_stop` or `error`). A killed Resolve process cannot print a final
+reason. A response timeout alone does not prove expiry or a stopped loop;
+export errors and a busy Resolve can also cause it. Simulated-clock Lua tests
+cover requests beyond two hours, replay/token/expiry guards, project reopening,
+failed stop exports and error cleanup. A real long-duration Resolve soak remains
+a separate acceptance check.
 
 ## Protocol and limits
 
@@ -278,8 +296,8 @@ a live timeline summary returned the expected one video/audio/subtitle item,
 72-frame timeline and subtitle bounds 12-60. No keyboard or mouse input was used.
 This verifies read requests with the console closed, not a long render.
 
-Remaining acceptance: live cleanup preview and the two-hour
-wall-clock boundary. Automatic console input remains unreliable.
+Remaining acceptance: live cleanup preview and a long-duration run of the
+current persistent loop. Automatic console input remains unreliable.
 
 This does not verify general editing, no-project startup, every Resolve version, or application focus
 behavior under every concurrent user activity. See the manual integration

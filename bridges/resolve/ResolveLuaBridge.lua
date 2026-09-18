@@ -17,10 +17,13 @@ local writes = {import_media=true, create_timeline=true, duplicate_timeline=true
 local shared = {jobs={}}
 local edit = dofile(root .. "/editing.lua")(api, root, media_roots, shared)
 _G.ResolveAgentLuaRunning = true
+local stop_reason = "error"
+print("Resolve Agent Lua started; lifetime=until_stop_or_resolve_exit")
 local ok, err = pcall(function()
-    local deadline = os.time() + 7200
     local handled = {}
-    while os.time() < deadline do
+    -- Session lifetime is independent of individual request expiry. Keep the
+    -- replay set for this entire loop, including MCP client reconnects.
+    while true do
         local loaded, request = pcall(dofile, root .. "/request.lua")
         if loaded and type(request) == "table"
             and request.session == session
@@ -53,7 +56,10 @@ local ok, err = pcall(function()
                 local current = pm:GetCurrentProject()
                 local exported = current and pm:ExportProject(current:GetName(), root .. "/" .. request.id .. suffix .. ".drp", false)
                 print("Resolve Agent Lua response=" .. tostring(exported) .. suffix)
-                if exported and request.action == "stop" then break end
+                if exported and request.action == "stop" then
+                    stop_reason = "acknowledged_stop"
+                    break
+                end
             else
                 print("Resolve Agent Lua requires an open project")
             end
@@ -62,5 +68,5 @@ local ok, err = pcall(function()
     end
 end)
 _G.ResolveAgentLuaRunning = nil
-print("Resolve Agent Lua stopped; ok=" .. tostring(ok))
+print("Resolve Agent Lua stopped; reason=" .. stop_reason .. "; ok=" .. tostring(ok))
 if not ok then print(tostring(err)) end

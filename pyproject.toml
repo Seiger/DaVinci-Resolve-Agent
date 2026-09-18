@@ -19,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "lupa>=2,<3",
   "mypy>=1.10",
   "pytest>=8.0",
   "ruff>=0.5",
