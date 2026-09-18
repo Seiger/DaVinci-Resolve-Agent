@@ -29,6 +29,9 @@ from providers.resolve.lua_transport import prepare
         "race-media",
         "missing-target",
         "uuid-mismatch",
+        "literal-nil-page",
+        "nil-clips",
+        "clips-error",
     ],
 )
 def test_placeholder_is_not_a_general_untitled_bypass(
@@ -46,10 +49,13 @@ def test_placeholder_is_not_a_general_untitled_bypass(
     lua.execute("""
       reads, pages, loads, runs, exports = 0, 0, 0, 0, 0
       io=nil
-      print=function() end
+      messages={}
+      print=function(s) table.insert(messages,s) end
       bmd={wait=function() end, fileexists=function() return exports>0 end}
       root={
         GetClipList=function()
+          if mode=='nil-clips' then return nil end
+          if mode=='clips-error' then error('fixture clip API error') end
           if mode=='media' or (mode=='race-media' and reads>1) then return {'clip'} end
           return {}
         end,
@@ -86,6 +92,7 @@ def test_placeholder_is_not_a_general_untitled_bypass(
       resolve={GetProjectManager=function() return pm end,
         GetCurrentPage=function()
           pages=pages+1
+          if mode=='literal-nil-page' then return 'nil' end
           if mode=='edit' or (mode=='race-page' and pages>1) then return 'edit' end
           return nil
         end}
@@ -98,3 +105,30 @@ def test_placeholder_is_not_a_general_untitled_bypass(
     assert lua.globals().runs == int(mode == "observed")
     assert lua.globals().exports == int(mode == "observed")
     assert lua.globals().ResolveAgentStartupContext is None
+    reasons = {
+        "manual": "CONTEXT_MISSING",
+        "saved": "CURRENT_NAME_NOT_ABSENT",
+        "media": "CLIPS_NOT_EMPTY_TABLE",
+        "folders": "SUBFOLDERS_NOT_EMPTY_TABLE",
+        "timelines": "TIMELINES_NOT_ZERO",
+        "edit": "PAGE_NOT_NIL",
+        "other-name": "NAME_NOT_PLACEHOLDER",
+        "other-folder": "FOLDER_NOT_ROOT",
+        "missing-media-api": "READ_ERROR_media_root",
+        "ambiguous": "TARGET_NOT_UNIQUE",
+        "race-id": "IDENTITY_CHANGED",
+        "race-page": "PAGE_NOT_NIL",
+        "race-media": "CLIPS_NOT_EMPTY_TABLE",
+        "missing-target": "TARGET_NOT_UNIQUE",
+        "literal-nil-page": "PAGE_NOT_NIL",
+        "nil-clips": "CLIPS_NOT_EMPTY_TABLE",
+        "clips-error": "READ_ERROR_clips",
+    }
+    if mode in reasons:
+        output = "\n".join(lua.globals().messages.values())
+        assert reasons[mode] in output
+        assert "startup_context=" in output and "subfolders=" in output
+        if mode == "literal-nil-page":
+            assert 'page="nil"(string,true)' in output
+        if mode.startswith("race-"):
+            assert "phase=before_load" in output

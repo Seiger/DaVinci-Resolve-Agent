@@ -7,49 +7,75 @@ local project_name = "__PROJECT_NAME__"
 local ready_timeout = __READY_TIMEOUT__
 local startup_context = _G.ResolveAgentStartupContext == session
 _G.ResolveAgentStartupContext = nil
+local last_guard_snapshot = nil
 local function startup_placeholder(api, pm, project)
-    local ok, safe = pcall(function()
-        if not startup_context or project_name == "" or api:GetCurrentPage() ~= nil
-            or project:GetName() ~= "Untitled Project" or project:GetTimelineCount() ~= 0
-            or type(project:GetUniqueId()) ~= "string" or project:GetUniqueId() == ""
-            or pm:GetCurrentFolder() ~= "" then return false end
-        local target_matches = 0
-        for _, name in pairs(pm:GetProjectListInCurrentFolder()) do
-            if name == project:GetName() then return false end
-            if name == project_name then target_matches = target_matches + 1 end
-        end
-        if target_matches ~= 1 then return false end
-        local folder = project:GetMediaPool():GetRootFolder()
-        local clips, folders = folder:GetClipList(), folder:GetSubFolderList()
-        return type(clips) == "table" and next(clips) == nil
-            and type(folders) == "table" and next(folders) == nil
-    end)
-    return ok and safe == true
-end
-local function describe_conflict(api, pm, project)
-    -- Capture the state at refusal, not the state after a later manual load.
-    -- Diagnostic failures must never weaken the no-switch guard.
-    local function read(fn)
+    -- Read every operand, even when an earlier predicate fails. Keep the exact
+    -- values used for the decision rather than re-querying after refusal.
+    local fields, failed = {}, {}
+    local function read(key, fn)
         local ok, value = pcall(fn)
-        return ok and tostring(value) or "unavailable"
+        local kind = type(value)
+        local text = tostring(value)
+        if kind == "table" then
+            local count = 0
+            for _ in pairs(value) do count = count + 1 end
+            text = "count:" .. count
+        elseif kind == "userdata" then text = "object" end
+        text = text:gsub("[%c]", " "):sub(1, 256)
+        if kind == "string" then text = string.format("%q", text) end
+        fields[#fields + 1] = key .. "=" .. text .. "(" .. kind .. "," .. tostring(ok) .. ")"
+        if not ok then failed[#failed + 1] = "READ_ERROR_" .. key; return nil end
+        return value
     end
-    local function matches(name)
-        local count = 0
-        for _, value in pairs(pm:GetProjectListInCurrentFolder()) do
-            if value == name then count = count + 1 end
+    local function check(code, passed)
+        if not passed then failed[#failed + 1] = code end
+    end
+    local context = read("startup_context", function() return startup_context end)
+    local configured = read("target_configured", function() return project_name ~= "" end)
+    local page = read("page", function() return api:GetCurrentPage() end)
+    local name = read("name", function() return project:GetName() end)
+    local id = read("uuid", function() return project:GetUniqueId() end)
+    local timelines = read("timelines", function() return project:GetTimelineCount() end)
+    local folder = read("folder", function() return pm:GetCurrentFolder() end)
+    local names = read("names", function() return pm:GetProjectListInCurrentFolder() end)
+    local current_matches, target_matches = nil, nil
+    if type(names) == "table" then
+        current_matches, target_matches = 0, 0
+        for _, value in pairs(names) do
+            if value == name then current_matches = current_matches + 1 end
+            if value == project_name then target_matches = target_matches + 1 end
         end
-        return count
     end
-    local report = "STARTUP_PROJECT_CONFLICT"
-        .. " time=" .. tostring(os.time())
-        .. " name=" .. string.format("%q", read(function() return project:GetName() end))
-        .. " uuid=" .. string.format("%q", read(function() return project:GetUniqueId() end))
-        .. " uuid_type=" .. read(function() return type(project:GetUniqueId()) end)
-        .. " page=" .. string.format("%q", read(function() return api:GetCurrentPage() end))
-        .. " folder=" .. string.format("%q", read(function() return pm:GetCurrentFolder() end))
-        .. " timelines=" .. read(function() return project:GetTimelineCount() end)
-        .. " current_name_matches=" .. read(function() return matches(project:GetName()) end)
-        .. " target_name_matches=" .. read(function() return matches(project_name) end)
+    read("current_name_matches", function() return current_matches end)
+    read("target_name_matches", function() return target_matches end)
+    local pool = read("media_pool", function() return project:GetMediaPool() end)
+    local media_root = read("media_root", function() return pool:GetRootFolder() end)
+    local clips = read("clips", function() return media_root:GetClipList() end)
+    local folders = read("subfolders", function() return media_root:GetSubFolderList() end)
+    check("CONTEXT_MISSING", context == true)
+    check("TARGET_NOT_CONFIGURED", configured == true)
+    check("PAGE_NOT_NIL", page == nil)
+    check("NAME_NOT_PLACEHOLDER", name == "Untitled Project")
+    check("UUID_INVALID", type(id) == "string" and id ~= "")
+    check("TIMELINES_NOT_ZERO", timelines == 0)
+    check("FOLDER_NOT_ROOT", folder == "")
+    check("PROJECT_LIST_UNAVAILABLE", type(names) == "table")
+    check("CURRENT_NAME_NOT_ABSENT", current_matches == 0)
+    check("TARGET_NOT_UNIQUE", target_matches == 1)
+    check("MEDIA_POOL_UNAVAILABLE", pool ~= nil)
+    check("MEDIA_ROOT_UNAVAILABLE", media_root ~= nil)
+    check("CLIPS_NOT_EMPTY_TABLE", type(clips) == "table" and next(clips) == nil)
+    check("SUBFOLDERS_NOT_EMPTY_TABLE", type(folders) == "table" and next(folders) == nil)
+    last_guard_snapshot = "STARTUP_PROJECT_CONFLICT reasons=" .. table.concat(failed, ",")
+        .. " time=" .. tostring(os.time()) .. " " .. table.concat(fields, " ")
+        .. " uuid_type=" .. type(id)
+    return #failed == 0
+end
+local diagnostic_reported = false
+local function describe_conflict(phase)
+    if diagnostic_reported then return end
+    diagnostic_reported = true
+    local report = assert(last_guard_snapshot) .. " phase=" .. phase
     print(report)
     local saved = false
     if io and type(io.open) == "function" then
@@ -62,6 +88,27 @@ local function describe_conflict(api, pm, project)
         saved = ok and result == true
     end
     print("STARTUP_CONFLICT_FILE_SAVED=" .. tostring(saved))
+    if not saved then
+        -- Save a private preference snapshot to an explicit file, never the
+        -- user's default preferences. Restore our temporary diagnostic key.
+        local fu = fusion or fu
+        local key = "Global.ResolveAgent.StartupDiagnostic." .. session
+        local prior_ok, prior = pcall(function() return fu:GetPrefs(key) end)
+        local exported = false
+        if prior_ok then
+            local ok = pcall(function()
+                fu:SetPrefs(key, report)
+                fu:SavePrefs(root .. "/startup-conflict.prefs")
+                exported = bmd.fileexists(root .. "/startup-conflict.prefs") == true
+            end)
+            local restored = pcall(function()
+                fu:SetPrefs(key, prior)
+                assert(fu:GetPrefs(key) == prior, "Diagnostic preference restore failed")
+            end)
+            exported = ok and restored and exported
+        end
+        print("STARTUP_CONFLICT_PREFS_SAVED=" .. tostring(exported))
+    end
 end
 local ok, err = pcall(function()
     local fu = assert(fusion or fu, "Fusion context unavailable")
@@ -95,7 +142,7 @@ local ok, err = pcall(function()
             if startup_placeholder(api, pm, project) then
                 placeholder_id = project:GetUniqueId()
             else
-                pcall(describe_conflict, api, pm, project)
+                pcall(describe_conflict, "initial")
                 error("Another project is open; automatic switching refused")
             end
         end
@@ -111,9 +158,16 @@ local ok, err = pcall(function()
             -- before LoadProject. Never close/save/delete the placeholder.
             local before_load = pm:GetCurrentProject()
             if placeholder_id then
-                assert(before_load and before_load:GetUniqueId() == placeholder_id
-                       and startup_placeholder(api, pm, before_load),
-                       "Startup placeholder changed; automatic switching refused")
+                local allowed = startup_placeholder(api, pm, before_load)
+                local unchanged = before_load and before_load:GetUniqueId() == placeholder_id
+                if not allowed or not unchanged then
+                    last_guard_snapshot = last_guard_snapshot
+                        .. " initial_uuid=" .. string.format("%q", placeholder_id)
+                        .. " identity_unchanged=" .. tostring(unchanged == true)
+                        .. (unchanged and "" or " additional_reason=IDENTITY_CHANGED")
+                    pcall(describe_conflict, "before_load")
+                    error("Startup placeholder changed; automatic switching refused")
+                end
             else
                 assert(not before_load, "A project opened during startup")
             end

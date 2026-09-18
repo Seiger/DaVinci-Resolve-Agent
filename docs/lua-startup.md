@@ -130,6 +130,32 @@ Ordinary starts with the old installed hook cannot reuse a consumed session.
   startup signature above passes twice; its name alone is never sufficient.
   Keep diagnostics private.
 
+Guard diagnostics evaluate **all** operands once, without short-circuiting, and
+record the exact snapshot used for the decision. Each field includes value,
+Lua type and read success; tables expose counts, not their contents. The compact
+console row includes specific reason codes (`CONTEXT_MISSING`, `PAGE_NOT_NIL`,
+`READ_ERROR_clips`, `CLIPS_NOT_EMPTY_TABLE`, etc.) and the refusal phase. A race
+before loading records the original UUID, the fresh snapshot and whether identity
+changed. Only the first refusal is persisted. A later manual project load cannot
+overwrite this historical evidence.
+
+If `io.open` is unavailable, the worker attempts the documented
+`Fusion:SavePrefs(filename)` API to save `startup-conflict.prefs` **inside the
+session directory**. It temporarily places the report in a session-specific
+diagnostic preference, saves to that explicit path, then restores and checks the
+previous value. It never invokes parameterless SavePrefs, loads preferences or
+exports/changes a project. This file may contain other private Fusion preferences;
+keep it local and extract only the `STARTUP_PROJECT_CONFLICT` report. File
+existence and restoration determine the printed `STARTUP_CONFLICT_PREFS_SAVED`
+result. Native support for this fallback in this Free build is not yet verified;
+the console report remains available if saving fails.
+
+The completed console probes confirmed context survives both direct `dofile`
+and asynchronous `fusion:Execute` followed by `dofile`. The shared owner value
+is intentionally the string produced by `tostring({})`; seeing `type=string`
+with a `table: ...` value is not evidence of a preference conversion defect.
+Neither observation recovers the earlier placeholder's media or page types.
+
 To disable future startup, remove only the managed `ResolveAgentStartup.scriptlib`
 file. This does not stop an already running bridge; use the normal acknowledged
 stop with a saved project open. Retain runtime directories until receipts and

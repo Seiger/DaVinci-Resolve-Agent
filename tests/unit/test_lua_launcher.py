@@ -152,6 +152,8 @@ def test_scriptlib_dispatches_without_waiting(tmp_path: Path) -> None:
         "other-open",
         "untitled-open",
         "other-open-no-io",
+        "other-open-prefs",
+        "other-open-prefs-fails",
         "missing",
         "ambiguous",
         "uuid-mismatch",
@@ -173,13 +175,16 @@ def test_project_selection(tmp_path: Path, mode: str) -> None:
     )
     lua = import_module("lupa.lua51").LuaRuntime()
     lua.globals().mode = mode
+    lua.globals().expected_prefs_path = (
+        hook.parent / "startup-conflict.prefs"
+    ).as_posix()
     lua.execute("""
       clock, loads, runs, exports, reads = 0, 0, 0, 0, 0
       messages = {}
       print=function(s) table.insert(messages,s) end
       os.time=function() return clock end
       bmd={wait=function() clock=clock+1 end,
-           fileexists=function() return exports>0 end}
+           fileexists=function(path) return path==prefs_written_path or exports>0 end}
       project={GetUniqueId=function() return 'expected' end,
                GetName=function() return 'Target' end}
       other={GetUniqueId=function() return 'other' end,
@@ -189,6 +194,9 @@ def test_project_selection(tmp_path: Path, mode: str) -> None:
       if mode=='already-open' then current=project end
       if mode=='other-open' or mode=='untitled-open' or mode=='other-open-no-io' then
         current=other
+      end
+      if mode=='other-open-prefs' or mode=='other-open-prefs-fails' then
+        current=other; io=nil
       end
       if mode=='other-open-no-io' then io=nil end
       pm={
@@ -216,6 +224,16 @@ def test_project_selection(tmp_path: Path, mode: str) -> None:
       end}
       fusion={GetPrefs=function() return nil end,SetPrefs=function(_,k,v)
         fusion.GetPrefs=function() return v end end}
+      prefs_calls=0
+      if mode=='other-open-prefs' or mode=='other-open-prefs-fails' then
+        fusion.SavePrefs=function(_,path)
+          assert(path==expected_prefs_path, 'must not save default preferences')
+          prefs_calls=prefs_calls+1
+          captured_report=fusion:GetPrefs('diagnostic')
+          if mode=='other-open-prefs-fails' then error('save failed') end
+          prefs_written_path=path
+        end
+      end
       dofile=function() runs=runs+1 end
     """)
     lua.execute((hook.parent / "startup.lua").read_text())
@@ -235,3 +253,9 @@ def test_project_selection(tmp_path: Path, mode: str) -> None:
         assert not (hook.parent / "startup-conflict.txt").exists()
         assert "STARTUP_PROJECT_CONFLICT" in lua.globals().messages[2]
         assert lua.globals().messages[3] == "STARTUP_CONFLICT_FILE_SAVED=false"
+    if mode in {"other-open-prefs", "other-open-prefs-fails"}:
+        assert lua.globals().prefs_calls == 1
+        assert "reasons=" in lua.globals().captured_report
+        assert lua.eval("fusion:GetPrefs('diagnostic')").startswith("table:")
+        saved = "true" if mode == "other-open-prefs" else "false"
+        assert lua.globals().messages[4] == f"STARTUP_CONFLICT_PREFS_SAVED={saved}"
