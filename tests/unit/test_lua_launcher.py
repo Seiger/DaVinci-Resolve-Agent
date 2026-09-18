@@ -150,6 +150,8 @@ def test_scriptlib_dispatches_without_waiting(tmp_path: Path) -> None:
         "load",
         "already-open",
         "other-open",
+        "untitled-open",
+        "other-open-no-io",
         "missing",
         "ambiguous",
         "uuid-mismatch",
@@ -180,9 +182,15 @@ def test_project_selection(tmp_path: Path, mode: str) -> None:
            fileexists=function() return exports>0 end}
       project={GetUniqueId=function() return 'expected' end,
                GetName=function() return 'Target' end}
-      other={GetUniqueId=function() return 'other' end}
+      other={GetUniqueId=function() return 'other' end,
+             GetName=function()
+               return mode=='untitled-open' and 'Untitled Project' or 'Other' end,
+             GetTimelineCount=function() return 0 end}
       if mode=='already-open' then current=project end
-      if mode=='other-open' then current=other end
+      if mode=='other-open' or mode=='untitled-open' or mode=='other-open-no-io' then
+        current=other
+      end
+      if mode=='other-open-no-io' then io=nil end
       pm={
         GetCurrentProject=function()
           reads=reads+1
@@ -217,3 +225,13 @@ def test_project_selection(tmp_path: Path, mode: str) -> None:
     assert lua.globals().loads == int(mode in {"load", "uuid-mismatch", "load-fails"})
     if mode == "api-unavailable":
         assert "readiness timed out" in lua.globals().messages[2]
+    if mode in {"other-open", "untitled-open"}:
+        diagnostic = (hook.parent / "startup-conflict.txt").read_text()
+        assert 'uuid="other"' in diagnostic and "uuid_type=string" in diagnostic
+        assert "timelines=0" in diagnostic
+        if mode == "untitled-open":
+            assert 'name="Untitled Project"' in diagnostic
+    if mode == "other-open-no-io":
+        assert not (hook.parent / "startup-conflict.txt").exists()
+        assert "STARTUP_PROJECT_CONFLICT" in lua.globals().messages[2]
+        assert lua.globals().messages[3] == "STARTUP_CONFLICT_FILE_SAVED=false"

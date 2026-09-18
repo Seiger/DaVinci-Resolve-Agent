@@ -9,8 +9,11 @@ project opening or Lua bootstrap was substituted. Project, timeline and page
 readback therefore remain unverified.
 
 The installed folder matches the scripting documentation and local path map.
-Fusion initialization warnings appeared, but do not prove why the hook or worker
-did not complete. Available logs did not expose a specific startup-script error.
+A subsequently supplied Lua console screenshot **confirmed the hook and worker
+executed** and stopped at `Another project is open; automatic switching refused`.
+A diagnostic after manual opening read the expected UUID, Edit page and expected
+timeline. That later state does not identify the project seen at startup.
+Fusion initialization warnings do not explain this refusal.
 This is an experimental candidate, **not a working automatic-start guarantee**.
 Existing editing acceptance does not prove startup compatibility. Do not interrupt
 a review or restart Resolve solely to install this feature.
@@ -102,6 +105,14 @@ Ordinary starts with the old installed hook cannot reuse a consumed session.
 - Startup error messages go to the Lua console. If the hook never loads, a
   missing ping is inconclusive: inspect startup diagnostics rather than adding
   GUI automation. Do not mark startup verified on the strength of unit tests.
+- A foreign-project refusal now emits `STARTUP_PROJECT_CONFLICT` with the actual
+  name, UUID and its type, current page/folder, timeline count and exact-name match
+  counts at the time of refusal. It attempts to save `startup-conflict.txt` in the
+  private runtime only when `io.open` is available; restricted Lua contexts print
+  `STARTUP_CONFLICT_FILE_SAVED=false` and require copying the console output.
+  No project is exported, saved, closed or switched for this diagnostic. Even an
+  empty project named `Untitled Project` remains protected: that name alone is
+  not proof it is a disposable startup placeholder. Keep diagnostics private.
 
 To disable future startup, remove only the managed `ResolveAgentStartup.scriptlib`
 file. This does not stop an already running bridge; use the normal acknowledged

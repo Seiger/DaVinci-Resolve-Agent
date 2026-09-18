@@ -5,6 +5,43 @@ local session = "__SESSION__"
 local expected_project = "__EXPECTED_PROJECT__"
 local project_name = "__PROJECT_NAME__"
 local ready_timeout = __READY_TIMEOUT__
+local function describe_conflict(api, pm, project)
+    -- Capture the state at refusal, not the state after a later manual load.
+    -- Diagnostic failures must never weaken the no-switch guard.
+    local function read(fn)
+        local ok, value = pcall(fn)
+        return ok and tostring(value) or "unavailable"
+    end
+    local function matches(name)
+        local count = 0
+        for _, value in pairs(pm:GetProjectListInCurrentFolder()) do
+            if value == name then count = count + 1 end
+        end
+        return count
+    end
+    local report = "STARTUP_PROJECT_CONFLICT"
+        .. " time=" .. tostring(os.time())
+        .. " name=" .. string.format("%q", read(function() return project:GetName() end))
+        .. " uuid=" .. string.format("%q", read(function() return project:GetUniqueId() end))
+        .. " uuid_type=" .. read(function() return type(project:GetUniqueId()) end)
+        .. " page=" .. string.format("%q", read(function() return api:GetCurrentPage() end))
+        .. " folder=" .. string.format("%q", read(function() return pm:GetCurrentFolder() end))
+        .. " timelines=" .. read(function() return project:GetTimelineCount() end)
+        .. " current_name_matches=" .. read(function() return matches(project:GetName()) end)
+        .. " target_name_matches=" .. read(function() return matches(project_name) end)
+    print(report)
+    local saved = false
+    if io and type(io.open) == "function" then
+        local ok, result = pcall(function()
+            local file = assert(io.open(root .. "/startup-conflict.txt", "w"))
+            local wrote = file:write(report .. "\n")
+            local closed = file:close()
+            return wrote ~= nil and closed ~= nil
+        end)
+        saved = ok and result == true
+    end
+    print("STARTUP_CONFLICT_FILE_SAVED=" .. tostring(saved))
+end
 local ok, err = pcall(function()
     local fu = assert(fusion or fu, "Fusion context unavailable")
     assert(type(bmd.wait) == "function" and type(bmd.fileexists) == "function",
@@ -33,6 +70,9 @@ local ok, err = pcall(function()
         end)
         if not available then api, pm, project = nil, nil, nil end
         if project then
+            if project:GetUniqueId() ~= expected_project then
+                pcall(describe_conflict, api, pm, project)
+            end
             assert(project:GetUniqueId() == expected_project,
                    "Another project is open; automatic switching refused")
         elseif pm and project_name ~= "" then
