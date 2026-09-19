@@ -157,9 +157,18 @@ def validate_finishing(
         return dict(
             a, timeline_name=name, expected_media_path=Path(circle_path).as_posix()
         )
-    if action == "set_clip_properties" and set(a) == {"timeline_name", "preview_start"}:
+    if action == "set_clip_properties" and "preview_start" in a:
+        if set(a) - {"timeline_name", "preview_start", "preview_frame"}:
+            raise ValueError("Invalid preview fields.")
         if a["preview_start"] is not True:
             raise ValueError("Preview start must be true.")
+        if "preview_frame" in a:
+            frame = a["preview_frame"]
+            if type(frame) is not int or not 0 <= frame <= 10_000_000:
+                raise ValueError("Invalid preview frame.")
+            return {
+                "timeline_name": name, "preview_start": True, "preview_frame": frame
+            }
         return {"timeline_name": name, "preview_start": True}
     if action == "get_timeline_summary" and set(a) == {
         "timeline_name",

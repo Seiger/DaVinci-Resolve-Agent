@@ -483,13 +483,19 @@ def create_server(root: Path) -> MCPServer:
         idempotency_key: str,
         confirm: bool = False,
         timeout_seconds: float = 30,
+        preview_frame: int | None = None,
     ) -> dict[str, Any]:
-        """Select Edit and the timeline start without starting playback."""
+        """Select Edit at the start or an absolute timeline frame without playback."""
+        arguments: dict[str, Any] = {
+            "timeline_name": timeline_name, "preview_start": True
+        }
+        if preview_frame is not None:
+            arguments["preview_frame"] = preview_frame
         return await asyncio.to_thread(
             client.request,
             "set_clip_properties",
             timeout_seconds,
-            arguments={"timeline_name": timeline_name, "preview_start": True},
+            arguments=arguments,
             expected_project_id=expected_project_id,
             confirm=confirm,
             idempotency_key=idempotency_key,

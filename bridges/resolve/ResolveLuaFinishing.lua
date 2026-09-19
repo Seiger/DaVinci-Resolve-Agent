@@ -200,12 +200,23 @@ return function(api, root, helpers, shared)
             end
         end
         if action == "set_clip_properties" and a.preview_start == true then
+            local target=timeline:GetStartTimecode()
+            if a.preview_frame~=nil then
+                local frame=a.preview_frame
+                local fps=tonumber(timeline:GetSetting("timelineFrameRate"))
+                check(type(frame)=="number" and frame%1==0 and frame>=timeline:GetStartFrame()
+                    and frame<timeline:GetEndFrame(), "INVALID_PREVIEW_FRAME")
+                check(fps and (fps==24 or fps==25 or fps==30 or fps==50 or fps==60), "UNSUPPORTED_PREVIEW_FPS")
+                local seconds=math.floor(frame/fps)
+                target=string.format("%02d:%02d:%02d:%02d",math.floor(seconds/3600),
+                    math.floor(seconds/60)%60,seconds%60,frame%fps)
+            end
             return function()
                 check(project:SetCurrentTimeline(timeline)==true, "VERIFY_FAILED")
                 check(api:OpenPage("edit")==true, "VERIFY_FAILED")
-                check(timeline:SetCurrentTimecode(timeline:GetStartTimecode())==true, "VERIFY_FAILED")
+                check(timeline:SetCurrentTimecode(target)==true, "VERIFY_FAILED")
                 check(project:GetCurrentTimeline():GetUniqueId()==timeline:GetUniqueId()
-                    and timeline:GetCurrentTimecode()==timeline:GetStartTimecode(), "VERIFY_FAILED")
+                    and timeline:GetCurrentTimecode()==target, "VERIFY_FAILED")
             end
         end
         if action == "set_clip_properties" and a.circle_mask then

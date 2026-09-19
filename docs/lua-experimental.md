@@ -339,7 +339,9 @@ This is version-specific, not a general assertion about every Resolve build.
 
 `resolve_lua_get_item` reads native source/timeline bounds and linked-item count
 for an exact track/item selector with expected source-path and project checks.
-`resolve_lua_preview_start` selects Edit, the named timeline and its start timecode;
+`resolve_lua_preview_start` selects Edit, the named timeline and its start timecode.
+Optional `preview_frame` selects an absolute frame inside that timeline for reviewing
+a particular join (integer 24/25/30/50/60 fps timelines only), with native readback;
 it never starts playback. Both use fixed typed operations, not arbitrary code.
 
 Active protocol-4 sessions can load this addition without console input: update
