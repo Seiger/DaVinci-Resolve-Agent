@@ -132,5 +132,40 @@ return function(h)
         verify(merge,expression,intervals,item:GetEnd()-item:GetStart())
         return string.format('visibility_%d_%d_%d_%d',#intervals,checksum,intervals[1][1],intervals[#intervals][2])
     end
-    return {preflight=preflight,inspect=inspect}
+    -- Capture only canonical source-bound visibility, including an unanimated circle.
+    local function capture(item)
+        local merge=graph(item)
+        local expression=merge.Blend:GetExpression()
+        if not expression then
+            check(not merge.Blend:GetConnectedOutput() and merge:GetInput('Blend')==1,'CAMERA_ALREADY_ANIMATED')
+            return {}
+        end
+        inspect(item)
+        local ranges={}
+        for lo,hi in expression:gmatch('time >= (%d+) and time < (%d+)') do
+            ranges[#ranges+1]={tonumber(lo),tonumber(hi)}
+        end
+        return ranges
+    end
+    local function transfer(item,ranges,offset,length)
+        local merge=graph(item);local clipped={};local terms={}
+        for _,r in ipairs(ranges) do
+            local lo=math.max(0,r[1]-offset);local hi=math.min(length,r[2]-offset)
+            if lo<hi then
+                clipped[#clipped+1]={lo,hi}
+                terms[#terms+1]=string.format('(time >= %d and time < %d)',lo,hi)
+            end
+        end
+        if #clipped>0 then
+            local expression='iif('..table.concat(terms,' or ')..', 0, 1)'
+            merge.Blend:SetExpression(expression)
+            verify(merge,expression,clipped,length)
+        else
+            merge.Blend:SetExpression(nil)
+            merge:SetInput('Blend',1)
+        end
+        check(equal(capture(item),clipped),'CAMERA_TRANSFER_CHANGED')
+        return clipped
+    end
+    return {preflight=preflight,inspect=inspect,capture=capture,transfer=transfer}
 end

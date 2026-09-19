@@ -275,6 +275,62 @@ def create_server(root: Path) -> MCPServer:
             confirm=confirm,
         )
 
+    @server.tool(annotations=write)
+    async def resolve_lua_ripple_cut_batch(
+        timeline_name: str,
+        ripple_batch: dict[str, Any],
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Cut explicit pauses on one copy, preserving source-bound graphs."""
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "ripple_batch": ripple_batch},
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
+    @server.tool(annotations=write)
+    async def resolve_lua_repair_ripple_visibility(
+        timeline_name: str,
+        ripple_repair: dict[str, Any],
+        expected_project_id: str,
+        idempotency_key: str,
+        confirm: bool = False,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Restore camera visibility on an existing, layout-verified cut copy."""
+        return await asyncio.to_thread(
+            client.request,
+            "set_clip_properties",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "ripple_repair": ripple_repair},
+            expected_project_id=expected_project_id,
+            idempotency_key=idempotency_key,
+            confirm=confirm,
+        )
+
+    @server.tool(annotations=read)
+    async def resolve_lua_verify_ripple_cut(
+        timeline_name: str,
+        ripple_cut: dict[str, Any],
+        expected_project_id: str,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Audit an existing single-group cut against its source timeline."""
+        return await asyncio.to_thread(
+            client.request,
+            "get_timeline_summary",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "ripple_cut": ripple_cut},
+            expected_project_id=expected_project_id,
+        )
+
     @server.tool(annotations=read)
     async def resolve_lua_preflight_ripple_span(
         timeline_name: str,

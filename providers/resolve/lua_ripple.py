@@ -141,3 +141,90 @@ def validate_span(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
         "timeline_name": name,
         "ripple_span": dict(c, name=destination, groups=normalized),
     }
+
+
+def validate_batch(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
+    """Validate explicit disjoint pauses inside independently identified groups."""
+    if set(a) != {"timeline_name", "ripple_batch"}:
+        raise ValueError("Invalid batch fields.")
+    name = bounded_text(a["timeline_name"], "Timeline name")
+    c = a["ripple_batch"]
+    if not isinstance(c, dict) or set(c) != {
+        "name",
+        "expected_timeline_start",
+        "expected_timeline_end",
+        "groups",
+    }:
+        raise ValueError("Invalid batch plan.")
+    destination = bounded_text(c["name"], "Destination timeline")
+    if name == destination:
+        raise ValueError("Batch requires a new timeline.")
+    for k in ("expected_timeline_start", "expected_timeline_end"):
+        if type(c[k]) is not int or not 0 <= c[k] <= 2147483647:
+            raise ValueError("Invalid timeline bounds.")
+    if c["expected_timeline_start"] >= c["expected_timeline_end"]:
+        raise ValueError("Invalid timeline bounds.")
+    if not isinstance(c["groups"], list) or not 1 <= len(c["groups"]) <= 128:
+        raise ValueError("Provide 1 to 128 groups.")
+    normalized = []
+    previous_index = 0
+    previous_end = c["expected_timeline_start"]
+    cuts = 0
+    for g in c["groups"]:
+        if not isinstance(g, dict) or set(g) != {
+            "index",
+            "start",
+            "end",
+            "screen_source_start",
+            "camera_source_start",
+            "screen_path",
+            "camera_path",
+            "intervals",
+        }:
+            raise ValueError("Invalid group fields.")
+        for k in (
+            "index",
+            "start",
+            "end",
+            "screen_source_start",
+            "camera_source_start",
+        ):
+            if type(g[k]) is not int or not 0 <= g[k] <= 2147483647:
+                raise ValueError("Invalid group geometry.")
+        if (
+            not previous_index < g["index"] <= 1000
+            or not previous_end <= g["start"] < g["end"] <= c["expected_timeline_end"]
+        ):
+            raise ValueError("Groups must be ordered and separate.")
+        previous_index, previous_end = g["index"], g["end"]
+        if not isinstance(g["intervals"], list) or not 1 <= len(g["intervals"]) <= 64:
+            raise ValueError("Provide 1 to 64 cuts per group.")
+        previous = g["start"]
+        for pair in g["intervals"]:
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or any(type(v) is not int for v in pair)
+            ):
+                raise ValueError("Expected frame pairs.")
+            lo, hi = pair
+            if not previous < lo < hi < g["end"]:
+                raise ValueError(
+                    "Cuts must be separated and strictly inside their group."
+                )
+            previous = hi
+            cuts += 1
+        paths = MediaPolicy(roots).validate_files([g["screen_path"], g["camera_path"]])
+        normalized.append(
+            dict(
+                g,
+                screen_path=Path(paths[0]).as_posix(),
+                camera_path=Path(paths[1]).as_posix(),
+            )
+        )
+    if cuts > 128:
+        raise ValueError("At most 128 cuts per batch.")
+    return {
+        "timeline_name": name,
+        "ripple_batch": dict(c, name=destination, groups=normalized),
+    }

@@ -65,8 +65,7 @@ def test_visibility_paths_and_valid_plan(tmp_path: Path) -> None:
         validate_camera_visibility(a, [allowed])
 
 
-@pytest.mark.parametrize("mode", ["ok", "bad_expression", "bad_sample", "opaque"])
-def test_lua_visibility_inspection(mode: str) -> None:
+def inspection_runtime(mode: str) -> Any:
     lua = import_module("lupa.lua51").LuaRuntime()
     lua.globals().MODE = mode
     lua.execute("""
@@ -97,6 +96,12 @@ def test_lua_visibility_inspection(mode: str) -> None:
       GetStart=function() return 1000 end,GetEnd=function() return 1100 end}
     h={check=function(v,e) if not v then error(e,0) end end}
     """)
+    return lua
+
+
+@pytest.mark.parametrize("mode", ["ok", "bad_expression", "bad_sample", "opaque"])
+def test_lua_visibility_inspection(mode: str) -> None:
+    lua = inspection_runtime(mode)
     module = lua.execute(
         Path("bridges/resolve/ResolveLuaCameraVisibility.lua").read_text(
             encoding="utf8"
@@ -107,3 +112,36 @@ def test_lua_visibility_inspection(mode: str) -> None:
     else:
         with pytest.raises(import_module("lupa.lua51").LuaError):
             module.inspect(lua.globals().item)
+
+
+@pytest.mark.parametrize(
+    "offset,length,expected",
+    [(0, 15, [[10, 15]]), (15, 30, [[0, 5], [25, 30]]), (50, 20, [])],
+)
+def test_visibility_transfer_rebases_and_removes_empty_expression(
+    offset: int, length: int, expected: list[list[int]]
+) -> None:
+    lua = inspection_runtime("ok")
+    lua.execute("""
+    merge.Blend.SetExpression=function(_,v) expression=v end
+    merge.Blend.GetConnectedOutput=function() return nil end
+    merge.SetInput=function(_,key,value) constant=value end
+    merge.GetInput=function(_,key,time)
+      if not expression then return constant or 1 end
+      for lo,hi in expression:gmatch('time >= (%d+) and time < (%d+)') do
+        if time>=tonumber(lo) and time<tonumber(hi) then return 0 end
+      end
+      return 1
+    end
+    """)
+    module = lua.execute(
+        Path("bridges/resolve/ResolveLuaCameraVisibility.lua").read_text(
+            encoding="utf8"
+        )
+    )(lua.globals().h)
+    ranges = module.capture(lua.globals().item)
+    lua.globals().LENGTH = length
+    lua.execute("item.GetEnd=function() return 1000+LENGTH end")
+    result = module.transfer(lua.globals().item, ranges, offset, length)
+    assert [[pair[1], pair[2]] for pair in result.values()] == expected
+    assert (lua.globals().expression is None) == (not expected)

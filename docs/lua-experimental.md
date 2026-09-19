@@ -598,3 +598,28 @@ must be reconciled rather than blindly retried.
 Use `resolve_lua_get_item(..., inspect_camera_visibility=true)` on V2 for a fresh
 canonical-expression, interval-checksum and boundary-value readback. Camera hiding
 does not replace screen privacy masks or complete a privacy audit.
+
+### Ripple cuts with camera visibility and batched pauses
+
+`resolve_lua_ripple_cut_batch` removes explicit disjoint intervals inside identified
+V1/V2/A1 groups on one new timeline. It accepts up to 128 cuts, at most 64 per
+group. A caller must review pauses using both sound and screen content; silence
+alone is not evidence that a section can be removed. No automatic pause detector
+is included in this tool.
+
+Single-group, cross-group and batch cuts clip/rebase canonical camera visibility
+to retained source frames. Native timeline duplication can omit `Merge1.Blend`
+expressions: the bridge explicitly restores them on the copy. Batch cuts also
+rebase canonical privacy intervals on split V1 items, keep untouched groups and
+links, and check source ranges, properties, duration and graph state after the
+ripple. Originals and the pre-write backup are preserved. Noncanonical graphs,
+markers or unsupported layouts are refused.
+
+`resolve_lua_verify_ripple_cut` audits an existing single-group cut against its
+original, without editing. `resolve_lua_repair_ripple_visibility` restores only
+camera visibility on an existing cut copy after verifying layout, source ranges,
+properties, links, circle geometry and unaffected privacy masks. It requires the
+copy to be current and makes a backup before changing expressions. It cannot
+repair arbitrary layout differences or a cut through a V1 privacy composition.
+An uncertain cut must first be reconciled against its receipt, backup and native
+readbacks; never rerun the cut with a new key to get past a failed verification.

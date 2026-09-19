@@ -11,7 +11,7 @@ from agent.media import MediaPolicy
 from providers.resolve.lua_camera_visibility import validate_camera_visibility
 from providers.resolve.lua_editing import bounded_text
 from providers.resolve.lua_privacy import validate_privacy, validate_privacy_batch
-from providers.resolve.lua_ripple import validate_ripple, validate_span
+from providers.resolve.lua_ripple import validate_batch, validate_ripple, validate_span
 
 FINISH_ACTIONS = frozenset(
     {"set_clip_properties", "add_subtitles", "prepare_render", "start_render"}
@@ -29,6 +29,19 @@ PROPERTY_LIMITS = {
 def validate_finishing(
     action: str, a: dict[str, Any], roots: list[Path]
 ) -> dict[str, Any]:
+    if action == "set_clip_properties" and "ripple_batch" in a:
+        return validate_batch(a, roots)
+    if action == "set_clip_properties" and "ripple_repair" in a:
+        if set(a) != {"timeline_name", "ripple_repair"}:
+            raise ValueError("Invalid repair fields.")
+        result = validate_ripple(
+            {"timeline_name": a["timeline_name"], "ripple_cut": a["ripple_repair"]},
+            roots,
+        )
+        return {
+            "timeline_name": result["timeline_name"],
+            "ripple_repair": result["ripple_cut"],
+        }
     if action == "set_clip_properties" and "camera_visibility" in a:
         return validate_camera_visibility(a, roots)
     if action == "get_timeline_summary" and "ripple_span" in a:
@@ -39,7 +52,7 @@ def validate_finishing(
         return validate_privacy_batch(a, roots)
     if action == "set_clip_properties" and "privacy_blur" in a:
         return validate_privacy(a, roots)
-    if action == "set_clip_properties" and "ripple_cut" in a:
+    if action in {"get_timeline_summary", "set_clip_properties"} and "ripple_cut" in a:
         return validate_ripple(a, roots)
     if action in {"start_render", "get_render_status"}:
         if (

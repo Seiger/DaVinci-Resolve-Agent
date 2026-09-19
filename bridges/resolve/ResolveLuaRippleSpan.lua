@@ -1,6 +1,7 @@
 -- Cross-group ripple on a duplicate with canonical source-bound privacy transfer.
 return function(h,root,request_id)
     local check=h.check
+    local visibility=dofile(root.."/camera_visibility.lua")(h)
     local tracks={{"video",1},{"video",2},{"audio",1}}
     local function equal(a,b)
         if type(a)~=type(b) then return false end
@@ -32,7 +33,7 @@ return function(h,root,request_id)
         local soft=ellipse:GetInput("SoftEdge");local alpha=bg:GetInput("TopLeftAlpha")
         check(type(center)=="table" and type(width)=="number" and width==height
             and alpha==0,"RIPPLE_UNSUPPORTED_FUSION")
-        return {center=center,width=width,height=height,soft=soft,alpha=alpha}
+        return {center=center,width=width,height=height,soft=soft,alpha=alpha,visibility=visibility.capture(item)}
     end
     local function links(item)
         local ids={}
@@ -118,6 +119,7 @@ return function(h,root,request_id)
                 for j in ipairs(tracks) do check(j==k or x.links[before[j][i].id],"RIPPLE_UNSUPPORTED_LAYOUT") end
                 -- Preserve local privacy timing on all untouched screen clips, too.
                 if k==1 and x.fusion>0 then phase="PRIVACY_"..i;old_graphs[k][i]=privacy_data(item) end
+                if k==2 and x.fusion>0 then old_graphs[k][i]=circle_signature(item) end
             end
             for gi,g in ipairs(c.groups) do
                 phase="GROUP_"..k.."_"..gi
@@ -155,6 +157,11 @@ return function(h,root,request_id)
                 originals[k]=target:GetItemListInTrack(t[1],t[2])
                 for i,x in ipairs(copied[k]) do check(layout_equal(x,before[k][i],false),"RIPPLE_COPY_FAILED") end
                 for i=first,last do remove[#remove+1]=originals[k][i] end
+            end
+            for i,data in pairs(old_graphs[2]) do
+                local item=originals[2][i]
+                visibility.transfer(item,data.visibility,0,item:GetEnd()-item:GetStart())
+                check(equal(circle_signature(item),data),'RIPPLE_VISIBILITY_CHANGED')
             end
             -- Export only canonical boundary compositions before replacing those items.
             for k in ipairs(tracks) do
@@ -197,7 +204,11 @@ return function(h,root,request_id)
                                     mask.Level:SetExpression('iif('..table.concat(terms,' or ')..', 1, 0)')
                                     local expected={};for key,value in pairs(graph.data) do expected[key]=value end;expected.ranges=ranges
                                     check(equal(privacy_data(item),expected),'RIPPLE_PRIVACY_CHANGED')
-                                else check(equal(circle_signature(item),graph.data),'RIPPLE_FUSION_CHANGED') end
+                                else
+                                    local expected={};for key,value in pairs(graph.data) do expected[key]=value end
+                                    expected.visibility=visibility.transfer(item,graph.data.visibility,lo-g.start,hi-lo)
+                                    check(equal(circle_signature(item),expected),'RIPPLE_FUSION_CHANGED')
+                                end
                             end
                         end
                     end
@@ -218,7 +229,7 @@ return function(h,root,request_id)
                         local old=copied[k][i];local shift=i>last and delta or 0
                         old.start=old.start-shift;old.finish=old.finish-shift
                         check(layout_equal(old,after[k][j],true),'RIPPLE_DOWNSTREAM_CHANGED')
-                        if old_graphs[k][i] then check(equal(privacy_data(items[j]),old_graphs[k][i]),'RIPPLE_PRIVACY_CHANGED') end
+                        if old_graphs[k][i] then check(equal(k==1 and privacy_data(items[j]) or circle_signature(items[j]),old_graphs[k][i]),'RIPPLE_GRAPH_CHANGED') end
                     end
                 end
             end
@@ -230,6 +241,10 @@ return function(h,root,request_id)
                 end
             end
             check(equal(before,snapshot(source)),'RIPPLE_SOURCE_CHANGED')
+            for k,data in pairs(old_graphs) do
+                local items=source:GetItemListInTrack(tracks[k][1],tracks[k][2])
+                for i,graph in pairs(data) do check(equal(k==1 and privacy_data(items[i]) or circle_signature(items[i]),graph),'RIPPLE_SOURCE_CHANGED') end
+            end
             check(source:GetEndFrame()==c.expected_timeline_end,'RIPPLE_SOURCE_CHANGED')
         end
     end

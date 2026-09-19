@@ -23,6 +23,9 @@ return function(api, root, helpers, shared)
         local timeline = timelines(project, request.arguments.timeline_name)
         check(timeline ~= nil, "TIMELINE_NOT_FOUND")
         local a=request.arguments
+        if a.ripple_cut then
+            return dofile(root..'/ripple.lua')(helpers,root,request.id,true)(project,a)
+        end
         if a.ripple_span then
             dofile(root.."/ripple_span.lua")(helpers,root,request.id)(project,a)
             return "span_ready"
@@ -91,6 +94,12 @@ return function(api, root, helpers, shared)
     end
     local function preflight(project, request)
         local a, action = request.arguments, request.action
+        if action == "set_clip_properties" and a.ripple_batch then
+            return dofile(root..'/ripple_batch.lua')(helpers,root,request.id)(project,a)
+        end
+        if action == "set_clip_properties" and a.ripple_repair then
+            return dofile(root..'/ripple.lua')(helpers,root,request.id,true,true)(project,{timeline_name=a.timeline_name,ripple_cut=a.ripple_repair})
+        end
         if action == "set_clip_properties" and a.privacy_batch then
             return dofile(root.."/privacy.lua")(helpers).preflight_batch(project,a)
         end

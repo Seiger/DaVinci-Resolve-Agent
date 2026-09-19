@@ -95,6 +95,10 @@ def prepare(root: Path, media_roots: list[Path] | None = None) -> Path:
         editing.with_name("ResolveLuaCameraVisibility.lua").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    (root / "ripple_batch.lua").write_text(
+        editing.with_name("ResolveLuaRippleBatch.lua").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (root / "ripple_span.lua").write_text(
         editing.with_name("ResolveLuaRippleSpan.lua").read_text(encoding="utf-8"),
         encoding="utf-8",
@@ -460,6 +464,17 @@ class LuaSnapshotClient:
                                 )
                             ),
                             "source": "live_lua_api",
+                        }
+                    if normalized.get("ripple_cut"):
+                        if (
+                            token != "ripple_verified"
+                            or project["id"] != expected_project_id
+                        ):
+                            raise BridgeProtocolError("Invalid ripple audit response.")
+                        return {
+                            "status": "verified",
+                            "project": project,
+                            "read_only": True,
                         }
                     if normalized.get("ripple_span"):
                         if (
