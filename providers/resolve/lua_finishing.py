@@ -29,7 +29,10 @@ PROPERTY_LIMITS = {
 def validate_finishing(
     action: str, a: dict[str, Any], roots: list[Path]
 ) -> dict[str, Any]:
-    if action == "set_clip_properties" and "ripple_batch" in a:
+    if (
+        action in {"get_timeline_summary", "set_clip_properties"}
+        and "ripple_batch" in a
+    ):
         return validate_batch(a, roots)
     if action == "set_clip_properties" and "ripple_repair" in a:
         if set(a) != {"timeline_name", "ripple_repair"}:

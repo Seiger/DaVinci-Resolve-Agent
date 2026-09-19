@@ -144,18 +144,24 @@ def validate_span(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
 
 
 def validate_batch(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
-    """Validate explicit disjoint pauses inside independently identified groups."""
+    """Validate disjoint cuts; group-edge removal requires an explicit opt-in."""
     if set(a) != {"timeline_name", "ripple_batch"}:
         raise ValueError("Invalid batch fields.")
     name = bounded_text(a["timeline_name"], "Timeline name")
     c = a["ripple_batch"]
-    if not isinstance(c, dict) or set(c) != {
+    fields = {
         "name",
         "expected_timeline_start",
         "expected_timeline_end",
         "groups",
-    }:
+    }
+    if isinstance(c, dict) and "allow_group_edges" in c:
+        fields.add("allow_group_edges")
+        if type(c["allow_group_edges"]) is not bool:
+            raise ValueError("Group-edge opt-in must be boolean.")
+    if not isinstance(c, dict) or set(c) != fields:
         raise ValueError("Invalid batch plan.")
+    edges = c.get("allow_group_edges", False)
     destination = bounded_text(c["name"], "Destination timeline")
     if name == destination:
         raise ValueError("Batch requires a new timeline.")
@@ -164,8 +170,9 @@ def validate_batch(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
             raise ValueError("Invalid timeline bounds.")
     if c["expected_timeline_start"] >= c["expected_timeline_end"]:
         raise ValueError("Invalid timeline bounds.")
-    if not isinstance(c["groups"], list) or not 1 <= len(c["groups"]) <= 128:
-        raise ValueError("Provide 1 to 128 groups.")
+    maximum = 256 if edges else 128
+    if not isinstance(c["groups"], list) or not 1 <= len(c["groups"]) <= maximum:
+        raise ValueError(f"Provide 1 to {maximum} groups.")
     normalized = []
     previous_index = 0
     previous_end = c["expected_timeline_start"]
@@ -200,7 +207,7 @@ def validate_batch(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
         if not isinstance(g["intervals"], list) or not 1 <= len(g["intervals"]) <= 64:
             raise ValueError("Provide 1 to 64 cuts per group.")
         previous = g["start"]
-        for pair in g["intervals"]:
+        for position, pair in enumerate(g["intervals"]):
             if (
                 not isinstance(pair, list)
                 or len(pair) != 2
@@ -208,9 +215,13 @@ def validate_batch(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
             ):
                 raise ValueError("Expected frame pairs.")
             lo, hi = pair
-            if not previous < lo < hi < g["end"]:
+            if not (
+                (previous <= lo if edges and position == 0 else previous < lo)
+                and lo < hi
+                and (hi <= g["end"] if edges else hi < g["end"])
+            ):
                 raise ValueError(
-                    "Cuts must be separated and strictly inside their group."
+                    "Cuts must be separated and within the permitted group bounds."
                 )
             previous = hi
             cuts += 1
@@ -222,8 +233,11 @@ def validate_batch(a: dict[str, Any], roots: list[Path]) -> dict[str, Any]:
                 camera_path=Path(paths[1]).as_posix(),
             )
         )
-    if cuts > 128:
-        raise ValueError("At most 128 cuts per batch.")
+    if cuts > (512 if edges else 128):
+        raise ValueError("Too many cuts per batch.")
+    removed = sum(hi - lo for g in normalized for lo, hi in g["intervals"])
+    if removed >= c["expected_timeline_end"] - c["expected_timeline_start"]:
+        raise ValueError("Batch must retain timeline content.")
     return {
         "timeline_name": name,
         "ripple_batch": dict(c, name=destination, groups=normalized),

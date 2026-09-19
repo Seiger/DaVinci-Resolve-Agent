@@ -23,6 +23,9 @@ return function(api, root, helpers, shared)
         local timeline = timelines(project, request.arguments.timeline_name)
         check(timeline ~= nil, "TIMELINE_NOT_FOUND")
         local a=request.arguments
+        if a.ripple_batch then
+            return dofile(root..'/ripple_batch.lua')(helpers,root,request.id,true)(project,a)
+        end
         if a.ripple_cut then
             return dofile(root..'/ripple.lua')(helpers,root,request.id,true)(project,a)
         end

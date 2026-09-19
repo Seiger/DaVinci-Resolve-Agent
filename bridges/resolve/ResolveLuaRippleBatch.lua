@@ -1,5 +1,5 @@
 -- Cross-group ripple on a duplicate with canonical source-bound privacy transfer.
-return function(h,root,request_id)
+return function(h,root,request_id,audit)
     local check=h.check
     local visibility=dofile(root.."/camera_visibility.lua")(h)
     local tracks={{"video",1},{"video",2},{"audio",1}}
@@ -89,23 +89,30 @@ return function(h,root,request_id)
     end
     return function(project,a)
         local c=a.ripple_batch;local source=h.timelines(project,a.timeline_name)
-        check(source and not h.timelines(project,c.name),'RIPPLE_SOURCE_OR_NAME_CHANGED')
-        check(project:GetCurrentTimeline():GetUniqueId()==source:GetUniqueId(),'RIPPLE_ACTIVE_CHANGED')
+        local edges=c.allow_group_edges==true
+        local existing=h.timelines(project,c.name)
+        check(source and ((audit and existing) or (not audit and not existing)),'RIPPLE_SOURCE_OR_NAME_CHANGED')
+        if not audit then check(project:GetCurrentTimeline():GetUniqueId()==source:GetUniqueId(),'RIPPLE_ACTIVE_CHANGED') end
         check(source:GetStartFrame()==c.expected_timeline_start and source:GetEndFrame()==c.expected_timeline_end,'RIPPLE_BOUNDS_CHANGED')
         check(source:GetTrackCount('video')==2 and source:GetTrackCount('audio')==1 and source:GetTrackCount('subtitle')==0
-            and next(source:GetMarkers() or {})==nil,'RIPPLE_UNSUPPORTED_LAYOUT')
+            and next(source:GetMarkers() or {})==nil,'RIPPLE_SOURCE_TRACKS')
         local before=snapshot(source);local n=#before[1];local fps=tonumber(source:GetSetting('timelineFrameRate'))
         local plans={};local cutcount=0;local delta=0
         for _,g in ipairs(c.groups) do check(g.index>=1 and g.index<=n,'RIPPLE_BOUNDS_CHANGED');plans[g.index]=g;cutcount=cutcount+#g.intervals
             for _,r in ipairs(g.intervals) do delta=delta+r[2]-r[1] end end
-        check(n+cutcount<=1000 and #before[2]==n and #before[3]==n,'RIPPLE_UNSUPPORTED_LAYOUT')
+        check(n+cutcount<=1000 and delta<c.expected_timeline_end-c.expected_timeline_start
+            and #before[2]==n and #before[3]==n,'RIPPLE_GROUP_COUNTS')
         local original={};local graphs={{},{},{}}
         for k,t in ipairs(tracks) do
-            check(not source:GetIsTrackLocked(t[1],t[2]) and source:GetIsTrackEnabled(t[1],t[2]),'RIPPLE_UNSUPPORTED_LAYOUT')
+            -- Editability is a mutation precondition, not a read-only audit
+            -- requirement. Resolve can return nil track state for inactive timelines.
+            if not audit then
+                check(not source:GetIsTrackLocked(t[1],t[2]) and source:GetIsTrackEnabled(t[1],t[2]),'RIPPLE_TRACK_STATE')
+            end
             original[k]=source:GetItemListInTrack(t[1],t[2])
             for i,item in ipairs(original[k]) do
                 local x=before[k][i];local g=plans[i]
-                check(x.start==before[1][i].start and x.finish==before[1][i].finish and (i==1 or x.start==before[k][i-1].finish),'RIPPLE_UNSUPPORTED_LAYOUT')
+                check(x.start==before[1][i].start and x.finish==before[1][i].finish and (i==1 or x.start==before[k][i-1].finish),'RIPPLE_GROUP_ALIGNMENT')
                 local count=0;for _ in pairs(x.links) do count=count+1 end;check(count==2,'RIPPLE_LINK_FAILED')
                 for kk in ipairs(tracks) do check(kk==k or x.links[before[kk][i].id],'RIPPLE_LINK_FAILED') end
                 if x.fusion>0 then
@@ -117,10 +124,15 @@ return function(h,root,request_id)
                     check(h.allowed(path) and h.normalized(item:GetMediaPoolItem():GetClipProperty('File Path'))==h.normalized(path),'SOURCE_CHANGED')
                     check(tonumber(item:GetMediaPoolItem():GetClipProperty('FPS'))==fps,'SYNC_FPS_MISMATCH')
                     check(x.start==g.start and x.finish==g['end'] and math.abs(x.source_start*fps-head)<0.001,'RIPPLE_BOUNDS_CHANGED')
-                    check(x.enabled and next(item:GetMarkers() or {})==nil,'RIPPLE_UNSUPPORTED_LAYOUT')
-                    if k~=3 then check(item:GetTakesCount()<=1,'RIPPLE_UNSUPPORTED_LAYOUT') end
+                    check(math.abs((x.source_end-x.source_start)*fps-(x.finish-x.start))<1.001,'RIPPLE_UNSUPPORTED_RETIME')
+                    check(x.enabled and next(item:GetMarkers() or {})==nil,'RIPPLE_ITEM_STATE')
+                    if k~=3 then check(item:GetTakesCount()<=1,'RIPPLE_TAKES') end
                     local previous=g.start
-                    for _,r in ipairs(g.intervals) do check(previous<r[1] and r[1]<r[2] and r[2]<g['end'],'INVALID_RANGE');previous=r[2] end
+                    for j,r in ipairs(g.intervals) do
+                        check((previous<r[1] or (edges and j==1 and previous==r[1]))
+                            and r[1]<r[2] and (r[2]<g['end'] or (edges and r[2]==g['end'])),'INVALID_RANGE')
+                        previous=r[2]
+                    end
                 end
             end
         end
@@ -128,59 +140,15 @@ return function(h,root,request_id)
         for i,x in ipairs(before[1]) do
             local g=plans[i];local lo=x.start
             if g then for _,r in ipairs(g.intervals) do
-                desired[#desired+1]={index=i,lo=lo,hi=r[1],shift=shift};shift=shift+r[2]-r[1];lo=r[2]
+                if lo<r[1] then desired[#desired+1]={index=i,lo=lo,hi=r[1],shift=shift} end
+                shift=shift+r[2]-r[1];lo=r[2]
             end end
-            desired[#desired+1]={index=i,lo=lo,hi=x.finish,shift=shift}
+            if lo<x.finish then desired[#desired+1]={index=i,lo=lo,hi=x.finish,shift=shift} end
         end
-        return function()
-            local target=source:DuplicateTimeline(c.name);check(target,'RIPPLE_COPY_FAILED')
-            check(project:SetCurrentTimeline(target),'RIPPLE_SELECT_FAILED')
-            local copied=snapshot(target);local remove={};local discard={}
-            for k,t in ipairs(tracks) do
-                local items=target:GetItemListInTrack(t[1],t[2]);check(#copied[k]==n,'RIPPLE_COPY_FAILED')
-                for i,item in ipairs(items) do
-                    check(layout_equal(before[k][i],copied[k][i],false),'RIPPLE_COPY_FAILED')
-                    local graph=graphs[k][i]
-                    if graph and k==2 then visibility.transfer(item,graph.data.visibility,0,item:GetEnd()-item:GetStart()) end
-                    if plans[i] then
-                        remove[#remove+1]=item
-                        if graph then graph.path=root..'/'..request_id..'.'..k..'.'..i..'.comp'
-                            check(original[k][i]:ExportFusionComp(graph.path,1)==true,'RIPPLE_FUSION_EXPORT_FAILED') end
-                    end
-                end
-            end
-            check(target:DeleteClips(remove,false),'RIPPLE_REMOVE_FAILED')
-            for _,g in ipairs(c.groups) do
-                local pieces={};local lo=g.start
-                for _,r in ipairs(g.intervals) do pieces[#pieces+1]={lo,r[1],true};pieces[#pieces+1]={r[1],r[2],false};lo=r[2] end
-                pieces[#pieces+1]={lo,g['end'],true}
-                for _,piece in ipairs(pieces) do
-                    local lo,hi,keep=piece[1],piece[2],piece[3];local triple={}
-                    for k,t in ipairs(tracks) do
-                        local head=(k==2 and g.camera_source_start or g.screen_source_start)+lo-g.start
-                        local added=project:GetMediaPool():AppendToTimeline({{mediaPoolItem=original[k][g.index]:GetMediaPoolItem(),
-                            startFrame=head,endFrame=head+hi-lo,mediaType=k==3 and 2 or 1,trackIndex=t[2],recordFrame=lo}})
-                        check(type(added)=='table' and #added==1,'RIPPLE_INSERT_FAILED');local item=added[1];triple[k]=item
-                        check(item:GetStart()==lo and item:GetEnd()==hi and math.abs(item:GetSourceStartTime()*fps-head)<0.001,'RIPPLE_INSERT_READBACK_FAILED')
-                        check(item:SetProperty(before[k][g.index].properties),'RIPPLE_PROPERTIES_FAILED')
-                        local graph=graphs[k][g.index]
-                        if keep and graph then
-                            local ranges=graph.kind=='privacy' and clipped(graph.data,lo-g.start,hi-lo) or nil
-                            if not ranges or #ranges>0 then
-                                check(item:ImportFusionComp(graph.path)~=nil,'RIPPLE_FUSION_IMPORT_FAILED')
-                                if ranges then
-                                    local mask=item:GetFusionCompByIndex(1):FindTool('ResolveAgentPrivacyMask');local terms={}
-                                    for _,r in ipairs(ranges) do terms[#terms+1]=string.format('(time >= %d and time < %d)',r[1],r[2]) end
-                                    mask.Level:SetExpression('iif('..table.concat(terms,' or ')..', 1, 0)')
-                                else visibility.transfer(item,graph.data.visibility,lo-g.start,hi-lo) end
-                            end
-                        end
-                    end
-                    check(target:SetClipsLinked(triple,true),'RIPPLE_LINK_FAILED')
-                    if not keep then for _,item in ipairs(triple) do discard[#discard+1]=item end end
-                end
-            end
-            check(target:DeleteClips(discard,true),'RIPPLE_DELETE_FAILED')
+        local function verify(target)
+            check(target:GetTrackCount('video')==2 and target:GetTrackCount('audio')==1
+                and target:GetTrackCount('subtitle')==0 and tonumber(target:GetSetting('timelineFrameRate'))==fps
+                and next(target:GetMarkers() or {})==nil,'RIPPLE_TARGET_TRACKS')
             check(target:GetEndFrame()==c.expected_timeline_end-delta and target:GetStartFrame()==c.expected_timeline_start,'RIPPLE_VERIFY_FAILED')
             local after=snapshot(target)
             for k,t in ipairs(tracks) do
@@ -210,6 +178,61 @@ return function(h,root,request_id)
             for k,data in pairs(graphs) do for i,g in pairs(data) do
                 check(equal(k==1 and privacy_data(original[k][i]) or circle_signature(original[k][i]),g.data),'RIPPLE_SOURCE_CHANGED')
             end end
+        end
+        if audit then verify(existing);return 'ripple_verified' end
+        return function()
+            local target=source:DuplicateTimeline(c.name);check(target,'RIPPLE_COPY_FAILED')
+            check(project:SetCurrentTimeline(target),'RIPPLE_SELECT_FAILED')
+            local copied=snapshot(target);local remove={};local discard={}
+            for k,t in ipairs(tracks) do
+                local items=target:GetItemListInTrack(t[1],t[2]);check(#copied[k]==n,'RIPPLE_COPY_FAILED')
+                for i,item in ipairs(items) do
+                    check(layout_equal(before[k][i],copied[k][i],false),'RIPPLE_COPY_FAILED')
+                    local graph=graphs[k][i]
+                    if graph and k==2 then visibility.transfer(item,graph.data.visibility,0,item:GetEnd()-item:GetStart()) end
+                    if plans[i] then
+                        remove[#remove+1]=item
+                        if graph then graph.path=root..'/'..request_id..'.'..k..'.'..i..'.comp'
+                            check(original[k][i]:ExportFusionComp(graph.path,1)==true,'RIPPLE_FUSION_EXPORT_FAILED') end
+                    end
+                end
+            end
+            check(target:DeleteClips(remove,false),'RIPPLE_REMOVE_FAILED')
+            for _,g in ipairs(c.groups) do
+                local pieces={};local lo=g.start
+                for _,r in ipairs(g.intervals) do
+                    if lo<r[1] then pieces[#pieces+1]={lo,r[1],true} end
+                    pieces[#pieces+1]={r[1],r[2],false};lo=r[2]
+                end
+                if lo<g['end'] then pieces[#pieces+1]={lo,g['end'],true} end
+                for _,piece in ipairs(pieces) do
+                    local lo,hi,keep=piece[1],piece[2],piece[3];local triple={}
+                    for k,t in ipairs(tracks) do
+                        local head=(k==2 and g.camera_source_start or g.screen_source_start)+lo-g.start
+                        local added=project:GetMediaPool():AppendToTimeline({{mediaPoolItem=original[k][g.index]:GetMediaPoolItem(),
+                            startFrame=head,endFrame=head+hi-lo,mediaType=k==3 and 2 or 1,trackIndex=t[2],recordFrame=lo}})
+                        check(type(added)=='table' and #added==1,'RIPPLE_INSERT_FAILED');local item=added[1];triple[k]=item
+                        check(item:GetStart()==lo and item:GetEnd()==hi and math.abs(item:GetSourceStartTime()*fps-head)<0.001,'RIPPLE_INSERT_READBACK_FAILED')
+                        check(item:SetProperty(before[k][g.index].properties),'RIPPLE_PROPERTIES_FAILED')
+                        local graph=graphs[k][g.index]
+                        if keep and graph then
+                            local ranges=graph.kind=='privacy' and clipped(graph.data,lo-g.start,hi-lo) or nil
+                            if not ranges or #ranges>0 then
+                                check(item:ImportFusionComp(graph.path)~=nil,'RIPPLE_FUSION_IMPORT_FAILED')
+                                if ranges then
+                                    local mask=item:GetFusionCompByIndex(1):FindTool('ResolveAgentPrivacyMask');local terms={}
+                                    for _,r in ipairs(ranges) do terms[#terms+1]=string.format('(time >= %d and time < %d)',r[1],r[2]) end
+                                    mask.Level:SetExpression('iif('..table.concat(terms,' or ')..', 1, 0)')
+                                else visibility.transfer(item,graph.data.visibility,lo-g.start,hi-lo) end
+                            end
+                        end
+                    end
+                    check(target:SetClipsLinked(triple,true),'RIPPLE_LINK_FAILED')
+                    if not keep then for _,item in ipairs(triple) do discard[#discard+1]=item end end
+                end
+            end
+            check(target:DeleteClips(discard,true),'RIPPLE_DELETE_FAILED')
+            verify(target)
         end
     end
 end

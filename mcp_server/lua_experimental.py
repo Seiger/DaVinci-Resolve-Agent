@@ -282,9 +282,9 @@ def create_server(root: Path) -> MCPServer:
         expected_project_id: str,
         idempotency_key: str,
         confirm: bool = False,
-        timeout_seconds: float = 120,
+        timeout_seconds: float = 600,
     ) -> dict[str, Any]:
-        """Cut explicit pauses on one copy, preserving source-bound graphs."""
+        """Cut reviewed intervals on a copy; group edges require explicit opt-in."""
         return await asyncio.to_thread(
             client.request,
             "set_clip_properties",
@@ -313,6 +313,22 @@ def create_server(root: Path) -> MCPServer:
             expected_project_id=expected_project_id,
             idempotency_key=idempotency_key,
             confirm=confirm,
+        )
+
+    @server.tool(annotations=read)
+    async def resolve_lua_verify_ripple_batch(
+        timeline_name: str,
+        ripple_batch: dict[str, Any],
+        expected_project_id: str,
+        timeout_seconds: float = 120,
+    ) -> dict[str, Any]:
+        """Audit every retained batch fragment and graph without changing timelines."""
+        return await asyncio.to_thread(
+            client.request,
+            "get_timeline_summary",
+            timeout_seconds,
+            arguments={"timeline_name": timeline_name, "ripple_batch": ripple_batch},
+            expected_project_id=expected_project_id,
         )
 
     @server.tool(annotations=read)

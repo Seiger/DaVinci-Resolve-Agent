@@ -187,8 +187,19 @@ class LuaSnapshotClient:
             | FINISH_ACTIONS
         ):
             raise ValueError("Unsupported experimental Lua action.")
-        if not math.isfinite(timeout_seconds) or not 0 < timeout_seconds <= 120:
-            raise ValueError("Timeout must be finite and between 0 and 120 seconds.")
+        batch_write = (
+            action == "set_clip_properties"
+            and isinstance(arguments, dict)
+            and "ripple_batch" in arguments
+        )
+        maximum_timeout = 600 if batch_write else 120
+        if (
+            not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= maximum_timeout
+        ):
+            raise ValueError(
+                f"Timeout must be finite and between 0 and {maximum_timeout} seconds."
+            )
         write = action in WRITE_ACTIONS | FINISH_ACTIONS
         if action == "quit_resolve" and "quit_resolve" not in self.capabilities:
             raise ValueError(
@@ -465,7 +476,7 @@ class LuaSnapshotClient:
                             ),
                             "source": "live_lua_api",
                         }
-                    if normalized.get("ripple_cut"):
+                    if normalized.get("ripple_cut") or normalized.get("ripple_batch"):
                         if (
                             token != "ripple_verified"
                             or project["id"] != expected_project_id

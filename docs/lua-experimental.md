@@ -607,6 +607,27 @@ group. A caller must review pauses using both sound and screen content; silence
 alone is not evidence that a section can be removed. No automatic pause detector
 is included in this tool.
 
+For reviewed editorial assemblies, set `ripple_batch.allow_group_edges` to `true`
+to allow cuts touching either group boundary or removing a whole group. This
+opt-in allows up to 256 identified groups and 512 separated cuts, still at most
+64 per group. Without it, the existing strictly interior limits remain in force.
+Zero-length pieces are never inserted, and removing all timeline content is
+refused. Every affected group still requires exact media paths, source origins
+and timeline bounds; omitted plan groups remain unchanged. A keep list should
+first be intersected with the current source timeline, then converted to its
+complement. This avoids restoring material already removed in earlier edits.
+Batch writes default to a bounded 600-second response wait because native clip
+and Fusion transfers can take several minutes; other requests keep their
+120-second ceiling. A timeout still means an uncertain outcome: inspect the
+same command's late response and receipt, never repeat the cut with a new key.
+
+`resolve_lua_verify_ripple_batch` accepts the same source timeline and batch plan
+without confirmation or an idempotency key. It independently reads the existing
+destination, checks all retained geometry, source ranges, properties, links and
+canonical privacy/camera graphs, and returns `verified` only on agreement. It
+does not create, select, save or repair a timeline. This verifies edit mechanics,
+not editorial quality or the completeness of a privacy audit.
+
 Single-group, cross-group and batch cuts clip/rebase canonical camera visibility
 to retained source frames. Native timeline duplication can omit `Merge1.Blend`
 expressions: the bridge explicitly restores them on the copy. Batch cuts also
