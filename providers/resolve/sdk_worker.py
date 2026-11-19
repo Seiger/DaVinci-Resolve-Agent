@@ -9,7 +9,7 @@ import subprocess
 import sys
 import threading
 import time
-from contextlib import suppress
+from contextlib import ExitStack, nullcontext, suppress
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -21,6 +21,7 @@ from providers.resolve.automatic_connection import (
     process_alive,
     wait_operation,
 )
+from providers.resolve.import_retry import ImportRetry, prepare_import_retry
 from providers.resolve.lua_editing import atomic_json
 from providers.resolve.lua_transport import LuaSnapshotClient
 from providers.resolve.marker_supervisor import (
@@ -216,12 +217,47 @@ class SDKWorker:
 
     def process(self, path: Path) -> None:
         command = bridge.validate_command(json.loads(path.read_text(encoding="utf-8")))
+        with ExitStack() as gate:
+            retry = None
+            if command["action"] == "import_media":
+                gate.enter_context(wait_operation(
+                    self.profile, self.profile.startup_timeout_seconds))
+                retry = prepare_import_retry(self.profile, command)
+                if retry is None:
+                    if self._replay_import(path, command):
+                        return
+                    gate.close()
+            self._process_command(path, command, retry)
+
+    def _replay_import(self, path: Path, command: dict[str, Any]) -> bool:
+        """Read a terminal import before readiness can launch or reopen anything."""
+        key = hashlib.sha256(command["idempotency_key"].encode()).hexdigest()
+        owner_path = self.profile.state_directory / "sdk-write-owners" / (key + ".json")
+        if not owner_path.exists() and not owner_path.is_symlink():
+            return False
+        if owner_path.is_symlink() or owner_path.stat().st_size > 4 * 1024 * 1024:
+            raise RuntimeError("INVALID_SDK_WRITE_OWNER")
+        owner = json.loads(owner_path.read_text(encoding="utf-8"))
+        if owner.get("fingerprint") != bridge._request_fingerprint(command):
+            raise RuntimeError("SDK_IDEMPOTENCY_CONFLICT")
+        if owner.get("phase") != "completed":
+            return False
+        response = {**owner["response"], "command_id": command["command_id"]}
+        atomic_json(self.directories["responses"] / path.name, response)
+        path.unlink()
+        return True
+
+    def _process_command(
+        self, path: Path, command: dict[str, Any], retry: ImportRetry | None,
+    ) -> None:
+        """A retry retains its reservation lock through the complete dispatch."""
         from providers.resolve.render_process_recovery import (
             recover_exited_render_starts,
             replay_exited_render,
         )
 
-        with wait_operation(self.profile, self.profile.startup_timeout_seconds):
+        with (nullcontext() if retry is not None else
+              wait_operation(self.profile, self.profile.startup_timeout_seconds)):
             recover_exited_render_starts(self.profile)
             retired = replay_exited_render(self.profile, command)
             if retired is not None:
@@ -241,16 +277,23 @@ class SDKWorker:
             if receipt.is_symlink() or receipt.stat().st_size > 4 * 1024 * 1024:
                 raise RuntimeError("INVALID_SDK_WRITE_OWNER")
             value = json.loads(receipt.read_text(encoding="utf-8"))
-            if value.get("phase") != "completed":
+            reserved = (
+                retry is not None and value.get("phase") == "retry_prepared"
+                and value.get("command_id") == command["command_id"]
+                and receipt.stem == hashlib.sha256(
+                    command["idempotency_key"].encode()).hexdigest()
+            )
+            if value.get("phase") != "completed" and not reserved:
                 raise RuntimeError("ORIGINAL_SDK_OPERATION_REQUIRES_RECOVERY")
-        active = self.connection.ensure(
+        active = retry.active if retry is not None else self.connection.ensure(
             require_sdk_channel=False,
             **(
                 {"allow_project_open": False}
                 if command["action"] == "close_project" else {}
             ),
         )
-        with wait_operation(self.profile, self.profile.startup_timeout_seconds):
+        with (nullcontext() if retry is not None else
+              wait_operation(self.profile, self.profile.startup_timeout_seconds)):
             command = bridge.validate_command(command)
             current = read_active(self.profile)
             if not current or current["generation"] != active["generation"]:
@@ -303,16 +346,24 @@ class SDKWorker:
                         atomic_json(self.directories["responses"] / path.name, response)
                         path.unlink()
                         return
-                    raise RuntimeError("ORIGINAL_SDK_OPERATION_REQUIRES_RECOVERY")
-                route, active = self._select_route(active)
-                route_record = {
-                    "generation": active["generation"],
-                    "session": active["session"],
-                    "runtime": str(native_root),
-                    "command_id": path.stem,
-                    "fingerprint": fingerprint,
-                    "phase": "prepared",
-                }
+                    if (retry is None or route_record.get("phase") != "retry_prepared"
+                            or route_record.get("command_id") != command["command_id"]):
+                        raise RuntimeError("ORIGINAL_SDK_OPERATION_REQUIRES_RECOVERY")
+                if retry is None:
+                    route, active = self._select_route(active)
+                    route_record = {
+                        "generation": active["generation"],
+                        "session": active["session"],
+                        "runtime": str(native_root),
+                        "command_id": path.stem,
+                        "fingerprint": fingerprint,
+                        "phase": "prepared",
+                    }
+                else:
+                    # A proof for this Lua operation cannot authorize SDK fallback.
+                    route = "lua_marker_preset"
+                    assert route_record is not None
+                    route_record = {**route_record, "phase": "prepared"}
                 atomic_json(route_path, route_record)
                 guard = MarkerSlot(
                     native_root,
@@ -377,6 +428,8 @@ class SDKWorker:
                             native_root,
                             active["session"],
                             runtime_root=self.root,
+                            expected_project_id=(retry.project_id
+                                                 if retry is not None else None),
                         )
                         with suppress(BridgeCommandError):
                             client._await_response(
