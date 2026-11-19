@@ -79,6 +79,10 @@ interpreted. Files remain local to the owned runtime.
   releases its owned guard; unrelated subsequent commands remain usable.
 - A timeout or failure after write dispatch retains its evidence and gate.
   It never retries the write through another transport or a new key.
+- A proven native rejection before ImportMedia permits one new attempt under
+  the original key, project, session and Lua SDK transport. Exact evidence is
+  archived first; uncertainty and successful imports never authorize a retry.
+  See [Import retry](import-retry.md) for the proof and interruption boundaries.
 - Rotation refuses occupied SDK slots and uncertain write records. Lock files
   are persistent OS advisory-lock files; their presence is not a stale-lock signal.
 

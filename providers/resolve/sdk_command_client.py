@@ -34,8 +34,10 @@ class SDKCommandClient(FilesystemCommandClient):
         *,
         runtime_root: Path | None = None,
         channel_factory: Callable[[dict[str, Any], float], SDKChannel] | None = None,
+        expected_project_id: str | None = None,
     ) -> None:
         self.native_root, self.session = native_root.resolve(), session
+        self.expected_project_id = expected_project_id
         super().__init__(runtime_root or self.native_root / "core")
         self.channel_factory = channel_factory or (
             lambda operation, timeout: PresetSDKChannel(
@@ -109,6 +111,12 @@ class SDKCommandClient(FilesystemCommandClient):
         try:
             sdk = RemoteSDK(self.channel_factory(operation, timeout_seconds))
             native = sdk.root()
+            if self.expected_project_id is not None:
+                project = native.GetProjectManager().GetCurrentProject()
+                if project is None or project.GetUniqueId() != self.expected_project_id:
+                    raise BridgeProtocolError(
+                        "Import retry project changed; no native write was sent."
+                    )
             state = bridge.collect_bridge_state(native)
             bridge._apply_verified_capabilities(state, directories["state"])
             augment_sdk_state(

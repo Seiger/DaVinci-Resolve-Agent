@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import math
 import sys
@@ -476,7 +477,20 @@ class AutomaticServer(MCPServer[Any]):
             or name.startswith("resolve_")
             and not name.startswith("resolve_free_")
         ) and name != "resolve_verify_render_output"
-        if native and name != "resolve_close_project":
+        import_key = arguments.get("idempotency_key")
+        known_import = False
+        if (name == "resolve_import_media" and isinstance(import_key, str)
+                and import_key):
+            owner = self.profile.state_directory / "sdk-write-owners" / (
+                hashlib.sha256(import_key.encode()).hexdigest() + ".json")
+            try:
+                owner.lstat()
+                # Existence routes to the coordinator, never authorizes a retry.
+                # It validates even corrupt/linked owners before any native work.
+                known_import = True
+            except FileNotFoundError:
+                pass
+        if native and name != "resolve_close_project" and not known_import:
             if name in primary:
                 try:
                     await _complete_work(self._ready())

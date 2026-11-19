@@ -309,14 +309,21 @@ def create_server(application: AgentApplication | None = None) -> MCPServer:
         paths: list[str],
         timeout_seconds: float = 30,
         idempotency_key: str | None = None,
-    ) -> dict[str, Any]:
-        """Import allowlisted local media after exporting a project backup."""
-        return await asyncio.to_thread(
-            service.resolve_import_media,
-            paths,
-            timeout_seconds=timeout_seconds,
-            idempotency_key=idempotency_key,
-        )
+    ) -> CallToolResult:
+        """Import backed-up media; reuse the key after a proven pre-import rejection.
+
+        A timeout alone never authorizes another import. A successful same-key
+        replay returns the original result without another native mutation.
+        """
+        try:
+            return render_tool_result(await asyncio.to_thread(
+                service.resolve_import_media,
+                paths,
+                timeout_seconds=timeout_seconds,
+                idempotency_key=idempotency_key,
+            ))
+        except (AgentClientError, ValueError) as error:
+            return render_tool_error(error)
 
     @server.tool(annotations=WRITE_TOOL)
     async def resolve_close_project(
